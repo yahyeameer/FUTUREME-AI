@@ -11,7 +11,10 @@
     "test": "vitest run",
     "spike": "tsx --env-file-if-exists=.env.local scripts/spike-nebius.ts",
     "spike:models": "tsx --env-file-if-exists=.env.local scripts/spike-nebius.ts models",
-    "mcp:vault": "tsx mcp/vault-server.ts"
+    "mcp": "tsx mcp/futureme-server.ts",
+    "mock-model": "tsx scripts/mock-model-server.ts",
+    "agent:serve": "docker agent serve chat agents/futureme.yaml --safety autonomous",
+    "test:e2e": "playwright test"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.32.1",
@@ -21,9 +24,11 @@
     "openai": "^7.33.0",
     "react": "19.3.0",
     "react-dom": "19.3.0",
+    "server-only": "^0.0.1",
     "zod": "^4.6.7"
   },
   "devDependencies": {
+    "@playwright/test": "^1.64.0",
     "@tailwindcss/turbopack": "^4",
     "@types/better-sqlite3": "^9.6.0",
     "@types/node": "^22.20.5",

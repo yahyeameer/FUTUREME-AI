@@ -19,3 +19,44 @@ jobs:
       - run: npm run typecheck
       - run: npm test
       - run: npm run build
+      - run: npx playwright install --with-deps chromium
+      - name: E2E (agent loop in-process, stand-in model)
+        run: npm run test:e2e
+
+  docker-agent-e2e:
+    # Same browser test, but chat runs through Docker Agent (`serve chat`) calling FutureMe's MCP tools.
+    runs-on: ubuntu-latest
+    env:
+      TELEMETRY_ENABLED: "false"
+      NEBIUS_API_KEY: unused-with-mock-flavor
+      LLM_PROVIDER: mock
+      DATABASE_PATH: ${{ github.workspace }}/.e2e-agent/futureme.db
+      VAULT_DIR: ${{ github.workspace }}/.e2e-agent/vault
+      DOCKER_AGENT_URL: http://127.0.0.1:8083
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - run: npx playwright install --with-deps chromium
+      - name: Install Docker Agent
+        run: |
+          curl -fsSL "https://github.com/docker/docker-agent/releases/latest/download/docker-agent-linux-amd64" -o docker-agent
+          chmod +x docker-agent
+          ./docker-agent version
+      - name: Start stand-in model, Docker Agent and the app
+        run: |
+          mkdir -p .e2e-agent
+          nohup npm run mock-model > .e2e-agent/mock.log 2>&1 &
+          timeout 60 bash -c 'until curl -s 127.0.0.1:8090/v1/models; do sleep 1; done'
+          nohup ./docker-agent serve chat agents/futureme.yaml --flavor mock --safety autonomous > .e2e-agent/agent.log 2>&1 &
+          nohup npx next start -p 3000 > .e2e-agent/app.log 2>&1 &
+          timeout 60 bash -c 'until curl -s 127.0.0.1:8083/v1/models && curl -s 127.0.0.1:3000 > /dev/null; do sleep 1; done'
+      - name: E2E through Docker Agent
+        run: E2E_BASE_URL=http://127.0.0.1:3000 npm run test:e2e
+      - name: Show logs on failure
+        if: failure()
+        run: tail -n 50 .e2e-agent/*.log

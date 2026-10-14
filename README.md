@@ -4,52 +4,77 @@ Meet the person you're becoming. Start building that future today.
 
 FutureMe is a personal AI companion for the Nebius × NVIDIA Global AI Hackathon 2026 (Personal AI track). It lets you talk with a personalized version of your future self, keeps an Obsidian-compatible Markdown memory vault you control, and turns reflection into approved goals and tasks.
 
-> **Status:** Milestone 1 (foundation). Only what is listed under "Working today" runs. Everything else is planned.
+> **Status:** Milestone 2 (core loop). Only what is listed under "Working today" runs. Everything else is planned.
 
 ## Working today
 
-- Next.js + TypeScript + Tailwind app skeleton
-- Markdown memory vault (`src/lib/vault.ts`): notes with YAML frontmatter and `[[wiki-links]]`, keyword and tag search, path-escape protection
-- SQLite store for profile, goals, tasks, and approvals (`src/lib/db.ts`)
-- MCP server exposing `write_note` and `search_memory` (`mcp/vault-server.ts`)
-- Spike script that calls a Nemotron model on Nebius Token Factory with a tool call (`scripts/spike-nebius.ts`)
-- Docker Agent definition wired to Nebius and the vault MCP server (`agents/futureme.yaml`)
+1. **Onboarding** (`/onboarding`): your 10-year dream, situation, resources, challenges, values and coaching style. Saved to SQLite and written to the vault as `Profile`, `10-Year Dream` and `Values` notes.
+2. **Future Reflection** (`/future`): a first-person letter from your future self, saved to `Reflections/`.
+3. **Chat with Your Future** (`/chat`): the future-self agent runs in [Docker Agent](https://docker.github.io/docker-agent/) (`agents/futureme.yaml`). It searches your vault through FutureMe's MCP server before answering, shows which notes it remembered, and proposes plans or memories.
+4. **Approve and track** (`/plan`): proposals wait for your approval. Approved plans become goals and tasks in SQLite and linked notes in `Goals/` and `Tasks/`. Completed tasks are marked `verified` in the vault.
+
+## How it fits together
+
+```
+Browser ── Next.js app ──► docker agent serve chat (agents/futureme.yaml) ──► Nemotron on Nebius Token Factory
+                │                         │
+                │                         └─ MCP: mcp/futureme-server.ts (search_memory, propose_memory, propose_plan)
+                │                                         │
+                └──────── SQLite (goals, tasks, approvals, tool log) + Markdown vault ◄──┘
+```
+
+- The app sends each chat turn, with your profile as a system message, to Docker Agent's OpenAI-compatible endpoint.
+- Docker Agent runs the agent loop and calls FutureMe's MCP tools. Every tool call is logged, so the app can show what the agent remembered and proposed.
+- The future-story letter is a single model call made by the app directly.
+- Without `DOCKER_AGENT_URL`, the same loop runs in-process (used by unit tests).
+- Without a Nebius key, a built-in stand-in model keeps everything runnable (`LLM_PROVIDER=mock`, or `npm run mock-model` plus `--flavor mock` for Docker Agent).
 
 ## Planned
 
-Onboarding, Future Reflection story, Chat with Your Future, approval-gated plans and tasks, FutureMe Daily, deployment.
+FutureMe Daily, deployment, streaming replies, and UI polish.
 
 ## Setup
 
 ```bash
 npm install
 cp .env.example .env.local   # add NEBIUS_API_KEY
-npm run spike:models         # list Nemotron models your key can use; put one in NEBIUS_MODEL
-npm run spike                # Nemotron calls write_note; a note appears in data/vault/Goals
-npm run dev
+npm run spike:models         # list Nemotron models your key can use; put one in NEBIUS_MODEL and agents/futureme.yaml
+npm run spike                # Nemotron calls a tool; a note appears in data/vault/Goals
 ```
 
-### Docker Agent
-
-With [Docker Agent](https://docs.docker.com/ai/docker-agent/) installed and `NEBIUS_API_KEY` exported:
+Install [Docker Agent](https://docker.github.io/docker-agent/getting-started/installation/), then run two terminals:
 
 ```bash
-docker agent run agents/futureme.yaml
+NEBIUS_API_KEY=... npm run agent:serve   # docker agent serve chat agents/futureme.yaml --safety autonomous
+npm run build && npm start               # with DOCKER_AGENT_URL=http://127.0.0.1:8083 in .env.local
 ```
 
-Set `model` in `agents/futureme.yaml` to an id from `npm run spike:models`.
+`--safety autonomous` lets the agent call tools without a terminal prompt. That is safe here because its only tools are FutureMe's own, and anything they propose still waits for your approval in the app.
+
+You can also talk to the agent directly in the terminal with `docker agent run agents/futureme.yaml`.
+
+### No key yet
+
+```bash
+npm run mock-model                                                    # stand-in model on :8090
+docker agent serve chat agents/futureme.yaml --flavor mock --safety autonomous
+LLM_PROVIDER=mock npm start
+```
 
 ## Development
 
 ```bash
 npm run lint
 npm run typecheck
-npm test
+npm test            # unit + core workflow tests
+npm run test:e2e    # browser test of the whole loop (set E2E_BASE_URL to test a running app, e.g. via Docker Agent)
 ```
+
+CI runs the browser test twice: once with the loop in-process, and once with chat going through `docker agent serve chat` and the MCP server.
 
 ## Memory vault
 
-The vault lives in `data/vault` (set `VAULT_DIR` to change it) and opens directly in Obsidian. Folders: `Profile`, `Goals`, `Reflections`, `Plans`, `Tasks`, `Daily`. Each note records whether it is `user-stated`, `ai-inferred`, or `verified`.
+The vault lives in `data/vault` (set `VAULT_DIR` to change it) and opens directly in Obsidian. Folders: `Profile`, `Goals`, `Reflections`, `Tasks` (plus `Plans` and `Daily`, planned). Each note records whether it is `user-stated`, `ai-inferred`, or `verified`.
 
 ## License
 
