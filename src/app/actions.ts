@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { chat, completeTask, decideApproval, generateStory, saveProfile, type ChatTurn } from "@/lib/futureme";
+import { completeTask, decideApproval, generateStory, saveProfile } from "@/lib/futureme";
 import { generateDaily } from "@/lib/daily";
 import { db } from "@/lib/server-db";
 
@@ -23,15 +23,9 @@ export async function generateStoryAction(): Promise<{ error?: string }> {
   return {};
 }
 
-export async function sendMessageAction(text: string): Promise<ChatTurn | { error: string }> {
-  if (typeof text !== "string" || text.length > 4000) return { error: "Message is too long." };
-  try {
-    const turn = await chat(db(), text);
-    revalidatePath("/plan");
-    return turn;
-  } catch (err) {
-    return { error: err instanceof Error ? err.message : "Your future self couldn't answer just now." };
-  }
+// Called after a streamed chat turn so the Plan page shows any new proposals.
+export async function refreshPlanAction() {
+  revalidatePath("/plan");
 }
 
 export async function decideApprovalAction(formData: FormData) {
