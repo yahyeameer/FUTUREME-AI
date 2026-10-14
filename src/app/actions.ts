@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { chat, completeTask, decideApproval, generateStory, saveProfile, type ChatTurn } from "@/lib/futureme";
+import { generateDaily } from "@/lib/daily";
 import { db } from "@/lib/server-db";
 
 // Single-user MVP: no auth yet. Every action validates its input before touching data.
@@ -45,4 +46,14 @@ export async function completeTaskAction(formData: FormData) {
   if (!Number.isInteger(id)) throw new Error("Invalid task id.");
   completeTask(db(), id);
   revalidatePath("/plan");
+}
+
+export async function generateDailyAction(): Promise<{ error?: string }> {
+  try {
+    await generateDaily(db());
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : "Could not print today's issue." };
+  }
+  revalidatePath("/daily");
+  return {};
 }

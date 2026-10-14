@@ -23,6 +23,7 @@ const NAV = [
   { href: "/future", label: "Future" },
   { href: "/chat", label: "Chat" },
   { href: "/plan", label: "Plan" },
+  { href: "/daily", label: "Daily" },
 ];
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
