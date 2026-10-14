@@ -1,0 +1,16 @@
+# docker compose up --build   then open http://localhost:3000
+services:
+  futureme:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      NEBIUS_API_KEY: ${NEBIUS_API_KEY:-}
+      NEBIUS_MODEL: ${NEBIUS_MODEL:-}
+      SEED_DEMO: ${SEED_DEMO:-0}
+    volumes:
+      - futureme-data:/data
+    restart: unless-stopped
+
+volumes:
+  futureme-data:
