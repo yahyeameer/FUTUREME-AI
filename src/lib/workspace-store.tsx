@@ -130,7 +130,11 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
             setPending((p) => (p ? { ...p, tools: p.tools.map((t) => ({ ...t, status: t.status === "running" ? "failed" : t.status })), error: ev.error } : p));
             return;
           } else if (ev.type === "done") {
-            setWorkspace(ev.workspace);
+            // The turn's message carries tool and approval details the stored conversation may not.
+            const ws = ev.workspace;
+            const i = ws.conversation.findIndex((m) => m.id === ev.message.id);
+            if (i >= 0) ws.conversation[i] = { ...ws.conversation[i], ...ev.message, approvalIds: ev.message.approvalIds?.length ? ev.message.approvalIds : ws.conversation[i].approvalIds };
+            setWorkspace(ws);
             setPending(null);
           }
         }

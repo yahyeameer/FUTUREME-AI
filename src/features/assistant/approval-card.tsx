@@ -165,7 +165,7 @@ export function ApprovalCard({ approval, className }: { approval: Approval; clas
       )}
       {phase === "unverified" && (
         <p role="alert" className="border-t border-warning/25 bg-warning-wash px-4 py-2.5 text-[12.5px] text-warning">
-          The approval was recorded, but the new records didn't appear yet. Refresh the roadmap before relying on them.
+          The approval was recorded, but the new records didn&apos;t appear yet. Refresh the roadmap before relying on them.
         </p>
       )}
     </div>

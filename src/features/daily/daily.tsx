@@ -111,7 +111,7 @@ export function Daily() {
             className="h-8 w-auto min-w-0 max-w-[13rem] text-[12.5px]"
             value={edition.date}
             onValueChange={(d) => go({ edition: d, read: null })}
-            options={editions.map((e) => ({ value: e.date, label: `No. ${e.issueNumber} · ${formatDate(e.date, { day: "numeric", month: "short", year: "numeric" })}` }))}
+            options={editions.map((e) => ({ value: e.date, label: `No. ${e.issueNumber} · ${formatDate(e.date, { day: "numeric", month: "short" })}` }))}
           />
           <Tooltip content="Newer edition">
             <Button variant="ghost" size="icon-sm" aria-label="Newer edition" disabled={index <= 0} onClick={() => go({ edition: editions[index - 1].date, read: null })}>

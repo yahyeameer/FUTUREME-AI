@@ -144,7 +144,11 @@ function readMemories(goalIdByNote: Map<string, string>, goalIdByTitle: Map<stri
   });
   // Backlinks: a note that links here is related too.
   const byId = new Map(memories.map((m) => [m.id, m]));
-  for (const m of memories) for (const r of m.relatedMemoryIds) byId.get(r)?.relatedMemoryIds.includes(m.id) || byId.get(r)?.relatedMemoryIds.push(m.id);
+  for (const m of memories)
+    for (const r of m.relatedMemoryIds) {
+      const target = byId.get(r);
+      if (target && !target.relatedMemoryIds.includes(m.id)) target.relatedMemoryIds.push(m.id);
+    }
   return memories.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
 }
 
@@ -294,6 +298,12 @@ export function buildWorkspace(db: Db): Workspace {
       createdAt: sqlTime(m.created_at)!,
       citations: (m.citations ? (JSON.parse(m.citations) as string[]) : []).map((p) => ({ memoryId: p, title: titleOf.get(p) ?? p })),
     }));
+
+  // Approvals aren't stored with a message id; a proposal belongs to the first reply saved at or after it.
+  for (const a of approvals) {
+    const reply = conversation.find((m) => m.role === "assistant" && m.createdAt >= a.createdAt);
+    if (reply) (reply.approvalIds ??= []).push(a.id);
+  }
 
   const issues = (db.prepare("SELECT date, content, note_path FROM daily_issues ORDER BY date").all() as { date: string; content: string; note_path: string | null }[]).map(
     (row, i) => toEdition(JSON.parse(row.content) as DailyIssue, i + 1, row.note_path),

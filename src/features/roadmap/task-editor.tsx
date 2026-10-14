@@ -57,7 +57,7 @@ export function TaskEditor({ task, initialStatus, open, onOpenChange }: { task: 
           </div>
           {status === "blocked" && (
             <div className="grid gap-1.5">
-              <Label htmlFor="task-reason">What's blocking it?</Label>
+              <Label htmlFor="task-reason">What&apos;s blocking it?</Label>
               <Input id="task-reason" value={reason} onChange={(e) => setReason(e.target.value)} placeholder="e.g. Waiting for a reply" />
             </div>
           )}

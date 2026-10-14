@@ -39,9 +39,9 @@ export function Home() {
         <p className="mt-3 max-w-2xl text-[14px] text-muted-foreground">{summary}</p>
       </motion.header>
 
-      <div className="mt-8 grid gap-5 lg:grid-cols-[minmax(0,1.55fr)_minmax(0,1fr)]">
+      <div className="mt-8 grid grid-cols-[minmax(0,1fr)] gap-5 lg:grid-cols-[minmax(0,1.55fr)_minmax(0,1fr)]">
         <motion.section {...rise(1)} aria-labelledby="fs-heading" className="paper relative overflow-hidden rounded-xl border border-border bg-surface">
-          <div className="grid gap-6 p-5 sm:grid-cols-[auto_1fr] sm:p-7">
+          <div className="grid grid-cols-[minmax(0,1fr)] gap-6 p-5 sm:grid-cols-[auto_minmax(0,1fr)] sm:p-7">
             <Presence convergence={convergence(workspace.tasks)} size={150} horizonLabel={String(profile.horizonYear)} className="mx-auto text-foreground sm:mx-0" />
             <div className="flex min-w-0 flex-col">
               <p className="t-label">Your future self</p>
@@ -127,7 +127,7 @@ export function Home() {
         <Trajectory />
       </motion.section>
 
-      <div className="mt-12 grid gap-10 lg:grid-cols-2">
+      <div className="mt-12 grid grid-cols-[minmax(0,1fr)] gap-10 lg:grid-cols-2">
         <motion.section {...rise(4)} aria-labelledby="mem-heading">
           <SectionHeading
             id="mem-heading"

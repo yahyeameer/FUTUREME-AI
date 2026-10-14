@@ -232,7 +232,7 @@ function executeTool(db: Db, name: string, rawArgs: string): ToolResult {
       const args = PlanArgs.safeParse(json);
       if (!args.success) return invalid(args.error);
       const id = createApproval(db, "plan", args.data);
-      return { output: `Plan proposal #${id} is waiting for the user's approval on the Plan page.`, citations: [], approvalId: id };
+      return { output: `Plan proposal #${id} is waiting for the user's approval in the conversation.`, citations: [], approvalId: id };
     }
     default:
       return { output: `Error: unknown tool ${name}.`, citations: [] };

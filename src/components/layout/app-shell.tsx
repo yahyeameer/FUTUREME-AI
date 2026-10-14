@@ -41,10 +41,15 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           sidebarCollapsed ? "w-[3.75rem]" : "w-[var(--sidebar-width)]",
         )}
       >
-        <SidebarContents collapsed={sidebarCollapsed} />
+        {/* The active route is only known at request time on dynamic routes, so the nav streams in. */}
+        <React.Suspense fallback={null}>
+          <SidebarContents collapsed={sidebarCollapsed} />
+        </React.Suspense>
       </aside>
       <div className="flex min-w-0 flex-1 flex-col">
-        <MobileBar />
+        <React.Suspense fallback={<div className="h-12 border-b border-border lg:hidden" />}>
+          <MobileBar />
+        </React.Suspense>
         <main id="main" tabIndex={-1} className="flex min-w-0 flex-1 flex-col outline-none">
           {children}
         </main>

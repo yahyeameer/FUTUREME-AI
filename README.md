@@ -4,16 +4,34 @@ Meet the person you're becoming. Start building that future today.
 
 FutureMe is a personal AI companion for the Nebius × NVIDIA Global AI Hackathon 2026 (Personal AI track). It lets you talk with a personalized version of your future self, keeps an Obsidian-compatible Markdown memory vault you control, and turns reflection into approved goals and tasks.
 
-> **Status:** Milestones 1–3 plus streaming and a demo seed. Only what is listed under "Working today" runs. Everything else is planned.
+> **Status:** Milestones 1–3, streaming, a demo seed and the full workspace UI. Only what is listed under "Working today" runs. Everything else is planned.
 
 ## Working today
 
-1. **Onboarding** (`/onboarding`): your 10-year dream, situation, resources, challenges, values and coaching style. Saved to SQLite and written to the vault as `Profile`, `10-Year Dream` and `Values` notes.
-2. **Future Reflection** (`/future`): a first-person letter from your future self, saved to `Reflections/`.
-3. **Chat with Your Future** (`/chat`): the future-self agent runs in [Docker Agent](https://docker.github.io/docker-agent/) (`agents/futureme.yaml`). It searches your vault through FutureMe's MCP server before answering, shows which notes it remembered, and proposes plans or memories.
-4. **Approve and track** (`/plan`): proposals wait for your approval. Approved plans become goals and tasks in SQLite and linked notes in `Goals/` and `Tasks/`. Completed tasks are marked `verified` in the vault.
-5. **FutureMe Daily** (`/daily`): an editorial issue about your week. Every item (wins, milestones, open steps, a line from your future self) comes from a completed task, a goal or a saved note, and shows its source. The model writes only the headline, lead and editor's note from those facts; if it returns anything unusable, a plain fact-only front page is printed instead. Issues are filed to `Daily/`.
-6. **Streaming replies**: chat replies stream from Docker Agent to the browser as they are written (`POST /api/chat`, newline-delimited JSON).
+The app is a signed-in workspace (no landing page). Old links (`/chat`, `/plan`, `/future`) redirect to the new screens.
+
+1. **Onboarding** (`/onboarding`): three short steps (ambition and horizon year, where you are now, values and coaching style). Saved to SQLite and written to the vault as `Profile`, `10-Year Dream` and `Values` notes. "Explore with demo data" skips it.
+2. **Home** (`/`): today's next step from your active milestone, an opening line from your future self, trajectory per milestone, recent memories and activity. Every number is counted from your tasks.
+3. **Future Self** (`/future-self`): the conversation. Replies stream, tool calls show as they run (memory search, plan drafting), recalled notes are cited and linked, and proposals appear inline as approval cards you can review, edit (plans), approve or reject. After approval the card checks the new records exist before saying they were created. Tone can be changed per conversation; failed turns can be retried; replies can be copied.
+4. **Future Reflection** (`/reflection`): an imagined letter from your future self, read as chapters (keyboard arrows work). Insights can become a goal prompt or be saved to memory, labelled as AI interpretation.
+5. **Memory Vault** (`/memory`, `/memory/[id]`): search, filter by type, provenance and tag, a graph of real wiki-links and milestone links, create, edit, delete (with confirmation). Each note shows why it exists and whether you said it or the AI inferred it.
+6. **Life Roadmap** (`/roadmap`): long-term goal, milestones as a timeline, tasks with status, due dates and dependencies, blockers and upcoming deadlines, plus any plan waiting for approval.
+7. **FutureMe Daily** (`/daily`): a magazine edition of your week. Edition history, section filters, a reading view, mark useful (kept on this device), save an insight to memory, turn a story into an action, and links to every source record. Everything comes from completed tasks, goals or saved notes.
+8. **Skills and Actions** (`/skills`): Plan My Day, Break Down My Goal, Weekly Review, Prepare an Action Plan and Research and Summarize. Each lists its permissions; runs show ready, running, waiting for approval, completed or failed, and anything that would create records goes through an approval card.
+9. **Settings** (`/settings`): profile, coaching style, theme (dark, light, system), motion, density, memory controls, data mode, and what runs where.
+
+Plus a command palette (`⌘K`, and `g` then `h/f/m/r/d/s` to jump), dark and light themes, reduced-motion support and layouts down to phone width.
+
+## Interface and data modes
+
+The UI talks to a typed service layer (`src/lib/services/types.ts`) with two implementations:
+
+- **Server** (`live-service.ts`): `GET/POST /api/workspace` for the workspace snapshot and mutations, and `POST /api/chat` for streamed turns. Used when the FutureMe server answers.
+- **Demo** (`src/mocks/`): a deterministic example workspace (Hodan in Hargeisa, building an SMS crop-advice assistant) kept in this browser's local storage. Replies are scripted, never a model, and are labelled "Demo" everywhere.
+
+Settings → Data mode chooses Automatic (server if reachable, otherwise demo), Demo data, or Server. Demo data can be reset or cleared from Settings. API keys only ever live on the server; the browser never sees one.
+
+Design: "Editorial Futurism". Obsidian, charcoal and graphite surfaces (ivory and paper in light mode), citron for action and copper for AI interpretation. Geist for the interface, Instrument Serif for display and Newsreader for reading. Primitives are shadcn-style components on Radix (`src/components/ui`), icons from Lucide, motion from Motion, forms from React Hook Form with Zod.
 
 ## How it fits together
 
@@ -31,9 +49,16 @@ Browser ── Next.js app ──► docker agent serve chat (agents/futureme.ya
 - Without `DOCKER_AGENT_URL`, the same loop runs in-process (used by unit tests).
 - Without a Nebius key, a built-in stand-in model keeps everything runnable (`LLM_PROVIDER=mock`, or `npm run mock-model` plus `--flavor mock` for Docker Agent).
 
+## Limitations
+
+- On the server, tasks can only be marked done (no in-progress or blocked status, no editing), and memories can't be archived or hidden from recall. The UI hides those controls there; demo mode has them.
+- Research and Summarize has no web search tool on the server yet, so it's shown as unavailable. In demo mode it returns a clearly labelled illustrative result. Daily's "Signals" section is illustrative in demo mode and empty on the server.
+- Skill run history and "mark useful" on Daily are kept in this browser, not the database.
+- Without a Nebius key, replies come from the built-in stand-in model and the UI says so.
+
 ## Planned
 
-Premium UI redesign (in progress separately), trend sourcing for FutureMe Daily, voice, avatars and VR.
+Trend sourcing for FutureMe Daily, voice, avatars and VR.
 
 ## Deploy
 
