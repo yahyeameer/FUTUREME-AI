@@ -166,7 +166,7 @@ function Chapters({ reflection, onRegenerate, generating }: { reflection: Reflec
           {
             id: "moments",
             label: "Turning points",
-            render: (n) => (
+            render: (n: number) => (
               <div>
                 <ChapterMark n={n} title="Three moments that could change everything" />
                 <ol className="mt-8 grid gap-px overflow-hidden rounded-lg border border-border bg-border md:grid-cols-3">
@@ -189,7 +189,7 @@ function Chapters({ reflection, onRegenerate, generating }: { reflection: Reflec
           {
             id: "shifts",
             label: "What changes",
-            render: (n) => (
+            render: (n: number) => (
               <div>
                 <ChapterMark n={n} title="What might change in you" />
                 <dl className="mt-8 divide-y divide-border border-y border-border">

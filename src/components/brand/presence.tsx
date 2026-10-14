@@ -47,7 +47,7 @@ export function Presence({
           const a = (i / ticks.length) * Math.PI * 2;
           const long = i % 6 === 0;
           const r1 = long ? 86 : 89;
-          return <line key={i} x1={100 + Math.cos(a) * r1} y1={100 + Math.sin(a) * r1} x2={100 + Math.cos(a) * 92} y2={100 + Math.sin(a) * 92} strokeWidth={long ? 1 : 0.6} />;
+          return <line key={i} x1={round(100 + Math.cos(a) * r1)} y1={round(100 + Math.sin(a) * r1)} x2={round(100 + Math.cos(a) * 92)} y2={round(100 + Math.sin(a) * 92)} strokeWidth={long ? 1 : 0.6} />;
         })}
       </g>
       <line x1="14" y1="100" x2="186" y2="100" stroke="currentColor" className="text-border" strokeWidth="0.6" strokeDasharray="2 4" />
@@ -66,7 +66,7 @@ export function Presence({
       {state === "thinking" && !reduce && (
         <motion.g initial={false} animate={{ x: offset }}>
           <g className="origin-[100px_100px] animate-sweep">
-            <path d={`M ${100 + r + 5} 100 A ${r + 5} ${r + 5} 0 0 1 ${100 + (r + 5) * Math.cos(0.9)} ${100 + (r + 5) * Math.sin(0.9)}`} stroke="var(--accent)" strokeWidth="2" strokeLinecap="round" fill="none" />
+            <path d={`M ${100 + r + 5} 100 A ${r + 5} ${r + 5} 0 0 1 ${round(100 + (r + 5) * Math.cos(0.9))} ${round(100 + (r + 5) * Math.sin(0.9))}`} stroke="var(--accent)" strokeWidth="2" strokeLinecap="round" fill="none" />
           </g>
         </motion.g>
       )}
@@ -84,4 +84,9 @@ export function Presence({
       )}
     </svg>
   );
+}
+
+// Trig results can differ in the last digit between server and browser, which breaks hydration.
+function round(n: number) {
+  return Math.round(n * 1000) / 1000;
 }
