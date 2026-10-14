@@ -5,6 +5,8 @@
 ARG NODE_IMAGE=node:22-bookworm-slim
 
 FROM ${NODE_IMAGE} AS build
+# Toolchain for better-sqlite3 when no prebuilt binary matches the Node version.
+RUN apt-get update && apt-get install -y --no-install-recommends python3 make g++ && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci
