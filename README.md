@@ -11,16 +11,17 @@ FutureMe is a personal AI companion for the Nebius × NVIDIA Global AI Hackathon
 The app is a signed-in workspace (no landing page). Old links (`/chat`, `/plan`, `/future`) redirect to the new screens.
 
 1. **Onboarding** (`/onboarding`): three short steps (ambition and horizon year, where you are now, values and coaching style). Saved to SQLite and written to the vault as `Profile`, `10-Year Dream` and `Values` notes. "Explore with demo data" skips it.
-2. **Home** (`/`): today's next step from your active milestone, an opening line from your future self, trajectory per milestone, recent memories and activity. Every number is counted from your tasks.
+2. **Home** (`/`): today's next step from your active milestone, an opening line from your future self, an agent panel (tools, readable files, latest actions), trajectory per milestone, recent memories and activity. Every number is counted from your tasks.
 3. **Future Self** (`/future-self`): the conversation. Replies stream, tool calls show as they run (memory search, plan drafting), recalled notes are cited and linked, and proposals appear inline as approval cards you can review, edit (plans), approve or reject. After approval the card checks the new records exist before saying they were created. Tone can be changed per conversation; failed turns can be retried; replies can be copied.
 4. **Future Reflection** (`/reflection`): an imagined letter from your future self, read as chapters (keyboard arrows work). Insights can become a goal prompt or be saved to memory, labelled as AI interpretation.
 5. **Memory Vault** (`/memory`, `/memory/[id]`): search, filter by type, provenance and tag, a graph of real wiki-links and milestone links, create, edit, delete (with confirmation). Each note shows why it exists and whether you said it or the AI inferred it.
 6. **Life Roadmap** (`/roadmap`): long-term goal, milestones as a timeline, tasks with status, due dates and dependencies, blockers and upcoming deadlines, plus any plan waiting for approval.
 7. **FutureMe Daily** (`/daily`): a magazine edition of your week. Edition history, section filters, a reading view, mark useful (kept on this device), save an insight to memory, turn a story into an action, and links to every source record. Everything comes from completed tasks, goals or saved notes.
 8. **Skills and Actions** (`/skills`): Plan My Day, Break Down My Goal, Weekly Review, Prepare an Action Plan and Research and Summarize. Each lists its permissions; runs show ready, running, waiting for approval, completed or failed, and anything that would create records goes through an approval card.
-9. **Settings** (`/settings`): profile, coaching style, theme (dark, light, system), motion, density, memory controls, data mode, and what runs where.
+9. **Agent** (`/agent`): the agent's control room. Its real tools (`search_memory`, `propose_plan`, `propose_memory`) with what each can read or write, whether it runs on its own or needs approval, and how often it was used; web search is shown as not connected. File access lists the vault's Markdown files by folder and whether the agent can read each one. Also the approval queue, the actions it can run, and a log of every tool call, action run and decision, built only from recorded data.
+10. **Settings** (`/settings`): profile, coaching style, theme (dark, light, system), motion, density, memory controls, data mode, and what runs where.
 
-Plus a command palette (`⌘K`, and `g` then `h/f/m/r/d/s` to jump), dark and light themes, reduced-motion support and layouts down to phone width.
+Plus a command palette (`⌘K`, and `g` then `h/f/a/r/m/d/s` to jump), dark and light themes, reduced-motion support and layouts down to phone width.
 
 ## Interface and data modes
 
