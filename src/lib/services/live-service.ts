@@ -177,6 +177,12 @@ export function createLiveService(): FutureMeService {
       return { workspace, shift };
     },
     setPack: (id) => request({ action: "setPack", id }),
+    async startMission(goal) {
+      const workspace = await request({ action: "startMission", goal });
+      const mission = workspace.missions.find((m) => m.goal === goal.trim());
+      if (!mission) throw new Error("The mission wasn't recorded.");
+      return { workspace, mission };
+    },
     async runSkill(skillId, inputs, onUpdate) {
       const def = skillDef(skillId);
       if (skillId === "research") {

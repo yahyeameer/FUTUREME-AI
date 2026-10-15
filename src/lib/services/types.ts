@@ -1,4 +1,5 @@
 import type {
+  Mission,
   CoachingStyle,
   CouncilSession,
   NightShift,
@@ -64,6 +65,8 @@ export interface AgentTeamService {
   runResearch(topic: string): Promise<{ workspace: Workspace; run: ResearchRun }>;
   runNightShift(): Promise<{ workspace: Workspace; shift: NightShift }>;
   setPack(packId: string | null): Promise<Workspace>;
+  /** Starts a mission and returns once it is recorded; on the server it keeps running, so poll `load` while it does. */
+  startMission(goal: string): Promise<{ workspace: Workspace; mission: Mission }>;
 }
 
 export interface FutureMeService

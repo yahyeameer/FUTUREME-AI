@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowRight, ArrowUpRight, Bot, Check, CircleDashed, Cloud, ExternalLink, Globe, HardDrive, Loader2, Lock, Moon, Package, Play, ShieldCheck, Sparkles, Telescope, Users, type LucideIcon } from "lucide-react";
+import { ArrowRight, ArrowUpRight, Bot, Eye, Flag, UserPlus, Check, CircleDashed, Cloud, ExternalLink, Globe, HardDrive, Loader2, Lock, Moon, Package, Play, ShieldCheck, Sparkles, Telescope, Users, type LucideIcon } from "lucide-react";
 import Link from "next/link";
 import * as React from "react";
 import { EmptyState } from "@/components/states";
@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { toolLabel } from "@/lib/tool-labels";
 import { cn, formatDate, formatTime, relativeDay } from "@/lib/utils";
 import { useWorkspace } from "@/lib/workspace-store";
+import { RunCard } from "@/features/missions/run-card";
 import type { AgentInfo, AgentRole, NightShift } from "@/types";
 
 const ROLE: Record<AgentRole, { icon: LucideIcon; label: string; href?: string }> = {
@@ -18,6 +19,9 @@ const ROLE: Record<AgentRole, { icon: LucideIcon; label: string; href?: string }
   check: { icon: ShieldCheck, label: "Checks replies" },
   research: { icon: Telescope, label: "Research", href: "/skills#skill-research" },
   schedule: { icon: Moon, label: "Runs overnight", href: "#night-heading" },
+  helper: { icon: UserPlus, label: "Created on demand" },
+  lead: { icon: Flag, label: "Leads missions", href: "/missions" },
+  supervise: { icon: Eye, label: "Supervises", href: "#supervisor-heading" },
 };
 
 /** Every agent in agents/futureme.yaml, with the tools it is allowed to call. */
@@ -380,3 +384,44 @@ export function Research() {
   );
 }
 
+
+/** Every handoff and mission task, newest first, with what the supervisor decided. */
+export function SupervisorLog() {
+  const { workspace } = useWorkspace();
+  const reviewed = workspace.runs.filter((r) => r.kind !== "mission_lead");
+  const runs = reviewed.slice(0, 8);
+  const counts = { ok: 0, flag: 0, block: 0 };
+  for (const r of reviewed) if (r.supervision) counts[r.supervision.verdict] += 1;
+  return (
+    <div className="card overflow-hidden">
+      <div className="grid grid-cols-3 border-b border-border">
+        {(
+          [
+            ["ok", "Passed", "text-success"],
+            ["flag", "Flagged", "text-warning"],
+            ["block", "Blocked", "text-destructive"],
+          ] as const
+        ).map(([k, label, tone]) => (
+          <div key={k} className="border-border px-5 py-3.5 [&:not(:last-child)]:border-r">
+            <p className="t-meta">{label}</p>
+            <p className={cn("mt-0.5 font-display text-[1.7rem] leading-none", counts[k] > 0 && tone)}>{counts[k]}</p>
+          </div>
+        ))}
+      </div>
+      {runs.length ? (
+        <div className="space-y-2 p-4">
+          {runs.map((r) => (
+            <RunCard key={r.id} run={r} title={r.kind === "mission_task" ? `Mission task · ${r.agentLabel}` : r.kind === "spawn" ? `Created: ${r.agentLabel}` : `Handed to ${r.agentLabel.toLowerCase()}`} />
+          ))}
+        </div>
+      ) : (
+        <EmptyState icon={Eye} title="Nothing to supervise yet" className="px-6 py-8">
+          {workspace.capabilities.delegation ? "Ask your future self to compare options or look something up, or start a mission. Every result is reviewed here." : "Start a mission and each helper's result is reviewed here."}
+        </EmptyState>
+      )}
+      <p className="border-t border-border bg-sunken/50 px-5 py-3 text-[12px] text-muted-foreground">
+        Rule checks catch empty answers, tools a helper wasn&apos;t given, links its tools never returned, notes that don&apos;t exist and claims to have saved or sent something. The supervisor agent then judges whether it did the task. Blocked results never reach the agent that asked.
+      </p>
+    </div>
+  );
+}

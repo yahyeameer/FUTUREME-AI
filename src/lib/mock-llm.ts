@@ -11,6 +11,10 @@ export const CHAIR_MARKER = "[council-chair]";
 export const VERIFY_MARKER = "[verify]";
 export const RESEARCH_MARKER = "[research]";
 export const NIGHT_MARKER = "[night-shift]";
+export const SUBTASK_MARKER = "[subtask]";
+export const SUPERVISE_MARKER = "[supervise]";
+export const MISSION_PLAN_MARKER = "[mission-plan]";
+export const MISSION_REPORT_MARKER = "[mission-report]";
 
 let callCounter = 0;
 const call = (name: string, args: unknown): ToolCall => ({
@@ -180,6 +184,95 @@ function mockNightShift(userText: string, toolNames: Set<string>, used: (n: stri
   return { content: JSON.stringify({ brief, focus, watch_out: f.open.length > 3 ? `You have ${f.open.length} open tasks; finish before starting new ones.` : null }), toolCalls: [] };
 }
 
+const firstNote = (turn: ChatMessage[]) => {
+  const memory = turn.find((m) => m.role === "tool" && text(m).startsWith("## "));
+  return memory ? text(memory).split("\n")[0].replace(/^## /, "").replace(/ \(.*\)$/, "") : null;
+};
+
+/** A helper created for one task: reads memory (and the web, if it has it), then answers in its role. */
+function mockSubtask(userText: string, turn: ChatMessage[], toolNames: Set<string>, used: (n: string) => boolean): Completion {
+  const role = userText.match(/^\[subtask\] Role: (.+)$/m)?.[1]?.trim() ?? "Helper";
+  const task = userText.match(/^Task: ([\s\S]+)$/m)?.[1]?.trim() ?? "";
+  if (toolNames.has("search_memory") && !used("search_memory")) return { content: null, toolCalls: [call("search_memory", { query: task })] };
+  const note = firstNote(turn);
+  const grounded = note ? ` Your note "${note}" is the starting point.` : "";
+  if (/risk|skeptic|devil/i.test(role) || (!/plan/i.test(role) && /\brisks?\b/i.test(task))) {
+    return { content: `As your ${role.toLowerCase()}: the biggest risk is spending weeks before anyone sees the work.${grounded} Test the riskiest assumption with one real person first, and decide in advance what result would change your mind.`, toolCalls: [] };
+  }
+  if (/plan|steps/i.test(role + task)) {
+    return {
+      content: `As your ${role.toLowerCase()}, here are three first steps that fit the time you have.${grounded}\n1. Write one paragraph on what done looks like\n2. Ask one person who has done it for 20 minutes of advice\n3. Block two focused hours this week for the first piece`,
+      toolCalls: [],
+    };
+  }
+  return { content: `As your ${role.toLowerCase()}: ${task.replace(/\.$/, "")}. The pattern in what you've shared is that small, visible progress keeps you going.${grounded}`, toolCalls: [] };
+}
+
+/** The supervisor: agrees with the rules, and otherwise checks the result answers its task. */
+function mockSupervise(userText: string): Completion {
+  let r: { role?: string | null; agent?: string; task?: string; output?: string; tools_used?: string[]; rule_findings?: string[] } = {};
+  try {
+    r = JSON.parse(userText.slice(SUPERVISE_MARKER.length).trim());
+  } catch {
+    // review an empty run
+  }
+  const who = r.role ?? r.agent ?? "agent";
+  const findings = r.rule_findings ?? [];
+  const verdict = findings.some((f) => f.startsWith("block")) ? "block" : findings.length ? "flag" : (r.output ?? "").length < 20 ? "flag" : "ok";
+  const issues = verdict === "flag" && !findings.length ? ["The answer is too short to act on."] : [];
+  const tools = [...new Set(r.tools_used ?? [])];
+  return {
+    content: JSON.stringify({ verdict, issues, summary: `The ${who} stayed on its task${tools.length ? ` and used ${tools.join(", ")}` : " without tools"}.${findings.length ? " The rule checks found problems." : ""}` }),
+    toolCalls: [],
+  };
+}
+
+function mockMissionPlan(userText: string): Completion {
+  let m: { goal?: string; web_search?: boolean } = {};
+  try {
+    m = JSON.parse(userText.slice(MISSION_PLAN_MARKER.length).trim());
+  } catch {
+    // plan for an empty goal
+  }
+  const goal = m.goal ?? "the goal";
+  const tasks = [
+    { title: "What your notes already say", agent: "helper", role: "Context finder", tools: ["search_memory"], task: `Find what the user's notes say that matters for: ${goal}` },
+    m.web_search
+      ? { title: "What others have learned", agent: "researcher", task: goal }
+      : { title: "Risks to test first", agent: "helper", role: "Skeptic", tools: ["search_memory"], task: `List the biggest risks for: ${goal}, and how to test each cheaply` },
+    { title: "First steps", agent: "helper", role: "Planner", tools: ["search_memory"], task: `Draft three concrete first steps for: ${goal}` },
+  ];
+  return { content: JSON.stringify({ tasks }), toolCalls: [] };
+}
+
+function mockMissionReport(userText: string): Completion {
+  let m: { goal?: string; results?: { title: string; by: string; status: string; output: string | null }[] } = {};
+  try {
+    m = JSON.parse(userText.slice(MISSION_REPORT_MARKER.length).trim());
+  } catch {
+    // report on nothing
+  }
+  const done = (m.results ?? []).filter((r) => r.output);
+  const skipped = (m.results ?? []).length - done.length;
+  const allSteps = done.flatMap((r) => [...(r.output ?? "").matchAll(/^\d+\. (.+)$/gm)].map((x) => x[1].trim()));
+  const steps = [...new Set(allSteps)].slice(0, 4);
+  const report = [
+    `${done.length} of ${(m.results ?? []).length} tasks came back for "${m.goal}".`,
+    ...done.map((r) => `${r.title}: ${(r.output ?? "").split("\n")[0]}`),
+    skipped ? `${skipped} result${skipped === 1 ? " was" : "s were"} left out because the supervisor didn't accept ${skipped === 1 ? "it" : "them"}.` : "",
+  ]
+    .filter(Boolean)
+    .join("\n\n");
+  return {
+    content: JSON.stringify({
+      report,
+      next_step: steps[0] ?? "Pick the smallest piece and do it this week.",
+      plan: steps.length ? { goal: (m.goal ?? "Mission").slice(0, 160), why: "From the mission team's findings.", tasks: steps.map((title, i) => ({ title, due_in_days: 2 + i * 3 })) } : undefined,
+    }),
+    toolCalls: [],
+  };
+}
+
 export const mockProvider: LlmProvider = {
   name: "mock",
   async complete(messages, tools): Promise<Completion> {
@@ -204,10 +297,32 @@ export const mockProvider: LlmProvider = {
     if (userText.startsWith(VERIFY_MARKER)) return mockVerify(userText);
     if (userText.startsWith(RESEARCH_MARKER)) return mockResearch(userText, turn, toolNames, used);
     if (userText.startsWith(NIGHT_MARKER)) return mockNightShift(userText, toolNames, used);
+    if (userText.startsWith(SUBTASK_MARKER)) return mockSubtask(userText, turn, toolNames, used);
+    if (userText.startsWith(SUPERVISE_MARKER)) return mockSupervise(userText);
+    if (userText.startsWith(MISSION_PLAN_MARKER)) return mockMissionPlan(userText);
+    if (userText.startsWith(MISSION_REPORT_MARKER)) return mockMissionReport(userText);
+    // Handoffs: research goes to the researcher, comparisons to a helper the future self creates.
+    const wantsResearch = /\b(look up|find out|research (?:on|about|into)|do some research)\b/i.test(userText);
+    const wantsHelper = /\b(compare|pros and cons|trade-?offs?|weigh up)\b/i.test(userText);
     const wantsPlan = /\b(plan|goal|help me|steps|start)\b/i.test(userText);
 
     if (toolNames.has("search_memory") && !used("search_memory")) {
       return { content: null, toolCalls: [call("search_memory", { query: userText })] };
+    }
+    if (wantsResearch && toolNames.has("delegate_task") && !used("delegate_task")) {
+      return { content: null, toolCalls: [call("delegate_task", { agent: "researcher", task: userText.slice(0, 300) })] };
+    }
+    if (wantsHelper && toolNames.has("spawn_agent") && !used("spawn_agent")) {
+      return { content: null, toolCalls: [call("spawn_agent", { role: "Analyst", task: `Weigh the options in: ${userText.slice(0, 300)}`, tools: ["search_memory"] })] };
+    }
+    const handoff = turn.find((m) => m.role === "tool" && /^(Result from|The supervisor blocked|.+ couldn't finish)/.test(text(m)));
+    if (handoff) {
+      const out = text(handoff);
+      const who = out.match(/^Result from (.+?)(?: \(|:)/)?.[1] ?? "a helper";
+      const content = out.startsWith("Result from")
+        ? `I handed that to ${who}. Here's what came back: ${out.split("\n").slice(1).join(" ").slice(0, 280).trim()}${out.includes("supervisor flagged") ? " The supervisor flagged part of it, so check before you rely on it." : ""}`
+        : "I tried to hand that off, but it didn't come back with something I can rely on, so I won't guess.";
+      return { content, toolCalls: [] };
     }
     if (wantsPlan && toolNames.has("propose_plan") && !used("propose_plan")) {
       return { content: null, toolCalls: [call("propose_plan", planFrom(userText))] };

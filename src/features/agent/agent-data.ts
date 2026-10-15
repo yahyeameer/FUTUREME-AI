@@ -1,4 +1,4 @@
-import { BookmarkPlus, FileSearch, Globe, ListPlus, Search, type LucideIcon } from "lucide-react";
+import { BookmarkPlus, FileSearch, Forward, Globe, ListPlus, Search, UserPlus, type LucideIcon } from "lucide-react";
 import type { Memory, Workspace } from "@/types";
 
 export type ToolAccess = "read" | "write" | "none";
@@ -18,7 +18,7 @@ export interface ToolInfo {
 }
 
 /**
- * The real toolset: the FutureMe MCP server (mcp/futureme-server.ts) exposes exactly these five.
+ * The real toolset: the FutureMe MCP server (mcp/futureme-server.ts) exposes exactly these seven.
  * Each agent in agents/futureme.yaml gets only the ones it needs, so the future self itself never browses.
  */
 export function agentTools(ws: Workspace): ToolInfo[] {
@@ -76,13 +76,35 @@ export function agentTools(ws: Workspace): ToolInfo[] {
       gate: webOn ? "auto" : "unavailable",
       touches: "Public web pages",
     },
+    {
+      name: "delegate_task",
+      label: "Hand off a task",
+      icon: Forward,
+      description: ws.capabilities.delegation
+        ? "Gives one task to the researcher or the council mid-conversation and uses their answer. The supervisor reviews it first."
+        : "Hands a task to the researcher or the council mid-conversation. Needs the FutureMe server.",
+      access: ws.capabilities.delegation ? "read" : "none",
+      gate: ws.capabilities.delegation ? "auto" : "unavailable",
+      touches: "Other agents",
+    },
+    {
+      name: "spawn_agent",
+      label: "Create a helper",
+      icon: UserPlus,
+      description: ws.capabilities.delegation
+        ? "Creates a temporary helper with a role and read-only tools for one task. Helpers can't save anything, and the supervisor reviews their answer."
+        : "Creates a temporary helper agent for one task. Needs the FutureMe server.",
+      access: ws.capabilities.delegation ? "read" : "none",
+      gate: ws.capabilities.delegation ? "auto" : "unavailable",
+      touches: "New helper agents",
+    },
   ].map((t) => ({ ...t, usedBy: usedBy(t.name) }) as ToolInfo);
 }
 
 export interface LogEntry {
   id: string;
   at: string;
-  kind: "tool" | "skill" | "approval" | "council" | "research" | "night";
+  kind: "tool" | "skill" | "approval" | "council" | "research" | "night" | "mission";
   tool?: string;
   title: string;
   detail?: string;
@@ -147,6 +169,17 @@ export function agentLog(ws: Workspace): LogEntry[] {
       href: "/agent#night-heading",
     });
   }
+  for (const m of ws.missions) {
+    out.push({
+      id: `mission-${m.id}`,
+      at: m.finishedAt ?? m.createdAt,
+      kind: "mission",
+      title: `Mission: ${m.goal}`,
+      detail: m.status === "failed" ? m.error : m.status === "done" ? `${m.runs.length} helpers, reviewed by the supervisor` : "In progress",
+      status: m.status === "failed" ? "failed" : m.status === "done" ? "done" : "running",
+      href: "/missions",
+    });
+  }
   return out.sort((a, b) => b.at.localeCompare(a.at));
 }
 
@@ -202,7 +235,7 @@ export function vaultFiles(ws: Workspace): VaultFile[] {
   return files.sort((a, b) => a.folder.localeCompare(b.folder) || b.updatedAt.localeCompare(a.updatedAt));
 }
 
-const KIND_LABEL: Record<LogEntry["kind"], string> = { tool: "Tool", skill: "Action", approval: "Approval", council: "Council", research: "Research", night: "Night shift" };
+const KIND_LABEL: Record<LogEntry["kind"], string> = { tool: "Tool", skill: "Action", approval: "Approval", council: "Council", research: "Research", night: "Night shift", mission: "Mission" };
 
 /** The small caption under a log entry: the tool's name, or what kind of record it is. */
 export const logKind = (e: LogEntry) => e.tool ?? KIND_LABEL[e.kind];

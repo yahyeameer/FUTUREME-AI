@@ -1,6 +1,7 @@
-import { connection } from "next/server";
+import { after, connection } from "next/server";
 import { z } from "zod";
 import { runCouncil, saveCouncilBrief } from "@/lib/council";
+import { startMission } from "@/lib/missions";
 import { runNightShift } from "@/lib/night-shift";
 import { setActivePack } from "@/lib/packs";
 import { runResearch } from "@/lib/research";
@@ -43,6 +44,7 @@ const Action = z.discriminatedUnion("action", [
   z.object({ action: z.literal("runResearch"), topic: z.string().min(3).max(300) }),
   z.object({ action: z.literal("runNightShift") }),
   z.object({ action: z.literal("setPack"), id: z.string().max(80).nullable() }),
+  z.object({ action: z.literal("startMission"), goal: z.string().min(5).max(400) }),
 ]);
 
 export async function POST(request: Request) {
@@ -97,6 +99,12 @@ export async function POST(request: Request) {
       case "setPack":
         setActivePack(d, a.id);
         break;
+      case "startMission": {
+        // The mission keeps working after this response; the app polls the workspace until it finishes.
+        const { done } = startMission(d, a.goal);
+        after(() => done);
+        break;
+      }
     }
   } catch (err) {
     const message = err instanceof z.ZodError ? "Some fields are missing or too long." : err instanceof Error ? err.message : "Something went wrong.";

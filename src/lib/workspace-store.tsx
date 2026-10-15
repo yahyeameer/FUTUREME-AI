@@ -137,6 +137,16 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
     [service],
   );
 
+  // A mission keeps working on the server after it starts; refresh until it finishes. Skipped while a chat turn streams.
+  const missionRunning = !!workspace?.missions.some((m) => m.status === "planning" || m.status === "running" || m.status === "reporting");
+  React.useEffect(() => {
+    if (!missionRunning || !service || pending) return;
+    const t = setInterval(() => {
+      service.load().then(setWorkspace, () => undefined);
+    }, 1500);
+    return () => clearInterval(t);
+  }, [missionRunning, service, pending]);
+
   // A reply can finish while its check is still running and the page reloads. Pick a recent unchecked reply back up, once.
   const resumed = React.useRef(new Set<string>());
   React.useEffect(() => {

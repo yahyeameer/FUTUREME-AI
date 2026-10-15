@@ -10,6 +10,7 @@ import { cn, formatTime } from "@/lib/utils";
 import { useWorkspace } from "@/lib/workspace-store";
 import type { Message } from "@/types";
 import { ApprovalCard } from "./approval-card";
+import { RunCard } from "@/features/missions/run-card";
 import { FactCheck } from "./fact-check";
 import { ProgressBlock } from "./progress-block";
 import { ToolStatus } from "./tool-status";
@@ -31,6 +32,7 @@ export function AssistantMessage({ message, name = "Future you" }: { message: Me
   const [copied, setCopied] = React.useState(false);
   const approvals = (message.approvalIds ?? []).map((id) => workspace.approvals.find((a) => a.id === id)).filter((a) => !!a);
   const memoryIds = new Set(workspace.memories.map((m) => m.id));
+  const handoffs = (message.runIds ?? []).map((id) => workspace.runs.find((r) => r.id === id)).filter((r) => !!r);
 
   const copy = async () => {
     try {
@@ -59,6 +61,14 @@ export function AssistantMessage({ message, name = "Future you" }: { message: Me
       {message.tools && message.tools.length > 0 && <ToolStatus tools={message.tools} className="mb-2.5" />}
       <Markdown source={message.content} className="max-w-[62ch] text-[14.5px] leading-[1.7]" />
 
+      {handoffs.length > 0 && (
+        <div className="mt-3 flex max-w-xl flex-col gap-2" aria-label="Handed off">
+          <p className="t-meta">Handed off while answering</p>
+          {handoffs.map((r) => (
+            <RunCard key={r.id} run={r} />
+          ))}
+        </div>
+      )}
       {message.blocks?.map((b, i) => (b.type === "progress" ? <div key={i} className="mt-3 max-w-xl"><ProgressBlock block={b} /></div> : null))}
       {approvals.length > 0 && (
         <div className="mt-3 flex max-w-xl flex-col gap-2">
