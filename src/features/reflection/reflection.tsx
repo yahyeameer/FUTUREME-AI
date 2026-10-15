@@ -216,7 +216,7 @@ function Chapters({ reflection, onRegenerate, generating }: { reflection: Reflec
           {reflection.challenges.length ? (
             <ul className="mt-8 grid gap-4 sm:grid-cols-2">
               {reflection.challenges.map((c, i) => (
-                <li key={c.title} className="rounded-lg border border-border bg-surface p-5">
+                <li key={c.title} className="card p-5">
                   <div className="flex items-start justify-between gap-3">
                     <p className="font-display text-[21px] leading-tight">{c.title}</p>
                     <ProvenanceBadge value={c.provenance} compact />

@@ -21,10 +21,10 @@ export interface Preferences {
 
 export const PREFS_KEY = "futureme.prefs";
 
-const DEFAULTS: Preferences = { theme: "dark", motion: "system", density: "comfortable", mode: "auto", sidebarCollapsed: false, railOpen: true };
+const DEFAULTS: Preferences = { theme: "light", motion: "system", density: "comfortable", mode: "auto", sidebarCollapsed: false, railOpen: true };
 
 // Runs before first paint (inlined in <head>) so the theme never flashes.
-export const PREFS_SCRIPT = `(function(){try{var p=JSON.parse(localStorage.getItem("${PREFS_KEY}")||"{}");var t=p.theme||"dark";if(t==="system")t=matchMedia("(prefers-color-scheme: light)").matches?"light":"dark";var d=document.documentElement;d.dataset.theme=t;d.dataset.density=p.density||"comfortable";d.dataset.motion=p.motion||"system";}catch(e){document.documentElement.dataset.theme="dark";}})();`;
+export const PREFS_SCRIPT = `(function(){try{var p=JSON.parse(localStorage.getItem("${PREFS_KEY}")||"{}");var t=p.theme||"light";if(t==="system")t=matchMedia("(prefers-color-scheme: light)").matches?"light":"dark";var d=document.documentElement;d.dataset.theme=t;d.dataset.density=p.density||"comfortable";d.dataset.motion=p.motion||"system";}catch(e){document.documentElement.dataset.theme="light";}})();`;
 
 interface PrefsContext extends Preferences {
   resolvedTheme: "dark" | "light";

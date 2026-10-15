@@ -137,7 +137,7 @@ export function MemoryDetail({ id }: { id: string }) {
 
         {memory.tags.length > 0 && <p className="mt-6 font-mono text-[12px] text-subtle">{memory.tags.map((t) => `#${t}`).join("  ")}</p>}
 
-        <section aria-labelledby="controls" className="mt-10 rounded-lg border border-border bg-surface">
+        <section aria-labelledby="controls" className="mt-10 card">
           <h2 id="controls" className="border-b border-border px-4 py-2.5 t-label">
             Your control over this memory
           </h2>

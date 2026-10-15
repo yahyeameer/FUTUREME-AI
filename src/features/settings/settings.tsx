@@ -108,7 +108,7 @@ function ProfileSection() {
 
   return (
     <Section id="profile" title="Profile" description="What your future self knows about you. Saving updates the profile notes in your memory vault too.">
-      <form onSubmit={submit} className="grid gap-4 rounded-xl border border-border bg-surface p-5" noValidate>
+      <form onSubmit={submit} className="grid gap-4 card p-5" noValidate>
         <div className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_9rem]">
           <Field form={form} name="name" label="Name" />
           <Field form={form} name="horizonYear" label="Horizon year" />
@@ -149,7 +149,7 @@ function AppearanceSection() {
   const { theme, motion, density, set } = usePreferences();
   return (
     <Section id="appearance" title="Appearance" description="Saved on this device only.">
-      <div className="rounded-xl border border-border bg-surface px-5">
+      <div className="card px-5">
         <Row label="Theme">
           <Segmented<ThemePref>
             label="Theme"
@@ -200,7 +200,7 @@ function MemorySection() {
   const caps = ws.capabilities;
   return (
     <Section id="memory" title="Memory" description="Everything FutureMe remembers is a note you can read, correct or delete.">
-      <div className="rounded-xl border border-border bg-surface px-5">
+      <div className="card px-5">
         <Row label="Notes in your vault" hint={`${inferred} of them ${inferred === 1 ? "is an AI interpretation" : "are AI interpretations"}, labelled wherever they appear.`}>
           <span className="t-meta !text-[13px] !text-foreground">{live.length}</span>
         </Row>
@@ -241,7 +241,7 @@ function DataSection() {
 
   return (
     <Section id="data" title="Data and privacy" description="Where your data lives and what answers your conversations.">
-      <div className="rounded-xl border border-border bg-surface px-5">
+      <div className="card px-5">
         <Row label="Data mode" hint={modeReason || (status === "error" ? "The chosen backend isn't responding." : undefined)}>
           <Segmented<ModePref>
             label="Data mode"
@@ -281,7 +281,7 @@ function DataSection() {
       </div>
 
       {rt?.mode === "demo" && (
-        <div className="mt-4 rounded-xl border border-border bg-surface px-5">
+        <div className="mt-4 card px-5">
           <Row label="Reset demo data" hint="Restores Hodan's example workspace. Anything you changed in demo mode is lost.">
             <Button variant="secondary" size="sm" onClick={() => setConfirm("seed")}>
               <RotateCcw /> Reset

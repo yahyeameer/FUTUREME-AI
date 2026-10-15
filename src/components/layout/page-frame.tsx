@@ -33,7 +33,7 @@ export function PageFrame({
     <div className="flex min-h-0 flex-1">
       <div className="flex min-w-0 flex-1 flex-col">
         {(toolbar || rail) && (
-          <div className="sticky top-12 z-30 flex h-12 shrink-0 items-center gap-2 border-b border-border bg-background/85 px-4 backdrop-blur-md sm:px-6 lg:top-0" data-print-hide>
+          <div className="sticky top-12 z-30 flex h-14 shrink-0 items-center gap-2 border-b border-border/70 bg-background/70 px-4 backdrop-blur-xl sm:px-6 lg:top-0" data-print-hide>
             <div className="flex min-w-0 flex-1 items-center gap-2">{toolbar}</div>
             {rail && (
               <>
@@ -71,8 +71,8 @@ export function PageFrame({
         </div>
       </div>
       {showRail && (
-        <aside aria-label={railTitle} className="sticky top-0 hidden h-dvh w-[var(--rail-width)] shrink-0 overflow-y-auto border-l border-border bg-surface/60 px-5 py-5 scrollbar-thin xl:block">
-          {rail}
+        <aside aria-label={railTitle} className="sticky top-0 hidden h-dvh w-[calc(var(--rail-width)+0.75rem)] shrink-0 p-3 pl-0 xl:block">
+          <div className="h-full overflow-y-auto rounded-2xl border border-border bg-surface/75 px-5 py-5 shadow-card backdrop-blur-xl scrollbar-thin">{rail}</div>
         </aside>
       )}
     </div>

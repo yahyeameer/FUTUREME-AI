@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import * as React from "react";
 import { toast } from "sonner";
 import { Wordmark } from "@/components/brand/mark";
+import { Orb } from "@/components/brand/orb";
 import { Presence } from "@/components/brand/presence";
 import { ErrorState } from "@/components/states";
 import { Button } from "@/components/ui/button";
@@ -33,16 +34,34 @@ export function Onboarding() {
 
   return (
     <div className="grid min-h-dvh lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]">
-      <aside className="paper relative hidden flex-col justify-between overflow-hidden border-r border-border bg-sunken p-10 lg:flex">
-        <Wordmark />
-        <div>
-          <Presence convergence={0.15} size={260} horizonLabel="You, later" />
-          <p className="mt-10 max-w-sm font-display text-[2rem] leading-[1.08] text-balance">A conversation with the person you&apos;re becoming.</p>
-          <p className="mt-4 max-w-sm text-[13px] text-muted-foreground">
-            FutureMe turns an ambition into milestones and small steps, remembers what matters, and never claims progress you haven&apos;t made.
-          </p>
+      <aside className="relative hidden overflow-hidden p-3 lg:flex">
+        <div className="paper relative flex flex-1 flex-col justify-between overflow-hidden rounded-[1.75rem] bg-[linear-gradient(160deg,#f7f5ee_0%,#eef2d6_45%,#f1dccb_100%)] p-10 text-[#17191b] shadow-card">
+          <div aria-hidden className="absolute -top-32 -right-24 size-[30rem] animate-breathe rounded-full bg-[radial-gradient(circle,rgb(196_214_106/0.55),transparent_65%)] blur-2xl" />
+          <div aria-hidden className="absolute -bottom-40 -left-20 size-[28rem] animate-breathe rounded-full bg-[radial-gradient(circle,rgb(187_128_92/0.4),transparent_65%)] blur-2xl [animation-delay:-3s]" />
+          <Wordmark className="relative" />
+          <div className="relative">
+            <Orb size={300} className="mx-auto">
+              <Presence convergence={0.15} size={200} horizonLabel="You, later" className="text-[#17191b]" />
+            </Orb>
+            <p className="mt-10 max-w-md font-display text-[2.6rem] leading-[1.02] text-balance">
+              A conversation with the person you&apos;re <span className="italic text-[#a15f39]">becoming</span>.
+            </p>
+            <ul className="mt-6 flex flex-wrap gap-2">
+              {["Memory you can read and edit", "Plans wait for your approval", "Progress only from real steps"].map((t, i) => (
+                <motion.li
+                  key={t}
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.3 + i * 0.12 }}
+                  className="rounded-full border border-black/10 bg-white/60 px-3 py-1.5 text-[12px] font-medium backdrop-blur"
+                >
+                  {t}
+                </motion.li>
+              ))}
+            </ul>
+          </div>
+          <p className="relative font-mono text-[11px] text-black/50">Nothing is saved until you finish.</p>
         </div>
-        <p className="t-meta">Nothing is saved until you finish.</p>
       </aside>
 
       <main className="flex min-w-0 flex-col px-5 py-8 sm:px-10 lg:px-16 lg:py-12">
@@ -53,6 +72,7 @@ export function Onboarding() {
           </Button>
         </div>
         <div className="mx-auto flex w-full max-w-xl flex-1 flex-col justify-center py-10">
+          <div className="card p-6 sm:p-9">
           {status === "loading" ? (
             <div aria-busy="true" aria-label="Loading">
               <Skeleton className="h-3 w-24" />
@@ -64,6 +84,7 @@ export function Onboarding() {
           ) : (
             <ProfileSteps key={workspace?.runtime.mode} />
           )}
+          </div>
         </div>
       </main>
     </div>

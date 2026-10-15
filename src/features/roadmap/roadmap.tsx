@@ -41,7 +41,7 @@ export function Roadmap() {
         }
       />
 
-      <section className="mt-7 rounded-xl border border-border bg-surface px-5 py-5 sm:px-6">
+      <section className="mt-7 card px-5 py-5 sm:px-6">
         <p className="t-label">Long-term goal · by {profile.horizonYear}</p>
         <p className="mt-2 font-display text-[clamp(1.4rem,1.1rem+1vw,1.9rem)] leading-snug text-balance">{profile.dream}</p>
         <p className="mt-3 t-meta">
@@ -119,7 +119,7 @@ function MilestoneItem({ milestone, status, last, focused }: { milestone: Milest
         {status === "done" ? <Check className="size-3" strokeWidth={3} /> : status === "active" ? <span className="size-2 rounded-full bg-accent" /> : null}
       </span>
 
-      <div className={cn("rounded-lg border transition-colors", status === "active" ? "border-accent/30 bg-surface" : "border-transparent", focused && "ring-1 ring-accent/40")}>
+      <div className={cn("rounded-xl border transition-colors", status === "active" ? "border-accent/40 bg-surface shadow-card" : "border-transparent", focused && "ring-1 ring-accent/40")}>
         <button type="button" onClick={() => setOpen((o) => !o)} aria-expanded={open} className={cn("flex w-full items-start gap-3 text-left", status === "active" ? "px-4 py-3" : "px-1 py-1")}>
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-2">

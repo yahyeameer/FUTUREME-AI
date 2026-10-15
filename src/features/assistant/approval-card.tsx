@@ -56,7 +56,7 @@ export function ApprovalCard({ approval, className }: { approval: Approval; clas
   return (
     <div
       className={cn(
-        "overflow-hidden rounded-lg border bg-surface-2 transition-colors",
+        "overflow-hidden rounded-2xl border bg-surface shadow-card transition-colors",
         status === "pending" ? "border-accent/35" : status === "running" ? "border-accent/50" : "border-border",
         className,
       )}
