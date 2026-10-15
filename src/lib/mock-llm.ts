@@ -5,6 +5,12 @@ import type { ChatMessage, Completion, LlmProvider, ToolCall } from "./llm";
 
 export const STORY_MARKER = "[future-story]";
 export const DAILY_MARKER = "[daily-issue]";
+// Markers the app puts at the start of a request to a specific agent, so the stand-in knows which role to play.
+export const COUNCIL_MARKER = (voice: string) => `[council:${voice}]`;
+export const CHAIR_MARKER = "[council-chair]";
+export const VERIFY_MARKER = "[verify]";
+export const RESEARCH_MARKER = "[research]";
+export const NIGHT_MARKER = "[night-shift]";
 
 let callCounter = 0;
 const call = (name: string, args: unknown): ToolCall => ({
@@ -68,6 +74,112 @@ function planFrom(goalText: string) {
   };
 }
 
+export const VOICES: Record<string, (remembered: string | null, q: string) => string> = {
+  voice_horizon: (r, q) =>
+    `From where I stand, the answer to "${q}" was yes, but smaller and sooner than you think.${r ? ` Remember "${r}"? That was the seed.` : ""} The version of you who reached the dream didn't wait to feel ready.`,
+  voice_next_year: (r, q) =>
+    `Looking back from one year out: "${q}" only worked when it fit into the hours you really have.${r ? ` You told me "${r}", so plan around that.` : ""} Pick the one piece you can finish in a month.`,
+  voice_skeptic: (r) =>
+    `The risk I see is spending months before anyone tests it.${r ? ` You've noted "${r}", which tells me you know this pattern.` : ""} Test the riskiest assumption first, cheaply, with one real person this week.`,
+  voice_mentor: (r) =>
+    `I've watched many people try this. The ones who made it shared their work early and asked for help sooner than felt comfortable.${r ? ` "${r}" suggests you're already close.` : ""} What would you need to see to know it's working?`,
+};
+
+function mockCouncil(voice: string, userText: string, turn: ChatMessage[], toolNames: Set<string>, used: (n: string) => boolean): Completion {
+  const question = userText.replace(/^\[council:[a-z_]+\]\s*/, "").trim();
+  if (toolNames.has("search_memory") && !used("search_memory")) return { content: null, toolCalls: [call("search_memory", { query: question })] };
+  const memory = turn.find((m) => m.role === "tool" && text(m).startsWith("## "));
+  const remembered = memory ? text(memory).split("\n")[0].replace(/^## /, "").replace(/ \(.*\)$/, "") : null;
+  const voiceFn = VOICES[voice] ?? VOICES.voice_mentor;
+  return { content: voiceFn(remembered, question.slice(0, 120)), toolCalls: [] };
+}
+
+export function standInBrief(voices: number) {
+  return {
+    summary: `${voices} future selves weighed in. They agree the first step should be small and tested with a real person.`,
+    agreements: ["Start smaller than feels comfortable", "Test it with a real person early"],
+    tensions: ["How bold to be this year versus what fits the time you have"],
+    next_step: "Write down the riskiest assumption and test it with one person this week.",
+  };
+}
+
+function mockChair(userText: string): Completion {
+  const sections = [...userText.matchAll(/^## (.+)$/gm)].map((m) => m[1]);
+  return { content: JSON.stringify(standInBrief(sections.length)), toolCalls: [] };
+}
+
+/** Rule-based claim check used by the stand-in model and by demo mode: a quoted note title counts as support. */
+export function checkClaims(reply: string, notes: { path: string; title: string }[]) {
+  const sentences = reply.match(/[^.!?]+[.!?]+/g)?.map((x) => x.trim()) ?? [];
+  return sentences.map((sentence) => {
+    const quoted = [...sentence.matchAll(/["“]([^"”]+)["”]/g)].map((m) => m[1].toLowerCase());
+    const note = notes.find((n) => quoted.some((q) => n.title.toLowerCase().includes(q) || q.includes(n.title.toLowerCase())));
+    if (note) return { text: sentence, status: "supported" as const, source: note.path };
+    if (/\?$|\b(could|should|try|let's|maybe|what|would|start|pick|review|approve|drafted)\b/i.test(sentence)) return { text: sentence, status: "opinion" as const, source: null };
+    return { text: sentence, status: "unverified" as const, source: null };
+  });
+}
+
+function mockVerify(userText: string): Completion {
+  let payload: { reply: string; notes: { path: string; title: string }[] } = { reply: "", notes: [] };
+  try {
+    payload = JSON.parse(userText.slice(VERIFY_MARKER.length).trim());
+  } catch {
+    // fall through with an empty payload
+  }
+  const claims = checkClaims(payload.reply, payload.notes);
+  return { content: JSON.stringify({ claims }), toolCalls: [] };
+}
+
+function mockResearch(userText: string, turn: ChatMessage[], toolNames: Set<string>, used: (n: string) => boolean): Completion {
+  const topic = userText.replace(/^\[research\]\s*(Topic:)?\s*/i, "").trim();
+  if (toolNames.has("web_search") && !used("web_search")) return { content: null, toolCalls: [call("web_search", { query: topic, limit: 5 })] };
+  const out = turn.filter((m) => m.role === "tool").map(text).join("\n");
+  const results = [...out.matchAll(/^\d+\. (.+)\n\s+(https?:\/\/\S+)\n\s+(.*)$/gm)].map((m) => ({ title: m[1], url: m[2], snippet: m[3] }));
+  if (!results.length) {
+    const error = out.match(/^Error: (.+)$/m)?.[1];
+    return { content: JSON.stringify({ summary: error ? `I couldn't search the web: ${error}` : `I found no sources on ${topic}.`, findings: [] }), toolCalls: [] };
+  }
+  return {
+    content: JSON.stringify({
+      summary: `I found ${results.length} sources on ${topic}. The most relevant are listed below with what each says, taken from the search results.`,
+      findings: results.slice(0, 3).map((r) => ({ point: r.snippet || r.title, url: r.url })),
+    }),
+    toolCalls: [],
+  };
+}
+
+function mockNightShift(userText: string, toolNames: Set<string>, used: (n: string) => boolean): Completion {
+  let f: { name: string; open: { id: number; title: string; due: string | null }[]; done: { title: string }[]; idleGoals: string[] } = { name: "you", open: [], done: [], idleGoals: [] };
+  try {
+    f = JSON.parse(userText.slice(NIGHT_MARKER.length).trim());
+  } catch {
+    // fall through with no facts
+  }
+  if (f.idleGoals.length && toolNames.has("propose_plan") && !used("propose_plan")) {
+    const goal = f.idleGoals[0];
+    return {
+      content: null,
+      toolCalls: [
+        call("propose_plan", {
+          goal: `Next step for ${goal}`.slice(0, 160),
+          why: `Every task in "${goal}" is done. This keeps the momentum going.`,
+          tasks: [
+            { title: `Write down what the next milestone after "${goal}" looks like`, due_in_days: 2 },
+            { title: "Share the result with one person and ask what they'd change", due_in_days: 5 },
+          ],
+        }),
+      ],
+    };
+  }
+  const byDue = [...f.open].sort((a, b) => (a.due ?? "9999").localeCompare(b.due ?? "9999"));
+  const focus = byDue.slice(0, 3).map((t) => t.id);
+  const brief = f.open.length
+    ? `Good morning, ${f.name}. ${f.done.length ? `You finished ${f.done.length} ${f.done.length === 1 ? "task" : "tasks"} yesterday. ` : ""}Today, start with "${byDue[0].title}".`
+    : `Good morning, ${f.name}. There's nothing open on your roadmap, so today is a good day to plan the next step.`;
+  return { content: JSON.stringify({ brief, focus, watch_out: f.open.length > 3 ? `You have ${f.open.length} open tasks; finish before starting new ones.` : null }), toolCalls: [] };
+}
+
 export const mockProvider: LlmProvider = {
   name: "mock",
   async complete(messages, tools): Promise<Completion> {
@@ -85,6 +197,13 @@ export const mockProvider: LlmProvider = {
     const turn = messages.slice(lastUserIdx + 1);
     const usedTools = turn.flatMap((m) => (m.role === "assistant" && m.tool_calls ? m.tool_calls : []));
     const used = (name: string) => usedTools.some((c) => c.type === "function" && c.function.name === name);
+
+    const voice = userText.match(/^\[council:([a-z_]+)\]/)?.[1];
+    if (voice) return mockCouncil(voice, userText, turn, toolNames, used);
+    if (userText.startsWith(CHAIR_MARKER)) return mockChair(userText);
+    if (userText.startsWith(VERIFY_MARKER)) return mockVerify(userText);
+    if (userText.startsWith(RESEARCH_MARKER)) return mockResearch(userText, turn, toolNames, used);
+    if (userText.startsWith(NIGHT_MARKER)) return mockNightShift(userText, toolNames, used);
     const wantsPlan = /\b(plan|goal|help me|steps|start)\b/i.test(userText);
 
     if (toolNames.has("search_memory") && !used("search_memory")) {

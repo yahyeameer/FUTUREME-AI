@@ -1,6 +1,11 @@
 import { connection } from "next/server";
 import { z } from "zod";
+import { runCouncil, saveCouncilBrief } from "@/lib/council";
+import { runNightShift } from "@/lib/night-shift";
+import { setActivePack } from "@/lib/packs";
+import { runResearch } from "@/lib/research";
 import { db } from "@/lib/server-db";
+import { verifyMessage } from "@/lib/verify";
 import {
   buildWorkspace,
   createMemory,
@@ -32,6 +37,12 @@ const Action = z.discriminatedUnion("action", [
   z.object({ action: z.literal("deleteMemories"), ids: z.array(z.string()) }),
   z.object({ action: z.literal("generateReflection") }),
   z.object({ action: z.literal("publishEdition") }),
+  z.object({ action: z.literal("askCouncil"), question: z.string().min(3).max(600) }),
+  z.object({ action: z.literal("saveCouncil"), id: z.coerce.number().int() }),
+  z.object({ action: z.literal("verifyMessage"), id: z.string().regex(/^msg-\d+$/) }),
+  z.object({ action: z.literal("runResearch"), topic: z.string().min(3).max(300) }),
+  z.object({ action: z.literal("runNightShift") }),
+  z.object({ action: z.literal("setPack"), id: z.string().max(80).nullable() }),
 ]);
 
 export async function POST(request: Request) {
@@ -67,6 +78,24 @@ export async function POST(request: Request) {
         break;
       case "publishEdition":
         await publishEdition(d);
+        break;
+      case "askCouncil":
+        await runCouncil(d, a.question);
+        break;
+      case "saveCouncil":
+        saveCouncilBrief(d, a.id);
+        break;
+      case "verifyMessage":
+        await verifyMessage(d, Number(a.id.slice(4)));
+        break;
+      case "runResearch":
+        await runResearch(d, a.topic);
+        break;
+      case "runNightShift":
+        await runNightShift(d, "manual");
+        break;
+      case "setPack":
+        setActivePack(d, a.id);
         break;
     }
   } catch (err) {

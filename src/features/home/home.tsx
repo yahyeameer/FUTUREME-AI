@@ -13,7 +13,8 @@ import { Reveal, RevealItem } from "@/components/motion/reveal";
 import { EmptyState } from "@/components/states";
 import { Button } from "@/components/ui/button";
 import { ApprovalCard } from "@/features/assistant/approval-card";
-import { agentLog, TOOLS, toolUsage, vaultFiles } from "@/features/agent/agent-data";
+import { agentLog, agentTools, logKind, toolUsage, vaultFiles } from "@/features/agent/agent-data";
+import { MorningBrief, recentShift } from "@/features/agent/agent-team";
 import { excerpt, KIND_LABEL } from "@/features/memory/memory-preview";
 import { ProvenanceBadge } from "@/features/memory/provenance";
 import { TaskRow } from "@/features/roadmap/task-row";
@@ -31,6 +32,8 @@ export function Home() {
   const waiting = pendingApprovals(workspace);
   const today = new Date();
   const conv = convergence(workspace.tasks);
+  const [now] = React.useState(() => Date.now());
+  const brief = recentShift(workspace.nightShifts, now);
 
   const summary =
     active && activeProgress
@@ -132,6 +135,12 @@ export function Home() {
           <StatMemories />
           <StatHorizon />
         </RevealItem>
+
+        {brief && (
+          <RevealItem as="section" aria-labelledby="brief-heading" className="lg:col-span-12">
+            <MorningBrief shift={brief} />
+          </RevealItem>
+        )}
 
         {waiting.length > 0 && (
           <RevealItem as="section" aria-labelledby="waiting-heading" className="lg:col-span-12">
@@ -333,6 +342,7 @@ function AgentPanel() {
   const usage = toolUsage(workspace);
   const log = agentLog(workspace).slice(0, 3);
   const readable = vaultFiles(workspace).filter((f) => f.readable).length;
+  const tools = agentTools(workspace);
   return (
     <div className="grid grid-cols-[minmax(0,1fr)] lg:grid-cols-[minmax(0,7fr)_minmax(0,5fr)]">
       <div className="p-6">
@@ -346,7 +356,7 @@ function AgentPanel() {
                 Your agent
               </h2>
               <p className="text-[13px] text-muted-foreground">
-                {pluralize(TOOLS.filter((t) => t.gate !== "unavailable").length, "tool")} · {pluralize(readable, "file")} it can read · {pluralize(workspace.skills.filter((s) => s.available).length, "action")}
+                {pluralize(tools.filter((t) => t.gate !== "unavailable").length, "tool")} · {pluralize(readable, "file")} it can read · {pluralize(workspace.skills.filter((s) => s.available).length, "action")}
               </p>
             </div>
           </div>
@@ -355,7 +365,7 @@ function AgentPanel() {
           </Link>
         </div>
         <ul className="mt-5 grid grid-cols-[minmax(0,1fr)] gap-2.5 sm:grid-cols-2">
-          {TOOLS.map((t) => {
+          {tools.slice(0, 4).map((t) => {
             const u = usage.get(t.name);
             const off = t.gate === "unavailable";
             return (
@@ -386,7 +396,7 @@ function AgentPanel() {
                   <span className="min-w-0">
                     <span className="block text-[13px] leading-snug group-hover:underline">{e.title}</span>
                     <span className="mt-0.5 block t-meta">
-                      {e.tool ? <span className="font-mono">{e.tool}</span> : e.kind === "skill" ? "Action" : "Approval"} · {relativeDay(e.at)}
+                      <span className={cn(e.tool && "font-mono")}>{logKind(e)}</span> · {relativeDay(e.at)}
                     </span>
                   </span>
                 </Link>

@@ -1,14 +1,21 @@
-# FutureMe agent, built with Docker Agent (https://docker.github.io/docker-agent/).
+# FutureMe's agent team, built with Docker Agent (https://docker.github.io/docker-agent/).
 #
-#   Interactive:   docker agent run agents/futureme.yaml
+#   Interactive:   docker agent run agents/futureme.yaml                 (the future self)
+#                  docker agent run agents/futureme.yaml --agent council (the council, delegating to its voices)
 #   For the app:   docker agent serve chat agents/futureme.yaml --safety autonomous
-#                  then set DOCKER_AGENT_URL=http://127.0.0.1:8083 for the web app.
+#                  then set DOCKER_AGENT_URL=http://127.0.0.1:8083. The app calls each agent by name.
 #                  `--safety autonomous` is safe here: the only tools are FutureMe's own MCP tools, and plans and
 #                  memories they propose still wait for the user's approval in the app.
 #   Without a key: npm run mock-model, then add `--flavor mock` to either command
+#   Private:       add `--flavor local` to run every agent on Docker Model Runner on this machine
 #
 # Needs NEBIUS_API_KEY. Set `model` below to an id from `npm run spike:models`.
 # The app adds a system message with the user's profile and coaching style on every turn.
+# When the app runs without Docker Agent, it reads the instructions below and runs the same agents in-process.
+
+metadata:
+  author: FutureMe
+  description: A future self, a council of voices, a fact checker, a researcher and a night-shift planner.
 
 providers:
   nebius:
@@ -39,6 +46,118 @@ agents:
         args: ["tsx", "mcp/futureme-server.ts"]
         tools: [search_memory, propose_memory, propose_plan]
 
+  # ---------- The council: one question, several future selves ----------
+
+  council:
+    model: nemotron
+    description: Chairs a council of future selves and merges their views into one decision brief.
+    instruction: |
+      Ask each of your sub-agents the user's question, then merge what they said into one decision brief:
+      where they agree, where they pull in different directions, and the single next step you'd take.
+    sub_agents: [voice_horizon, voice_next_year, voice_skeptic, voice_mentor]
+
+  voice_horizon:
+    model: nemotron
+    description: The user at their horizon year, having reached the dream.
+    instruction: |
+      You are the user at their horizon year, having reached their dream. Speak in the first person, boldly.
+      Call search_memory once to ground yourself in what they've told you.
+      Answer the question in at most 90 words: what you'd do, and why it mattered in hindsight. No lists.
+    toolsets:
+      - type: mcp
+        command: npx
+        args: ["tsx", "mcp/futureme-server.ts"]
+        tools: [search_memory]
+
+  voice_next_year:
+    model: nemotron
+    description: The user one year from now, focused on what is realistic this year.
+    instruction: |
+      You are the user one year from now. You know their real constraints: time, money, energy.
+      Call search_memory once. Answer in at most 90 words with what is realistic in the next twelve months. No lists.
+    toolsets:
+      - type: mcp
+        command: npx
+        args: ["tsx", "mcp/futureme-server.ts"]
+        tools: [search_memory]
+
+  voice_skeptic:
+    model: nemotron
+    description: A friendly skeptic who looks for the risk in the plan.
+    instruction: |
+      You are a friendly skeptic who wants the user to succeed. Call search_memory once.
+      In at most 90 words, name the biggest risk or blind spot in what they're considering and one way to test it cheaply.
+    toolsets:
+      - type: mcp
+        command: npx
+        args: ["tsx", "mcp/futureme-server.ts"]
+        tools: [search_memory]
+
+  voice_mentor:
+    model: nemotron
+    description: An older mentor who has seen many people try this.
+    instruction: |
+      You are an experienced mentor who has watched many people chase dreams like this one. Call search_memory once.
+      In at most 90 words, share the pattern you've seen and the question you'd want them to answer first.
+    toolsets:
+      - type: mcp
+        command: npx
+        args: ["tsx", "mcp/futureme-server.ts"]
+        tools: [search_memory]
+
+  council_chair:
+    model: nemotron
+    description: Merges the council's answers into a decision brief. Used by the app, which calls each voice itself.
+    instruction: |
+      You receive a question and the answers of several future selves. Do not add facts they didn't give.
+      Reply with JSON only: {"summary": "two sentences", "agreements": ["..."], "tensions": ["..."], "next_step": "one concrete action"}
+
+  # ---------- Checking, research and the night shift ----------
+
+  verifier:
+    model: nemotron
+    description: Checks a future-self reply against the user's notes before they rely on it.
+    instruction: |
+      You check a reply against the user's notes. Split it into its factual claims about the user's life, past or plans.
+      A claim is "supported" only if a note says it; give that note's path. Advice, questions and imagined futures are "opinion".
+      Anything else is "unverified". Use search_memory if the notes you were given aren't enough.
+      Reply with JSON only: {"claims": [{"text": "...", "status": "supported|unverified|opinion", "source": "path or null"}]}
+    toolsets:
+      - type: mcp
+        command: npx
+        args: ["tsx", "mcp/futureme-server.ts"]
+        tools: [search_memory]
+
+  researcher:
+    model: nemotron
+    description: Researches a topic on the web and summarises it with real links.
+    instruction: |
+      Research the topic. Call web_search, then fetch_url on the two or three most relevant links to check what they say.
+      Only cite links that web_search returned. Never invent a source, a number or a quote.
+      Reply with JSON only: {"summary": "3-4 sentences", "findings": [{"point": "one sentence", "url": "a link you read"}]}
+    toolsets:
+      - type: mcp
+        command: npx
+        args: ["tsx", "mcp/futureme-server.ts"]
+        tools: [web_search, fetch_url]
+
+  night_shift:
+    model: nemotron
+    description: Runs overnight. Reviews the day and prepares a short morning brief with tomorrow's focus.
+    instruction: |
+      You prepare the user's morning brief from the facts you're given: open tasks, what they finished, what's blocked.
+      Pick at most three open tasks for tomorrow by their id, overdue and in-progress work first.
+      If an active goal has no open tasks left, you may call propose_plan once for its next step. It waits for approval.
+      Never say something was done unless the facts list it as done.
+      Reply with JSON only: {"brief": "2-3 sentences addressed to the user", "focus": [task ids], "watch_out": "one sentence or null"}
+    toolsets:
+      - type: mcp
+        command: npx
+        args: ["tsx", "mcp/futureme-server.ts"]
+        tools: [search_memory, propose_plan]
+
+  # ---------- The voice twin ----------
+
   # The voice twin speaks for the user to other people. It can only propose: every call, email and promise waits
   # for the user's approval in the app, so `--safety autonomous` stays safe.
   twin:
@@ -58,8 +177,14 @@ agents:
         tools: [search_memory, propose_call, propose_email, propose_commitment]
 
 flavors:
-  # Point the agent at the local stand-in model (npm run mock-model) for demos and tests without a key.
+  # Point every agent at the local stand-in model (npm run mock-model) for demos and tests without a key.
   mock:
     providers:
       nebius:
         base_url: http://127.0.0.1:8090/v1
+  # Run every agent on Docker Model Runner on this machine. Nothing leaves it. `docker model pull ai/qwen3` first.
+  local:
+    models:
+      nemotron:
+        provider: dmr
+        model: ai/qwen3

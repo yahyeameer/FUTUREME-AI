@@ -1,4 +1,5 @@
 import { skillDef } from "@/lib/skills";
+import { toolLabel } from "@/lib/tool-labels";
 import type { CoachingStyle, Message, SkillRun, ToolCall, TurnEvent, Workspace } from "@/types";
 import type { FutureMeService } from "./types";
 
@@ -8,11 +9,6 @@ import type { FutureMeService } from "./types";
 const TONE_KEY = "futureme.live.tone";
 const RUNS_KEY = "futureme.live.skillRuns";
 
-const TOOL_LABELS: Record<string, string> = {
-  search_memory: "Searched your memory",
-  propose_plan: "Drafted a plan",
-  propose_memory: "Proposed a memory",
-};
 
 function stored<T>(key: string, fallback: T): T {
   try {
@@ -96,7 +92,7 @@ export function createLiveService(): FutureMeService {
         const event = JSON.parse(line) as
           | { type: "delta"; text: string }
           | { type: "error"; error: string }
-          | { type: "done"; reply: string; citations: string[]; approvals: number[]; tools: string[]; backend: string };
+          | { type: "done"; id: number; reply: string; citations: string[]; approvals: number[]; tools: string[]; backend: string };
         if (event.type === "delta") {
           if (first) {
             yield { type: "tool", tool: { ...working, label: "Thought it through", status: "done" } };
@@ -112,7 +108,7 @@ export function createLiveService(): FutureMeService {
           const counts = new Map<string, number>();
           for (const t of event.tools) counts.set(t, (counts.get(t) ?? 0) + 1);
           const message: Message = {
-            id: workspace.conversation.at(-1)?.id ?? `msg-${Date.now()}`,
+            id: `msg-${event.id}`,
             role: "assistant",
             content: event.reply,
             createdAt: new Date().toISOString(),
@@ -120,7 +116,7 @@ export function createLiveService(): FutureMeService {
             approvalIds: event.approvals.map(String),
             tools: [...counts].map(([name, n]) => ({
               name,
-              label: TOOL_LABELS[name] ?? name.replace(/_/g, " "),
+              label: toolLabel(name),
               status: "done" as const,
               detail: name === "search_memory" ? `${event.citations.length} ${event.citations.length === 1 ? "note" : "notes"} retrieved` : n > 1 ? `${n} times` : undefined,
             })),
@@ -129,6 +125,13 @@ export function createLiveService(): FutureMeService {
         }
       }
     }
+  }
+
+  async function runResearch(topic: string) {
+    const workspace = await request({ action: "runResearch", topic });
+    const run = workspace.research.find((r) => r.topic === topic.trim());
+    if (!run) throw new Error("The research run wasn't saved.");
+    return { workspace, run };
   }
 
   return {
@@ -158,8 +161,45 @@ export function createLiveService(): FutureMeService {
       if (!workspace.editions[0]) throw new Error("The edition wasn't saved.");
       return { workspace, edition: workspace.editions[0] };
     },
+    async askCouncil(question) {
+      const workspace = await request({ action: "askCouncil", question });
+      const session = workspace.councils.find((c) => c.question === question.trim());
+      if (!session) throw new Error("The council's answer wasn't saved.");
+      return { workspace, session };
+    },
+    saveCouncil: (id) => request({ action: "saveCouncil", id }),
+    verifyMessage: (id) => request({ action: "verifyMessage", id }),
+    runResearch,
+    async runNightShift() {
+      const workspace = await request({ action: "runNightShift" });
+      const shift = workspace.nightShifts[0];
+      if (!shift) throw new Error("The night shift didn't record a run.");
+      return { workspace, shift };
+    },
+    setPack: (id) => request({ action: "setPack", id }),
     async runSkill(skillId, inputs, onUpdate) {
       const def = skillDef(skillId);
+      if (skillId === "research") {
+        const run: SkillRun = { id: `run-${Date.now()}`, skillId, status: "running", startedAt: new Date().toISOString(), summary: "Searching the web and reading sources…", output: [], approvalIds: [], simulated: false };
+        onUpdate({ ...run });
+        try {
+          const { workspace, run: r } = await runResearch(inputs.topic ?? "");
+          run.status = r.status === "awaiting_approval" ? "awaiting_approval" : r.status === "failed" ? "failed" : "completed";
+          run.summary = r.status === "failed" ? (r.error ?? "Research failed.") : `Read ${r.sources.length} ${r.sources.length === 1 ? "source" : "sources"}. Review the summary before it's saved.`;
+          run.output = [r.summary, ...r.sources.map((s) => `${s.point} (${s.url})`)].filter((x): x is string => !!x);
+          run.approvalIds = r.approvalId ? [r.approvalId] : [];
+          run.finishedAt = new Date().toISOString();
+          store(RUNS_KEY, [run, ...stored<SkillRun[]>(RUNS_KEY, [])].slice(0, 30));
+          onUpdate({ ...run });
+          return { workspace: withLocalPrefs(workspace), run };
+        } catch (err) {
+          run.status = "failed";
+          run.summary = err instanceof Error ? err.message : "Research failed.";
+          run.finishedAt = new Date().toISOString();
+          onUpdate({ ...run });
+          return { workspace: await request(), run };
+        }
+      }
       if (!def?.livePrompt) throw new Error(def?.liveUnavailableReason ?? "This skill isn't available.");
       const run: SkillRun = { id: `run-${Date.now()}`, skillId, status: "running", startedAt: new Date().toISOString(), summary: "Asking your future self…", output: [], approvalIds: [], simulated: false };
       onUpdate({ ...run });

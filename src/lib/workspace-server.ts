@@ -15,11 +15,21 @@ import {
   type PlanProposal as BackendPlanProposal,
   type Profile as BackendProfile,
 } from "./futureme";
-import { getProvider } from "./llm";
+import { agentFilePath, agentTeam } from "./agents";
+import { listCouncils } from "./council";
+import { getProvider, LOCAL_LLM_URL } from "./llm";
+import { listNightShifts, nextRunAt, nightShiftSchedule } from "./night-shift";
+import { activePack, listPacks } from "./packs";
+import { listResearch } from "./research";
 import { skillsFor } from "./skills";
+import { TEAM } from "./team-info";
+import { toolLabel } from "./tool-labels";
+import { searchProvider } from "./web";
 import { listNotes, readNote, resolveInVault, slugify, VAULT_FOLDERS, writeNote, type Note, type VaultFolder } from "./vault";
 import type {
   ActivityItem,
+  AgentInfo,
+  AgentPlatform,
   Approval,
   CoachingStyle,
   DailyEdition,
@@ -59,6 +69,7 @@ const KIND_BY_FOLDER: Record<string, MemoryKind> = {
   Plans: "goal",
   Tasks: "task",
   Daily: "daily",
+  Research: "note",
 };
 
 const FOLDER_BY_KIND: Record<MemoryKind, VaultFolder> = {
@@ -87,6 +98,8 @@ function sourceOf(note: Note, provenance: Provenance): string {
       return provenance === "verified" ? "Completed task" : "Task from an approved plan";
     case "Daily":
       return "FutureMe Daily";
+    case "Research":
+      return "Web research summary";
     case "Reflections":
       return provenance === "ai-inferred" ? "Generated reflection" : "Approved from a conversation";
     default:
@@ -164,15 +177,24 @@ function runtime(): Workspace["runtime"] {
     model = err instanceof Error ? `not configured (${err.message})` : "not configured";
   }
   const standIn = model === "mock";
+  const local = model.startsWith("local:");
   return {
     mode: "live",
-    agent: process.env.DOCKER_AGENT_URL ? "Docker Agent (agents/futureme.yaml) with FutureMe's MCP tools" : "FutureMe agent loop, running in the app server",
-    model: standIn ? "Built-in stand-in model (no Nebius key configured)" : model.replace(/^nebius:/, "Nemotron on Nebius Token Factory: "),
+    agent: process.env.DOCKER_AGENT_URL
+      ? `Docker Agent team (agents/futureme.yaml, ${agentTeam().length} agents) with FutureMe's MCP tools`
+      : "FutureMe's agent team, running in the app server",
+    model: standIn
+      ? "Built-in stand-in model (no Nebius key configured)"
+      : local
+        ? `${model.slice(6)} on Docker Model Runner, on this machine`
+        : model.replace(/^nebius:/, "Nemotron on Nebius Token Factory: "),
     simulated: standIn,
     storage: "SQLite and an Obsidian-compatible Markdown vault on the FutureMe server",
     inference: standIn
       ? "None. The stand-in model runs inside the app server."
-      : "Remote. Each conversation turn, with relevant memories, is sent to Nebius Token Factory for inference.",
+      : local
+        ? `Local. Every agent runs on Docker Model Runner at ${LOCAL_LLM_URL()}; nothing is sent to a cloud model.`
+        : "Remote. Each conversation turn, with relevant memories, is sent to Nebius Token Factory for inference.",
   };
 }
 
@@ -282,25 +304,48 @@ export function buildWorkspace(db: Db): Workspace {
       : null;
 
   const conversation: Message[] = (
-    db.prepare("SELECT id, role, content, citations, created_at FROM messages ORDER BY id DESC LIMIT 60").all() as {
+    db.prepare("SELECT id, role, content, citations, tools, verification, created_at FROM messages ORDER BY id DESC LIMIT 60").all() as {
       id: number;
       role: "user" | "assistant";
       content: string;
       citations: string | null;
+      tools: string | null;
+      verification: string | null;
       created_at: string;
     }[]
   )
     .reverse()
-    .map((m) => ({
-      id: `msg-${m.id}`,
-      role: m.role,
-      content: m.content,
-      createdAt: sqlTime(m.created_at)!,
-      citations: (m.citations ? (JSON.parse(m.citations) as string[]) : []).map((p) => ({ memoryId: p, title: titleOf.get(p) ?? p })),
-    }));
+    .map((m): Message => {
+      const citations = m.citations ? (JSON.parse(m.citations) as string[]) : [];
+      const tools = m.tools ? (JSON.parse(m.tools) as string[]) : [];
+      const counts = new Map<string, number>();
+      for (const t of tools) counts.set(t, (counts.get(t) ?? 0) + 1);
+      return {
+        id: `msg-${m.id}`,
+        role: m.role,
+        content: m.content,
+        createdAt: sqlTime(m.created_at)!,
+        citations: citations.map((p) => ({ memoryId: p, title: titleOf.get(p) ?? p })),
+        tools: tools.length
+          ? [...counts].map(([name, n]) => ({
+              name,
+              label: toolLabel(name),
+              status: "done" as const,
+              detail: name === "search_memory" ? `${citations.length} ${citations.length === 1 ? "note" : "notes"} retrieved` : n > 1 ? `${n} times` : undefined,
+            }))
+          : undefined,
+        verification: m.verification ? JSON.parse(m.verification) : undefined,
+      };
+    });
+
+  const researchRuns = listResearch(db);
+  const nightShifts = listNightShifts(db);
+  // Proposals from research and the night shift belong to those runs, not to a conversation reply.
+  const ownedElsewhere = new Set([...researchRuns.flatMap((r) => (r.approval_id ? [String(r.approval_id)] : [])), ...nightShifts.flatMap((n) => n.approvals.map(String))]);
 
   // Approvals aren't stored with a message id; a proposal belongs to the first reply saved at or after it.
   for (const a of approvals) {
+    if (ownedElsewhere.has(a.id)) continue;
     const reply = conversation.find((m) => m.role === "assistant" && m.createdAt >= a.createdAt);
     if (reply) (reply.approvalIds ??= []).push(a.id);
   }
@@ -318,6 +363,11 @@ export function buildWorkspace(db: Db): Workspace {
       memoryRetrievalControl: false,
       editPlansBeforeApproval: true,
       streaming: true,
+      council: true,
+      verify: true,
+      research: searchProvider() !== "off",
+      nightShift: true,
+      packs: true,
     },
     profile,
     milestones,
@@ -328,8 +378,71 @@ export function buildWorkspace(db: Db): Workspace {
     conversation,
     editions: issues.reverse(),
     activity: activity(db, goals),
-    skills: skillsFor("live"),
+    skills: skillsFor("live", { research: searchProvider() !== "off" }),
     skillRuns: [],
+    platform: platform(db),
+    councils: listCouncils(db).map((c) => ({
+      id: String(c.id),
+      question: c.question,
+      createdAt: sqlTime(c.created_at)!,
+      voices: c.voices,
+      brief: { summary: c.brief.summary, agreements: c.brief.agreements, tensions: c.brief.tensions, nextStep: c.brief.next_step },
+      citations: c.citations.map((p) => ({ memoryId: p, title: titleOf.get(p) ?? p })),
+      memoryId: c.note_path ?? undefined,
+      simulated: false,
+    })),
+    nightShifts: nightShifts.map((n) => ({
+      id: String(n.id),
+      trigger: n.trigger,
+      status: n.status,
+      startedAt: sqlTime(n.started_at)!,
+      finishedAt: sqlTime(n.finished_at),
+      brief: n.brief ?? undefined,
+      focus: n.focus.map((f) => ({ taskId: `task-${f.id}`, title: f.title })),
+      watchOut: n.watch_out ?? undefined,
+      dailyDate: n.daily_date ?? undefined,
+      approvalIds: n.approvals.map(String),
+      error: n.error ?? undefined,
+      simulated: false,
+    })),
+    research: researchRuns.map((r) => ({
+      id: String(r.id),
+      topic: r.topic,
+      status: r.status,
+      startedAt: sqlTime(r.started_at)!,
+      finishedAt: sqlTime(r.finished_at),
+      summary: r.summary ?? undefined,
+      sources: r.sources,
+      approvalId: r.approval_id ? String(r.approval_id) : undefined,
+      error: r.error ?? undefined,
+    })),
+  };
+}
+
+function platform(db: Db): AgentPlatform {
+  // The YAML is the truth for what each agent can do; TEAM only supplies labels and roles.
+  const team: AgentInfo[] = agentTeam().map((a) => {
+    const known = TEAM.find((t) => t.name === a.name);
+    return { name: a.name, label: known?.label ?? a.name, description: a.description, role: known?.role ?? "chat", tools: a.tools, subAgents: a.subAgents };
+  });
+  // Only report a schedule when the scheduler is actually running (the container's entrypoint starts it).
+  const at = process.env.NIGHT_SHIFT_SCHEDULER === "on" ? nightShiftSchedule() : null;
+  let local = false;
+  try {
+    local = getProvider().name.startsWith("local:");
+  } catch {
+    // Provider misconfigured; the runtime block already reports it.
+  }
+  return {
+    team,
+    backend: process.env.DOCKER_AGENT_URL ? "docker-agent" : "in-process",
+    agentFile: path.relative(process.cwd(), agentFilePath()),
+    webSearch: searchProvider(),
+    local,
+    nightShiftAt: at,
+    nextNightShift: at ? nextRunAt(at).toISOString() : undefined,
+    packs: listPacks(),
+    activePack: activePack(db)?.id ?? null,
   };
 }
 
