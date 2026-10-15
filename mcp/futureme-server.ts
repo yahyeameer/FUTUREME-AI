@@ -102,6 +102,68 @@ server.registerTool(
   async (args) => text((await runTool(db, "spawn_agent", JSON.stringify(args))).output),
 );
 
+// ---------- Voice twin (propose-only) ----------
+// These never call, email or promise anything themselves: each creates a pending approval in the app.
+const proposes = { readOnlyHint: false, destructiveHint: false, openWorldHint: false };
+
+server.registerTool(
+  "propose_call",
+  {
+    description:
+      "Propose a phone call by the user's AI twin to one of their saved contacts. The user must approve it; no call is made until then. The call always opens by saying it is the user's AI twin.",
+    inputSchema: {
+      contact: z.string().min(1).max(80).describe("The contact's name as saved, or their id"),
+      purpose: z.string().min(1).max(300),
+      talking_points: z.array(z.string().min(1).max(200)).max(5).optional(),
+    },
+    annotations: proposes,
+  },
+  async (args) => text((await runTool(db, "propose_call", JSON.stringify(args))).output),
+);
+
+server.registerTool(
+  "propose_email",
+  {
+    description:
+      "Draft an email from the user's AI twin to one of their saved contacts. The user must approve it; nothing is sent until then. An AI disclosure line and signature are added automatically.",
+    inputSchema: {
+      contact: z.string().min(1).max(80).describe("The contact's name as saved, or their id"),
+      subject: z.string().min(1).max(150),
+      body: z.string().min(1).max(4000),
+    },
+    annotations: proposes,
+  },
+  async (args) => text((await runTool(db, "propose_email", JSON.stringify(args))).output),
+);
+
+server.registerTool(
+  "propose_commitment",
+  {
+    description:
+      "Record something someone wants the user to agree to (a meeting, a favour, a deadline). The twin never agrees itself; the user decides in the app.",
+    inputSchema: {
+      what: z.string().min(1).max(300),
+      contact: z.string().min(1).max(80).optional(),
+      when: z.string().max(80).optional(),
+      context: z.string().max(1000).optional(),
+    },
+    annotations: proposes,
+  },
+  async (args) => text((await runTool(db, "propose_commitment", JSON.stringify(args))).output),
+);
+
+// Promise Keeper: only works during a live Promise Keeper call, and only on that call's own task.
+server.registerTool(
+  "confirm_task_done",
+  {
+    description:
+      "On a Promise Keeper call only: mark the task the call is about as done, after the user clearly says they did it. Pass the call_ref from your instructions.",
+    inputSchema: { call_ref: z.string().min(1).max(100) },
+    annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: false },
+  },
+  async (args) => text((await runTool(db, "confirm_task_done", JSON.stringify(args))).output),
+);
+
 server.connect(new StdioServerTransport()).catch((err) => {
   console.error(err);
   process.exit(1);

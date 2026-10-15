@@ -1,5 +1,5 @@
 #!/bin/sh
-# Container entrypoint: runs Docker Agent (FutureMe's agent team), the night-shift scheduler and the web app side by side.
+# Container entrypoint: runs Docker Agent (FutureMe's agent team), the night-shift and twin schedulers and the web app side by side.
 #   LLM_PROVIDER=local   every agent runs on Docker Model Runner on this machine (see docker-compose.local.yml)
 #   no NEBIUS_API_KEY    (or LLM_PROVIDER=mock) both use the built-in stand-in model, so the demo always runs
 set -e
@@ -36,6 +36,11 @@ docker-agent serve chat "$AGENT_FILE" --safety autonomous --listen 127.0.0.1:808
 if [ "$NIGHT_SHIFT_AT" != "off" ]; then
   node_modules/.bin/tsx scripts/night-shift.ts --loop &
   export NIGHT_SHIFT_SCHEDULER=on
+fi
+
+# The voice twin's scheduler places scheduled calls to the user's own phone and files call transcripts.
+if [ -n "$ELEVENLABS_API_KEY" ] && [ "$TWIN_SCHEDULER" != "off" ]; then
+  node_modules/.bin/tsx scripts/twin-scheduler.ts --loop &
 fi
 
 exec node_modules/.bin/next start -H 0.0.0.0 -p "${PORT:-3000}"

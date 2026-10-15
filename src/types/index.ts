@@ -280,7 +280,7 @@ export interface SkillRun {
 
 // ---------- Agent team (Docker Agent) ----------
 
-export type AgentRole = "chat" | "council" | "voice" | "check" | "research" | "schedule" | "helper" | "lead" | "supervise";
+export type AgentRole = "chat" | "council" | "voice" | "check" | "research" | "schedule" | "helper" | "lead" | "supervise" | "twin";
 
 export interface AgentInfo {
   name: string;

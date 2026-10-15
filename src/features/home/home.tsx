@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowRight, ArrowUpRight, BookOpenText, Bot, Check, CircleDashed, Flag, Hourglass, Library, ListChecks, MessageCircle, Newspaper, Sparkles, Target } from "lucide-react";
+import { ArrowRight, ArrowUpRight, BookOpenText, Bot, Check, CircleDashed, Flag, Hourglass, Library, ListChecks, MessageCircle, Newspaper, PhoneCall, Sparkles, Target } from "lucide-react";
 import { motion } from "motion/react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -69,6 +69,11 @@ export function Home() {
                 <Button asChild variant="secondary" size="lg">
                   <Link href="/roadmap">
                     <Target /> Open roadmap
+                  </Link>
+                </Button>
+                <Button asChild variant="ghost" size="lg">
+                  <Link href="/twin#talk">
+                    <PhoneCall /> Call your future self
                   </Link>
                 </Button>
               </div>

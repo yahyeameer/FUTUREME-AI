@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowRight, ArrowUpRight, Bot, Eye, Flag, UserPlus, Check, CircleDashed, Cloud, ExternalLink, Globe, HardDrive, Loader2, Lock, Moon, Package, Play, ShieldCheck, Sparkles, Telescope, Users, type LucideIcon } from "lucide-react";
+import { AudioLines, ArrowRight, ArrowUpRight, Bot, Eye, Flag, UserPlus, Check, CircleDashed, Cloud, ExternalLink, Globe, HardDrive, Loader2, Lock, Moon, Package, Play, ShieldCheck, Sparkles, Telescope, Users, type LucideIcon } from "lucide-react";
 import Link from "next/link";
 import * as React from "react";
 import { EmptyState } from "@/components/states";
@@ -22,6 +22,7 @@ const ROLE: Record<AgentRole, { icon: LucideIcon; label: string; href?: string }
   helper: { icon: UserPlus, label: "Created on demand" },
   lead: { icon: Flag, label: "Leads missions", href: "/missions" },
   supervise: { icon: Eye, label: "Supervises", href: "#supervisor-heading" },
+  twin: { icon: AudioLines, label: "Voice twin", href: "/twin" },
 };
 
 /** Every agent in agents/futureme.yaml, with the tools it is allowed to call. */

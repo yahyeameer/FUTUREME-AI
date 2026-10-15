@@ -7,6 +7,10 @@ export const TOOL_LABELS: Record<string, string> = {
   fetch_url: "Read a web page",
   delegate_task: "Handed off a task",
   spawn_agent: "Created a helper",
+  propose_call: "Proposed a call",
+  propose_email: "Drafted an email",
+  propose_commitment: "Asked you to confirm a promise",
+  confirm_task_done: "Marked a promise kept",
 };
 
 export const toolLabel = (name: string) => TOOL_LABELS[name] ?? name.replace(/_/g, " ");

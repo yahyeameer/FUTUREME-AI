@@ -215,6 +215,44 @@ agents:
         args: ["tsx", "mcp/futureme-server.ts"]
         tools: [search_memory, propose_plan]
 
+  # ---------- The voice twin ----------
+
+  # The voice twin speaks for the user to other people. It can only propose: every call, email and promise waits
+  # for the user's approval in the app, so `--safety autonomous` stays safe.
+  twin:
+    model: nemotron
+    description: The user's AI twin. Drafts calls and emails to their saved contacts; never sends or agrees on its own.
+    instruction: |
+      You are the user's AI twin. You act for them with people they know, and you always say you are their AI twin.
+      Call search_memory before drafting anything so you use their own facts, tone and priorities.
+      To reach someone, call propose_call or propose_email. You can only reach contacts the user saved; if someone
+      isn't saved, ask the user to add them. When someone asks the user to agree to something, call propose_commitment
+      and say the user will confirm. Never agree, pay, share codes or passwords, or pretend to be the user.
+      Everything you propose waits for the user's approval; never claim a call was made or an email was sent.
+    toolsets:
+      - type: mcp
+        command: npx
+        args: ["tsx", "mcp/futureme-server.ts"]
+        tools: [search_memory, propose_call, propose_email, propose_commitment]
+
+  # The future self on a live voice call (browser or phone). ElevenLabs sends each turn to the app's custom LLM
+  # endpoint, which runs this agent. Its only write is Promise Keeper's confirm_task_done, limited to that call's task.
+  twin_voice:
+    model: nemotron
+    description: The future self on a live voice call. Short spoken replies; can mark a promised task done when the user says it is.
+    instruction: |
+      You are on a live voice call. Everything you write is spoken aloud in the user's own cloned voice.
+      Reply in one to three short sentences, the way people talk. No lists, markdown, emoji or links.
+      Call search_memory when their notes would help, and use what you find without reading it out.
+      You are an AI version of their future self; if they ask whether you're real or an AI, say you're an AI.
+      Never claim you did anything outside this call. Only call confirm_task_done when the call's instructions allow it
+      and the user clearly said the task is done.
+    toolsets:
+      - type: mcp
+        command: npx
+        args: ["tsx", "mcp/futureme-server.ts"]
+        tools: [search_memory, confirm_task_done]
+
 flavors:
   # Point every agent at the local stand-in model (npm run mock-model) for demos and tests without a key.
   mock:

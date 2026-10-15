@@ -21,9 +21,46 @@ The app is a signed-in workspace (no landing page). Old links (`/chat`, `/plan`,
 9. **Council** (`/council`): ask one decision of four future selves (you at your horizon, you next year, a skeptic and a mentor). They answer in parallel, each reading your notes, and a chair agent merges them into a decision brief with agreements, tensions and a next step you can turn into a plan or save to the vault.
 10. **Agent** (`/agent`): the agent's control room. The team of agents from `agents/futureme.yaml` and the tools each may call; the supervisor log (every handoff and mission task with its verdict); the real tools (`search_memory`, `propose_plan`, `propose_memory`, `web_search`, `fetch_url`, `delegate_task`, `spawn_agent`) with what each can read or write, whether it runs on its own or needs approval, and how often it was used. The night shift (last brief, tomorrow's focus, schedule, Run now), research runs with their sources, the persona pack chooser, and where the model runs. File access lists the vault's Markdown files by folder and whether the agent can read each one. Also the approval queue, the actions it can run, and a log of every tool call, action run and decision, built only from recorded data.
 11. **Missions** (`/missions`): give the team one goal. A mission lead splits it into 2 to 4 tasks, a helper agent works on each at the same time with only the read-only tools it needs, the supervisor reviews every result, and the lead writes one report from the accepted results. Any plan it proposes waits for your approval. Each task shows its tools, output and the supervisor's notes; blocked results are left out of the report.
-12. **Settings** (`/settings`): profile, coaching style, theme (dark, light, system), motion, density, memory controls, data mode, and what runs where.
+12. **Voice Twin** (`/twin`, server only): your cloned voice, the twin's guardrails, and calls with your future self in the browser or on your phone. See [Voice twin](#voice-twin) below.
+13. **Settings** (`/settings`): profile, coaching style, theme (dark, light, system), motion, density, memory controls, data mode, and what runs where.
 
-Plus a command palette (`⌘K`, and `g` then `h/f/a/c/i/r/m/d/s` to jump), dark and light themes, reduced-motion support and layouts down to phone width.
+Plus a command palette (`⌘K`, and `g` then `h/f/a/t/c/i/r/m/d/s` to jump), dark and light themes, reduced-motion support and layouts down to phone width.
+
+## Voice twin
+
+The twin is your future self speaking for you, in your own voice. Phases 0 to 2 are built: the guardrails, your voice, and talking to your twin in the browser or on your own phone. Calling and emailing your contacts comes next, so the twin still reaches no one but you.
+
+**Your voice (ElevenLabs).** Needs `ELEVENLABS_API_KEY` on the server.
+
+1. You read a consent phrase with three random code words aloud, within ten minutes. ElevenLabs speech-to-text must hear every code word and "agree", so an old recording of someone else can't pass.
+2. That same recording is the first sample of an instant clone, plus up to five samples you record. The voice that agreed is the voice that's cloned.
+3. "Hear yourself" plays a line in your cloned voice.
+4. The professional upgrade trains a closer voice from the same recordings after you read ElevenLabs' own verification CAPTCHA aloud. When it's ready, the instant clone is deleted, so one voice remains.
+5. "Delete my voice" deletes every clone at ElevenLabs and every recording on the server, and withdraws the consent.
+
+Recordings are kept in `data/voice/` (or `TWIN_DATA_DIR`) and go only to ElevenLabs.
+
+**Guardrails.** A `twin` agent in `agents/futureme.yaml` gets `search_memory` plus three propose-only MCP tools: `propose_call`, `propose_email` and `propose_commitment`. Each creates a pending approval (`outbound_call`, `send_email`, `commitment`) shown on `/twin`, never in the plan and memory queue.
+
+- It can only reach contacts you added on `/twin`.
+- Every call opens with a fixed line saying it's your AI twin and that the call may be recorded; every email starts with an AI disclosure and ends with the twin's signature. The app adds these, not the model.
+- It never agrees for you: requests become `commitment` approvals, and an approved one is filed in the vault under `Plans/`.
+- At most 10 proposed calls and 50 proposed emails a day.
+- The kill switch on `/twin` pauses it: no proposals and no approvals until you resume.
+- Approved calls and emails are saved in the `calls` and `email_threads` tables with status `approved`, waiting for the dialler and sender.
+
+**Talk to your twin.** Needs `TWIN_PUBLIC_URL` (FutureMe's public https address) as well as the key.
+
+- ElevenLabs runs the call: speech-to-text, your cloned voice (Flash v2.5) and turn-taking. For each reply it calls FutureMe as a custom LLM at `/api/twin/llm/v1/chat/completions`, which runs the `twin_voice` agent from `agents/futureme.yaml`, so the voice on the call is the same future self, with your memory. FutureMe creates and updates the ElevenLabs agent itself.
+- Every request must carry a secret header (`TWIN_LLM_SECRET`, or one generated and stored). Each call also has its own random `call_ref`, so a request can only speak as a call FutureMe started, and only while it's live.
+- **In the browser:** "Call now" on `/twin` (or "Call your future self" on Home) starts a WebRTC call with a short-lived token from the server. The agent requires that token, so no one else can start a conversation with your voice.
+- **On your phone:** set `ELEVENLABS_PHONE_NUMBER_ID` to a Twilio number imported into ElevenLabs. You add your number, FutureMe calls it and reads a six-digit code, and you type the code in. The twin only ever calls that verified number, at most 6 times a day.
+  - **Call From the Future:** your future self calls about a topic you pick, now or at a time you schedule.
+  - **Promise Keeper:** your future self calls about one open task. If you say you did it, its `confirm_task_done` tool marks that task done (it works only for that call's own task, during the call); if not, you pick the next small step together.
+- Every call opens with a fixed line saying it's an AI and, on the phone, that it's recorded. Pausing the twin stops replies mid-call and stops dialling.
+- When a call ends, its transcript and ElevenLabs' summary (marked as written by AI) are filed in the vault under `Calls/` and linked from the call log on `/twin`.
+- `scripts/twin-scheduler.ts --loop` dials scheduled calls and files transcripts every 30 seconds. The Docker image runs it when `ELEVENLABS_API_KEY` is set (`TWIN_SCHEDULER=off` disables it); locally, run `npm run twin-scheduler -- --loop`.
+- Calls into your twin's number aren't answered yet.
 
 ## Interface and data modes
 
@@ -62,7 +99,7 @@ Browser ── Next.js app ──► docker agent serve chat (agents/futureme.ya
 
 ## Planned
 
-Trend sourcing for FutureMe Daily, voice, avatars and VR.
+Voice twin Phases 3 and 4 (calls and email to your contacts and answering calls to your twin's number, then public-launch hardening), trend sourcing for FutureMe Daily, avatars and VR.
 
 ## Deploy
 

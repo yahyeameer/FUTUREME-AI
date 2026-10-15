@@ -15,11 +15,13 @@
     "mock-model": "tsx scripts/mock-model-server.ts",
     "agent:serve": "docker agent serve chat agents/futureme.yaml --safety autonomous",
     "night-shift": "tsx --env-file-if-exists=.env.local scripts/night-shift.ts",
+    "twin-scheduler": "tsx --env-file-if-exists=.env.local scripts/twin-scheduler.ts",
     "pack": "tsx scripts/pack.ts",
     "test:e2e": "playwright test",
     "seed:demo": "tsx --env-file-if-exists=.env.local scripts/seed-demo.ts"
   },
   "dependencies": {
+    "@elevenlabs/react": "^1.18.0",
     "@hookform/resolvers": "^5.9.1",
     "@modelcontextprotocol/sdk": "^1.32.1",
     "better-sqlite3": "^13.0.3",

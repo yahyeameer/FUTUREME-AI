@@ -22,7 +22,8 @@ export type AgentName =
   | "helper_memory"
   | "helper_web"
   | "supervisor"
-  | "mission_lead";
+  | "mission_lead"
+  | "twin_voice";
 
 export interface AgentSpec {
   name: string;
