@@ -38,7 +38,8 @@ export interface Note {
 }
 
 export function vaultRoot(): string {
-  return path.resolve(process.env.VAULT_DIR ?? path.join(process.cwd(), "data", "vault"));
+  // The vault lives wherever VAULT_DIR points at runtime, so keep the bundler from tracing it.
+  return path.resolve(/*turbopackIgnore: true*/ process.env.VAULT_DIR ?? path.join(process.cwd(), "data", "vault"));
 }
 
 export function slugify(title: string): string {
@@ -89,7 +90,7 @@ export function deleteNote(relPath: string, root = vaultRoot()) {
 
 export function readNote(relPath: string, root = vaultRoot()): Note {
   const full = resolveInVault(relPath, root);
-  const parsed = matter(fs.readFileSync(full, "utf8"));
+  const parsed = matter(fs.readFileSync(/*turbopackIgnore: true*/ full, "utf8"));
   const links = [...parsed.content.matchAll(/\[\[([^\]|#]+)(?:[|#][^\]]*)?\]\]/g)].map((m) => m[1].trim());
   return {
     path: relPath.split(path.sep).join("/"),
@@ -103,7 +104,7 @@ export function readNote(relPath: string, root = vaultRoot()): Note {
 }
 
 export function listNotes(root = vaultRoot()): string[] {
-  if (!fs.existsSync(root)) return [];
+  if (!fs.existsSync(/*turbopackIgnore: true*/ root)) return [];
   const out: string[] = [];
   const walk = (dir: string) => {
     for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
