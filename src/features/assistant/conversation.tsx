@@ -3,6 +3,7 @@
 import { ArrowDown } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import * as React from "react";
+import { Orb } from "@/components/brand/orb";
 import { Presence } from "@/components/brand/presence";
 import { PageFrame } from "@/components/layout/page-frame";
 import { Button } from "@/components/ui/button";
@@ -80,7 +81,7 @@ export function Conversation() {
     <PageFrame rail={<FutureSelfContext />} railTitle="Context" toolbar={toolbar} className="pb-0 sm:pb-0">
       <div className="flex flex-1 flex-col">
         <section className={cn("flex flex-col items-center text-center", messages.length ? "pt-0 pb-8" : "pt-6 pb-10")}>
-          <Presence convergence={convergence(workspace.tasks)} state={pending && !pending.error ? "thinking" : "idle"} size={messages.length ? 104 : 148} className="text-foreground" />
+          <Orb size={messages.length ? 150 : 220}><Presence convergence={convergence(workspace.tasks)} state={pending && !pending.error ? "thinking" : "idle"} size={messages.length ? 96 : 140} className="text-foreground" /></Orb>
           <p className={cn("mt-5 max-w-md font-display leading-snug text-balance italic", messages.length ? "text-[19px]" : "text-[22px] sm:text-[24px]")}>{OPENING}</p>
           <p className="mt-3 max-w-sm text-[12px] text-subtle">
             FutureMe speaks as one possible future you, based on what you&apos;ve shared. It remembers what&apos;s in your vault and asks before changing anything.
@@ -107,7 +108,7 @@ export function Conversation() {
                     key={p.label}
                     type="button"
                     onClick={() => (p.send ? submit(p.text) : setText(p.text))}
-                    className="shrink-0 rounded-md border border-border bg-surface/80 px-2.5 py-1.5 text-left text-[12px] text-muted-foreground backdrop-blur transition-colors hover:border-border-strong hover:text-foreground"
+                    className="shrink-0 rounded-full border border-border bg-surface/80 px-3 py-1.5 text-left text-[12px] text-muted-foreground shadow-[0_1px_2px_rgb(40_30_10/0.05)] backdrop-blur transition-all hover:-translate-y-px hover:border-accent/60 hover:bg-accent-wash hover:text-foreground"
                   >
                     {p.label}
                   </button>

@@ -78,7 +78,7 @@ function SkillCard({ skill, run, onRun }: { skill: Skill; run?: SkillRun; onRun:
   const label = run?.simulated ? "Demo result" : workspace.runtime.simulated ? "Stand-in model" : null;
 
   return (
-    <section className={cn("rounded-xl border bg-surface", status === "awaiting_approval" ? "border-warning/40" : "border-border", !skill.available && "opacity-80")} aria-labelledby={`skill-${skill.id}`}>
+    <section className={cn("card card-hover", status === "awaiting_approval" && "!border-warning/40", !skill.available && "opacity-80")} aria-labelledby={`skill-${skill.id}`}>
       <div className="flex flex-col gap-4 px-5 py-4 sm:flex-row sm:items-start">
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">

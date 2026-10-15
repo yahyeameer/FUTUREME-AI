@@ -26,7 +26,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
       lang="en"
-      data-theme="dark"
+      data-theme="light"
       suppressHydrationWarning
       className={`${geistSans.variable} ${geistMono.variable} ${instrumentSerif.variable} ${newsreader.variable} antialiased`}
     >
@@ -34,7 +34,10 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         <script dangerouslySetInnerHTML={{ __html: PREFS_SCRIPT }} />
       </head>
       <body className="min-h-dvh">
-        <Providers>{children}</Providers>
+        <div className="ambient" aria-hidden />
+        <div className="relative z-[1] min-h-dvh">
+          <Providers>{children}</Providers>
+        </div>
       </body>
     </html>
   );

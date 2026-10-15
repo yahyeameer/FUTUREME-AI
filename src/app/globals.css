@@ -1,7 +1,7 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
-/* Dark is the default; [data-theme="light"] on <html> switches to paper. */
+/* Light ("paper") is the default; [data-theme="dark"] on <html> switches to obsidian. */
 @custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
 @custom-variant light (&:where([data-theme="light"], [data-theme="light"] *));
 @custom-variant compact (&:where([data-density="compact"], [data-density="compact"] *));
@@ -9,11 +9,58 @@
 /* ---------- Editorial Futurism tokens ---------- */
 
 :root,
+[data-theme="light"] {
+  color-scheme: light;
+  --background: #f4f1ea;
+  --surface: #fffefb;
+  --surface-2: #faf8f3;
+  --surface-3: #efebe2;
+  --sunken: #ece8de;
+  --foreground: #17191b;
+  --muted-foreground: #5a5853;
+  --subtle-foreground: #75726b;
+  --border: #e6e1d6;
+  --border-strong: #d3cdbf;
+  --input: #dcd6ca;
+  --ring: #6b7d16;
+
+  /* The one strong action on a surface: obsidian ink with an ivory label. */
+  --primary: #17191b;
+  --primary-foreground: #f5f2ea;
+  --primary-glow: rgb(196 214 106 / 0.55);
+
+  --accent: #c4d66a;
+  --accent-foreground: #15170b;
+  --accent-ink: #55640f;
+  --accent-wash: rgb(150 172 40 / 0.12);
+  --copper: #a15f39;
+  --copper-wash: rgb(187 128 92 / 0.13);
+
+  --destructive: #b2412d;
+  --destructive-wash: rgb(178 65 45 / 0.08);
+  --success: #3f7a35;
+  --success-wash: rgb(63 122 53 / 0.1);
+  --warning: #93630f;
+  --warning-wash: rgb(147 99 15 / 0.1);
+  --info: #3b6782;
+  --info-wash: rgb(59 103 130 / 0.09);
+
+  --glass: rgb(255 254 251 / 0.72);
+  --glass-border: rgb(23 25 27 / 0.07);
+  --shadow-card: 0 1px 0 rgb(255 255 255 / 0.9) inset, 0 1px 2px rgb(52 40 20 / 0.05), 0 10px 30px -14px rgb(52 40 20 / 0.16);
+  --shadow-lift: 0 1px 0 rgb(255 255 255 / 0.9) inset, 0 2px 4px rgb(52 40 20 / 0.05), 0 24px 48px -18px rgb(52 40 20 / 0.28);
+  --shadow-float: 0 1px 0 rgb(255 255 255 / 0.7) inset, 0 22px 50px -20px rgb(52 40 20 / 0.32);
+  --ambient-a: rgb(196 214 106 / 0.32);
+  --ambient-b: rgb(187 128 92 / 0.2);
+  --ambient-c: rgb(235 231 222 / 0.9);
+  --paper-grain: 0.045;
+}
+
 [data-theme="dark"] {
   color-scheme: dark;
   --background: #101112;
-  --surface: #151618;
-  --surface-2: #1b1d1f;
+  --surface: #17181a;
+  --surface-2: #1c1e20;
   --surface-3: #25282b;
   --sunken: #0c0d0e;
   --foreground: #ece8df;
@@ -23,6 +70,10 @@
   --border-strong: #363a3e;
   --input: #2c3034;
   --ring: #c4d66a;
+
+  --primary: #c4d66a;
+  --primary-foreground: #15170b;
+  --primary-glow: rgb(196 214 106 / 0.35);
 
   --accent: #c4d66a;
   --accent-foreground: #15170b;
@@ -42,49 +93,17 @@
 
   --glass: rgb(25 27 29 / 0.72);
   --glass-border: rgb(255 255 255 / 0.08);
+  --shadow-card: 0 1px 0 rgb(255 255 255 / 0.035) inset, 0 12px 32px -18px rgb(0 0 0 / 0.7);
+  --shadow-lift: 0 1px 0 rgb(255 255 255 / 0.05) inset, 0 24px 50px -20px rgb(0 0 0 / 0.85);
   --shadow-float: 0 1px 0 rgb(255 255 255 / 0.04) inset, 0 18px 50px -20px rgb(0 0 0 / 0.7);
+  --ambient-a: rgb(196 214 106 / 0.1);
+  --ambient-b: rgb(187 128 92 / 0.09);
+  --ambient-c: rgb(16 17 18 / 0);
   --paper-grain: 0.035;
 }
 
-[data-theme="light"] {
-  color-scheme: light;
-  --background: #f5f2ea;
-  --surface: #faf8f3;
-  --surface-2: #fffdf9;
-  --surface-3: #ebe7de;
-  --sunken: #ede9df;
-  --foreground: #1b1c1d;
-  --muted-foreground: #5c5a55;
-  --subtle-foreground: #6e6b65;
-  --border: #e0dbd0;
-  --border-strong: #cfc9bc;
-  --input: #d6d0c4;
-  --ring: #5c6b14;
-
-  --accent: #c4d66a;
-  --accent-foreground: #15170b;
-  --accent-ink: #55640f;
-  --accent-wash: rgb(120 140 30 / 0.1);
-  --copper: #985a37;
-  --copper-wash: rgb(152 90 55 / 0.1);
-
-  --destructive: #b2412d;
-  --destructive-wash: rgb(178 65 45 / 0.08);
-  --success: #3f7a35;
-  --success-wash: rgb(63 122 53 / 0.09);
-  --warning: #93630f;
-  --warning-wash: rgb(147 99 15 / 0.09);
-  --info: #3b6782;
-  --info-wash: rgb(59 103 130 / 0.09);
-
-  --glass: rgb(250 248 243 / 0.78);
-  --glass-border: rgb(27 28 29 / 0.08);
-  --shadow-float: 0 1px 0 rgb(255 255 255 / 0.6) inset, 0 18px 40px -22px rgb(60 50 30 / 0.35);
-  --paper-grain: 0.05;
-}
-
 :root {
-  --radius: 0.375rem;
+  --radius: 0.625rem;
   --sidebar-width: 15rem;
   --rail-width: 20rem;
   /* Density scales row padding in lists, tables and the sidebar. */
@@ -125,6 +144,8 @@
   --color-info: var(--info);
   --color-info-wash: var(--info-wash);
   --color-glass: var(--glass);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
   --color-glass-border: var(--glass-border);
 
   --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
@@ -136,17 +157,43 @@
   --radius-md: var(--radius);
   --radius-lg: calc(var(--radius) + 2px);
   --radius-xl: calc(var(--radius) + 4px);
+  --radius-2xl: calc(var(--radius) + 10px);
 
   --shadow-float: var(--shadow-float);
+  --shadow-card: var(--shadow-card);
+  --shadow-lift: var(--shadow-lift);
 
   --animate-sweep: sweep 2.4s linear infinite;
   --animate-caret: caret 1s steps(2, start) infinite;
+  --animate-breathe: breathe 6s ease-in-out infinite;
+  --animate-orbit: orbit 24s linear infinite;
+  --animate-orbit-slow: orbit 60s linear infinite;
 }
 
 @keyframes sweep {
   to {
     transform: rotate(360deg);
   }
+}
+
+@keyframes drift {
+  0% { transform: translate3d(0, 0, 0) scale(1); }
+  50% { transform: translate3d(-4%, 3%, 0) scale(1.08); }
+  100% { transform: translate3d(0, 0, 0) scale(1); }
+}
+
+@keyframes breathe {
+  0%, 100% { transform: scale(1); opacity: 0.85; }
+  50% { transform: scale(1.06); opacity: 1; }
+}
+
+@keyframes orbit {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes shimmer {
+  from { background-position: 200% 0; }
+  to { background-position: -200% 0; }
 }
 
 @keyframes caret {
@@ -167,6 +214,7 @@
   }
   body {
     background: var(--background);
+    min-height: 100dvh;
     color: var(--foreground);
     font-family: var(--font-sans);
     font-size: 0.875rem;
@@ -260,6 +308,81 @@
     -webkit-backdrop-filter: blur(18px) saturate(1.2);
     backdrop-filter: blur(18px) saturate(1.2);
     box-shadow: var(--shadow-float);
+  }
+
+  /* Raised surfaces: the default container for content. */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: calc(var(--radius) + 8px);
+    box-shadow: var(--shadow-card);
+  }
+  .card-hover {
+    transition: transform 0.25s cubic-bezier(0.2, 0.7, 0.2, 1), box-shadow 0.25s, border-color 0.25s;
+  }
+  .card-hover:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-lift);
+    border-color: var(--border-strong);
+  }
+
+  /* Warm ambient light behind the whole app. Slow drift; still under reduced motion. */
+  .ambient {
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    overflow: hidden;
+  }
+  .ambient::before,
+  .ambient::after {
+    content: "";
+    position: absolute;
+    border-radius: 9999px;
+    filter: blur(80px);
+    animation: drift 38s ease-in-out infinite;
+  }
+  .ambient::before {
+    width: 46rem;
+    height: 46rem;
+    top: -18rem;
+    right: -12rem;
+    background: radial-gradient(circle at center, var(--ambient-a), transparent 65%);
+  }
+  .ambient::after {
+    width: 40rem;
+    height: 40rem;
+    bottom: -18rem;
+    left: 8rem;
+    background: radial-gradient(circle at center, var(--ambient-b), transparent 65%);
+    animation-duration: 52s;
+    animation-direction: reverse;
+  }
+
+  /* Hairline gradient border used on hero surfaces. */
+  .ring-gradient {
+    position: relative;
+  }
+  .ring-gradient::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    padding: 1px;
+    background: linear-gradient(135deg, rgb(196 214 106 / 0.7), transparent 35%, transparent 65%, rgb(187 128 92 / 0.55));
+    -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    pointer-events: none;
+  }
+
+  .text-shimmer {
+    background: linear-gradient(90deg, var(--foreground) 0%, var(--foreground) 40%, var(--accent-ink) 50%, var(--foreground) 60%, var(--foreground) 100%);
+    background-size: 200% 100%;
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    animation: shimmer 6s ease-in-out infinite;
   }
 
   .hairline {

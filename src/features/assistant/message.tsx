@@ -17,7 +17,7 @@ export function UserMessage({ message }: { message: Message }) {
   return (
     <div className="flex justify-end">
       <div className="max-w-[85%] sm:max-w-[75%]">
-        <div className="rounded-lg rounded-br-sm border border-border-strong bg-surface-3/70 px-3.5 py-2.5 text-[14px] leading-relaxed whitespace-pre-wrap">{message.content}</div>
+        <div className="rounded-2xl rounded-br-md bg-primary px-4 py-3 text-[14px] leading-relaxed whitespace-pre-wrap text-primary-foreground shadow-[0_10px_24px_-14px_rgb(0_0_0/0.5)]">{message.content}</div>
         <p className="mt-1 text-right t-meta">{formatTime(message.createdAt)}</p>
       </div>
     </div>
@@ -42,8 +42,8 @@ export function AssistantMessage({ message, name = "Future you" }: { message: Me
   };
 
   return (
-    <article className="group relative pl-5" aria-label={`${name} replied`}>
-      <span aria-hidden className="absolute top-1.5 bottom-1 left-0 w-px bg-gradient-to-b from-accent/70 via-border-strong to-transparent" />
+    <article className="group relative pl-11" aria-label={`${name} replied`}>
+      <span aria-hidden className="absolute top-0 left-0 flex size-8 items-center justify-center rounded-full bg-gradient-to-br from-accent to-copper font-display text-[15px] text-accent-foreground italic shadow-[inset_0_1px_0_rgb(255_255_255/0.45),0_6px_14px_-8px_rgb(120_80_30/0.6)]">{name.replace(/^Future /, "").charAt(0)}</span>
       <header className="mb-1.5 flex flex-wrap items-center gap-2">
         <span className="font-display text-[15px] italic">{name}</span>
         <span className="t-meta">{formatTime(message.createdAt)}</span>
@@ -78,7 +78,7 @@ export function AssistantMessage({ message, name = "Future you" }: { message: Me
             <Link
               key={c.memoryId}
               href={`/memory/${encodeURIComponent(c.memoryId)}`}
-              className="max-w-56 truncate rounded-[4px] border border-border bg-surface-2 px-1.5 py-px text-[11.5px] text-muted-foreground transition-colors hover:border-border-strong hover:text-foreground"
+              className="max-w-56 truncate rounded-full border border-border bg-surface px-2 py-0.5 text-[11.5px] text-muted-foreground transition-colors hover:border-border-strong hover:text-foreground"
             >
               {c.title}
             </Link>
@@ -98,8 +98,8 @@ export function AssistantMessage({ message, name = "Future you" }: { message: Me
 
 export function PendingReply({ tools, draft, error, onRetry, name = "Future you" }: { tools: Message["tools"]; draft: string; error?: string; onRetry: () => void; name?: string }) {
   return (
-    <article className="relative pl-5" aria-live="polite" aria-busy={!error}>
-      <span aria-hidden className="absolute top-1.5 bottom-1 left-0 w-px bg-gradient-to-b from-accent via-accent/30 to-transparent" />
+    <article className="relative pl-11" aria-live="polite" aria-busy={!error}>
+      <span aria-hidden className="absolute top-0 animate-pulse left-0 flex size-8 items-center justify-center rounded-full bg-gradient-to-br from-accent to-copper font-display text-[15px] text-accent-foreground italic shadow-[inset_0_1px_0_rgb(255_255_255/0.45),0_6px_14px_-8px_rgb(120_80_30/0.6)]">{name.replace(/^Future /, "").charAt(0)}</span>
       <header className="mb-1.5 flex items-center gap-2">
         <span className="font-display text-[15px] italic">{name}</span>
         {!error && <span className="t-meta">{draft ? "writing…" : "thinking…"}</span>}
