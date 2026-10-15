@@ -4,7 +4,7 @@ Meet the person you're becoming. Start building that future today.
 
 FutureMe is a personal AI companion for the Nebius × NVIDIA Global AI Hackathon 2026 (Personal AI track). It lets you talk with a personalized version of your future self, keeps an Obsidian-compatible Markdown memory vault you control, and turns reflection into approved goals and tasks.
 
-> **Status:** Milestone 2 (core loop). Only what is listed under "Working today" runs. Everything else is planned.
+> **Status:** Milestones 1–3 plus streaming and a demo seed. Only what is listed under "Working today" runs. Everything else is planned.
 
 ## Working today
 
@@ -12,6 +12,8 @@ FutureMe is a personal AI companion for the Nebius × NVIDIA Global AI Hackathon
 2. **Future Reflection** (`/future`): a first-person letter from your future self, saved to `Reflections/`.
 3. **Chat with Your Future** (`/chat`): the future-self agent runs in [Docker Agent](https://docker.github.io/docker-agent/) (`agents/futureme.yaml`). It searches your vault through FutureMe's MCP server before answering, shows which notes it remembered, and proposes plans or memories.
 4. **Approve and track** (`/plan`): proposals wait for your approval. Approved plans become goals and tasks in SQLite and linked notes in `Goals/` and `Tasks/`. Completed tasks are marked `verified` in the vault.
+5. **FutureMe Daily** (`/daily`): an editorial issue about your week. Every item (wins, milestones, open steps, a line from your future self) comes from a completed task, a goal or a saved note, and shows its source. The model writes only the headline, lead and editor's note from those facts; if it returns anything unusable, a plain fact-only front page is printed instead. Issues are filed to `Daily/`.
+6. **Streaming replies**: chat replies stream from Docker Agent to the browser as they are written (`POST /api/chat`, newline-delimited JSON).
 
 ## How it fits together
 
@@ -31,7 +33,30 @@ Browser ── Next.js app ──► docker agent serve chat (agents/futureme.ya
 
 ## Planned
 
-FutureMe Daily, deployment, streaming replies, and UI polish.
+Premium UI redesign (in progress separately), trend sourcing for FutureMe Daily, voice, avatars and VR.
+
+## Deploy
+
+One image runs both Docker Agent and the web app (`scripts/start.sh`). Data lives in the `/data` volume.
+
+```bash
+docker compose up --build                     # http://localhost:3000
+# or
+docker build -t futureme .
+docker run -p 3000:3000 -v futureme-data:/data \
+  -e NEBIUS_API_KEY=... -e NEBIUS_MODEL=... -e SEED_DEMO=1 futureme
+```
+
+- `NEBIUS_MODEL` is used by both the app and the agent (the entrypoint writes it into the agent file).
+- Without `NEBIUS_API_KEY` the container runs on the stand-in model, so a demo always works.
+- `SEED_DEMO=1` creates the demo user on an empty database.
+- Any host that runs a Docker container with a persistent volume works, for example a Nebius Compute VM with Docker installed. See [docs/deploy.md](docs/deploy.md).
+
+## Demo data
+
+```bash
+npm run seed:demo    # profile, letter, approved plan with two completed steps, a chat exchange, and a Daily issue
+```
 
 ## Setup
 

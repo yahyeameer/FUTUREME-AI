@@ -285,39 +285,75 @@ const MAX_STEPS = 6;
 
 // The agent loop runs in Docker Agent when DOCKER_AGENT_URL points at `docker agent serve chat`.
 // Without it, the same loop runs in-process (used by tests and when Docker Agent isn't running).
+export type OnDelta = (text: string) => void;
+
 export interface AgentBackend {
   name: string;
-  run(db: Db, messages: ChatMessage[]): Promise<string>;
+  // Returns the final reply; calls onDelta with text as it arrives when the backend can stream.
+  run(db: Db, messages: ChatMessage[], onDelta?: OnDelta): Promise<string>;
 }
 
 export function dockerAgentBackend(baseUrl: string, agent = process.env.DOCKER_AGENT_NAME ?? "root"): AgentBackend {
   const url = `${baseUrl.replace(/\/+$/, "")}/v1/chat/completions`;
   return {
     name: `docker-agent:${agent}`,
-    async run(_db, messages) {
+    async run(_db, messages, onDelta) {
       const res = await fetch(url, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           ...(process.env.DOCKER_AGENT_API_KEY ? { Authorization: `Bearer ${process.env.DOCKER_AGENT_API_KEY}` } : {}),
         },
-        body: JSON.stringify({ model: agent, messages, stream: false }),
+        body: JSON.stringify({ model: agent, messages, stream: true }),
       });
-      if (!res.ok) throw new Error(`Docker Agent returned ${res.status}: ${(await res.text()).slice(0, 300)}`);
-      const body = (await res.json()) as { choices?: { message?: { content?: string | null } }[] };
-      return (body.choices?.[0]?.message?.content ?? "").trim();
+      if (!res.ok || !res.body) throw new Error(`Docker Agent returned ${res.status}: ${(await res.text()).slice(0, 300)}`);
+      let reply = "";
+      for await (const data of sseData(res.body)) {
+        if (data === "[DONE]") break;
+        const chunk = JSON.parse(data) as { choices?: { delta?: { content?: string | null } }[] };
+        const text = chunk.choices?.[0]?.delta?.content;
+        if (text) {
+          reply += text;
+          onDelta?.(text);
+        }
+      }
+      return reply.trim();
     },
   };
+}
+
+// Yields the data payload of each server-sent event.
+async function* sseData(body: ReadableStream<Uint8Array>): AsyncGenerator<string> {
+  const decoder = new TextDecoder();
+  let buffer = "";
+  for await (const bytes of body as unknown as AsyncIterable<Uint8Array>) {
+    buffer += decoder.decode(bytes, { stream: true });
+    let end;
+    while ((end = buffer.indexOf("\n\n")) >= 0) {
+      const event = buffer.slice(0, end);
+      buffer = buffer.slice(end + 2);
+      const data = event
+        .split("\n")
+        .filter((l) => l.startsWith("data:"))
+        .map((l) => l.slice(5).trimStart())
+        .join("\n");
+      if (data) yield data;
+    }
+  }
 }
 
 export function inProcessBackend(provider: LlmProvider = getProvider()): AgentBackend {
   return {
     name: `in-process:${provider.name}`,
-    async run(db, initial) {
+    async run(db, initial, onDelta) {
       const messages = [...initial];
       for (let step = 0; step < MAX_STEPS; step++) {
         const res = await provider.complete(messages, TOOLS);
-        if (!res.toolCalls.length) return (res.content ?? "").trim();
+        if (!res.toolCalls.length) {
+          const reply = (res.content ?? "").trim();
+          if (reply) onDelta?.(reply);
+          return reply;
+        }
         messages.push({
           role: "assistant",
           content: res.content,
@@ -337,7 +373,7 @@ export function getAgentBackend(): AgentBackend {
   return url ? dockerAgentBackend(url) : inProcessBackend();
 }
 
-export async function chat(db: Db, userText: string, backend: AgentBackend = getAgentBackend()): Promise<ChatTurn> {
+export async function chat(db: Db, userText: string, backend: AgentBackend = getAgentBackend(), onDelta?: OnDelta): Promise<ChatTurn> {
   const profile = getProfile(db);
   if (!profile) throw new Error("Complete onboarding first.");
   const text = userText.trim();
@@ -348,7 +384,7 @@ export async function chat(db: Db, userText: string, backend: AgentBackend = get
   db.prepare("INSERT INTO messages (role, content) VALUES ('user', ?)").run(text);
 
   const before = lastToolEventId(db);
-  const reply = (await backend.run(db, messages)) || "I lost my train of thought there. Could you say that again?";
+  const reply = (await backend.run(db, messages, onDelta)) || "I lost my train of thought there. Could you say that again?";
   const events = toolEventsSince(db, before);
   const citations = [...new Set(events.flatMap((e) => e.citations))];
   const approvals = events.flatMap((e) => (e.approval_id ? [e.approval_id] : []));

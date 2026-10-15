@@ -41,7 +41,17 @@ const server = http.createServer(async (req, res) => {
   res.writeHead(200, { "Content-Type": "text/event-stream", "Cache-Control": "no-cache", Connection: "keep-alive" });
   const chunk = (delta: unknown, finish_reason: string | null = null) =>
     res.write(`data: ${JSON.stringify({ id, object: "chat.completion.chunk", created, model: body.model, choices: [{ index: 0, delta, finish_reason }] })}\n\n`);
-  chunk({ role: "assistant", content: out.content ?? "", ...(toolCalls.length ? { tool_calls: toolCalls } : {}) });
+  if (toolCalls.length) {
+    chunk({ role: "assistant", content: out.content ?? "", tool_calls: toolCalls });
+  } else {
+    // Stream word by word, like a real model.
+    const words = (out.content ?? "").split(/(?<= )/);
+    chunk({ role: "assistant", content: "" });
+    for (const w of words) {
+      chunk({ content: w });
+      await new Promise((r) => setTimeout(r, 15));
+    }
+  }
   chunk({}, finish);
   res.write("data: [DONE]\n\n");
   res.end();

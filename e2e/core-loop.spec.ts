@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 
-test("onboarding -> future letter -> chat with memory -> approve plan -> complete task", async ({ page }) => {
+test("onboarding -> future letter -> chat with memory -> approve plan -> complete task -> daily", async ({ page }) => {
   await page.goto("/onboarding");
   await page.getByLabel("Your name").fill("Amina");
   await page.getByLabel("Your 10-year dream").fill("Lead an AI research lab in Hargeisa");
@@ -29,4 +29,10 @@ test("onboarding -> future letter -> chat with memory -> approve plan -> complet
   await page.getByRole("button", { name: "Mark done" }).first().click();
   await expect(page.getByText("1/3 done")).toBeVisible();
   await page.screenshot({ path: "e2e/screenshots/plan.png", fullPage: true });
+
+  await page.getByRole("link", { name: "Daily" }).click();
+  await page.getByRole("button", { name: /print today's issue/i }).click();
+  await expect(page.getByText("FutureMe Daily", { exact: true })).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByRole("heading", { name: /Amina completes 1 step/ })).toBeVisible();
+  await page.screenshot({ path: "e2e/screenshots/daily.png", fullPage: true });
 });

@@ -51,6 +51,12 @@ CREATE TABLE IF NOT EXISTS tool_events (
   approval_id INTEGER,
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
+CREATE TABLE IF NOT EXISTS daily_issues (
+  date TEXT PRIMARY KEY,
+  content TEXT NOT NULL,
+  note_path TEXT,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
 CREATE TABLE IF NOT EXISTS messages (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   role TEXT NOT NULL CHECK (role IN ('user', 'assistant')),

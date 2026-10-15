@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRef, useState, useTransition } from "react";
-import { sendMessageAction } from "@/app/actions";
+import { refreshPlanAction } from "@/app/actions";
 import { input, primaryButton } from "@/components/ui";
 
 export interface UiMessage {
@@ -16,6 +16,7 @@ export interface UiMessage {
 export function ChatClient({ initial, name }: { initial: UiMessage[]; name: string }) {
   const [messages, setMessages] = useState(initial);
   const [error, setError] = useState<string>();
+  const [draft, setDraft] = useState(""); // the reply while it streams in
   const [pending, start] = useTransition();
   const form = useRef<HTMLFormElement>(null);
 
@@ -25,10 +26,34 @@ export function ChatClient({ initial, name }: { initial: UiMessage[]; name: stri
     setError(undefined);
     setMessages((m) => [...m, { role: "user", content: text, citations: [] }]);
     form.current?.reset();
+
     start(async () => {
-      const res = await sendMessageAction(text);
-      if ("error" in res) return setError(res.error);
-      setMessages((m) => [...m, { role: "assistant", content: res.reply, citations: res.citations, approvals: res.approvals, tools: res.tools }]);
+      try {
+        const res = await fetch("/api/chat", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text }) });
+        if (!res.ok || !res.body) throw new Error((await res.json().catch(() => null))?.error ?? "Your future self couldn't answer just now.");
+        const reader = res.body.pipeThrough(new TextDecoderStream()).getReader();
+        let buffer = "";
+        for (;;) {
+          const { value, done } = await reader.read();
+          if (done) break;
+          buffer += value;
+          let nl;
+          while ((nl = buffer.indexOf("\n")) >= 0) {
+            const event = JSON.parse(buffer.slice(0, nl));
+            buffer = buffer.slice(nl + 1);
+            if (event.type === "delta") setDraft((d) => d + event.text);
+            if (event.type === "done") {
+              setMessages((m) => [...m, { role: "assistant", content: event.reply, citations: event.citations, approvals: event.approvals, tools: event.tools }]);
+              setDraft("");
+            }
+            if (event.type === "error") throw new Error(event.error);
+          }
+        }
+        await refreshPlanAction();
+      } catch (err) {
+        setDraft("");
+        setError(err instanceof Error ? err.message : String(err));
+      }
     });
   }
 
@@ -65,7 +90,12 @@ export function ChatClient({ initial, name }: { initial: UiMessage[]; name: stri
             )}
           </li>
         ))}
-        {pending && <li className="self-start text-sm text-stone-500">Thinking it over…</li>}
+        {draft && (
+          <li className="max-w-[85%] self-start rounded-2xl rounded-bl-sm border border-stone-200 bg-white px-4 py-2.5 dark:border-stone-800 dark:bg-stone-900">
+            <p className="whitespace-pre-wrap leading-7">{draft}</p>
+          </li>
+        )}
+        {pending && !draft && <li className="self-start text-sm text-stone-500">Searching your memories…</li>}
       </ol>
       {error && <p className="text-sm text-red-700 dark:text-red-400">{error}</p>}
       <form ref={form} action={send} className="sticky bottom-4 flex gap-2">

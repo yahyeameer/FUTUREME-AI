@@ -4,6 +4,7 @@ import type { ChatMessage, Completion, LlmProvider, ToolCall } from "./llm";
 // It follows the same tool-calling protocol as the real model so the agent loop is exercised end to end.
 
 export const STORY_MARKER = "[future-story]";
+export const DAILY_MARKER = "[daily-issue]";
 
 let callCounter = 0;
 const call = (name: string, args: unknown): ToolCall => ({
@@ -37,6 +38,22 @@ function story(profileJson: string): string {
     .join("\n\n");
 }
 
+function dailyEditorial(factsJson: string) {
+  const f = JSON.parse(factsJson) as { name: string; wins: { title: string }[]; open: { title: string }[] };
+  if (!f.wins.length) {
+    return {
+      headline: `${f.name}'s story begins`,
+      lead: `${f.name} has a plan and ${f.open.length} step${f.open.length === 1 ? "" : "s"} waiting. The first one is the hardest and the most important.`,
+      editor_note: f.open[0] ? `Start with "${f.open[0].title}" today.` : "Ask me to help you plan your first step.",
+    };
+  }
+  return {
+    headline: `${f.name} completes ${f.wins.length} step${f.wins.length > 1 ? "s" : ""} toward the dream`,
+    lead: `This week ${f.name} finished "${f.wins[0].title}"${f.wins.length > 1 ? ` and ${f.wins.length - 1} more` : ""}. Small, real steps are how the future gets built.`,
+    editor_note: f.open[0] ? `Next up: "${f.open[0].title}". I remember how much this one mattered.` : "Everything on your list is done. Time to plan the next chapter.",
+  };
+}
+
 function planFrom(goalText: string) {
   const title = goalText.replace(/^(help me|i want to|i'd like to)?\s*(plan|start|make a plan for)?\s*/i, "").replace(/[.?!]+$/, "").slice(0, 80) || "My next goal";
   const goal = title.charAt(0).toUpperCase() + title.slice(1);
@@ -57,6 +74,9 @@ export const mockProvider: LlmProvider = {
     const lastUserIdx = messages.map((m) => m.role).lastIndexOf("user");
     const userText = text(messages[lastUserIdx]);
 
+    if (userText.startsWith(DAILY_MARKER)) {
+      return { content: JSON.stringify(dailyEditorial(userText.slice(DAILY_MARKER.length).trim())), toolCalls: [] };
+    }
     if (userText.startsWith(STORY_MARKER)) {
       return { content: story(userText.slice(STORY_MARKER.length).trim()), toolCalls: [] };
     }
