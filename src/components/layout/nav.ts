@@ -1,10 +1,11 @@
-import { BookOpenText, Bot, Users, CircleDot, Home, Library, Newspaper, Route, Settings, Sparkles } from "lucide-react";
+import { AudioLines, BookOpenText, Bot, Users, CircleDot, Home, Library, Newspaper, Route, Settings, Sparkles } from "lucide-react";
 
 export const NAV = [
   { href: "/", label: "Home", icon: Home, shortcut: "G H" },
   { href: "/future-self", label: "Future Self", icon: CircleDot, shortcut: "G F" },
   { href: "/agent", label: "Agent", icon: Bot, shortcut: "G A" },
   { href: "/council", label: "Council", icon: Users, shortcut: "G C" },
+  { href: "/twin", label: "Voice Twin", icon: AudioLines, shortcut: "G T" },
   { href: "/roadmap", label: "Life Roadmap", icon: Route, shortcut: "G R" },
   { href: "/memory", label: "Memory Vault", icon: Library, shortcut: "G M" },
   { href: "/daily", label: "FutureMe Daily", icon: Newspaper, shortcut: "G D" },

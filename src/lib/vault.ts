@@ -12,6 +12,7 @@ export const VAULT_FOLDERS = [
   "Tasks",
   "Daily",
   "Research",
+  "Calls",
 ] as const;
 
 export type VaultFolder = (typeof VAULT_FOLDERS)[number];

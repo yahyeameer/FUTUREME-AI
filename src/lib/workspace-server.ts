@@ -261,7 +261,7 @@ export function buildWorkspace(db: Db): Workspace {
   }));
 
   const approvals: Approval[] = (
-    db.prepare("SELECT id, kind, payload, status, created_at, decided_at FROM approvals ORDER BY id DESC LIMIT 100").all() as {
+    db.prepare("SELECT id, kind, payload, status, created_at, decided_at FROM approvals WHERE kind IN ('plan', 'memory') ORDER BY id DESC LIMIT 100").all() as {
       id: number;
       kind: "plan" | "memory";
       payload: string;

@@ -3,6 +3,7 @@ import type { Db } from "./db";
 import { getProvider, type ChatMessage, type LlmProvider, type ToolDefinition } from "./llm";
 import { STORY_MARKER } from "./mock-llm";
 import { activePack } from "./packs";
+import { isTwinTool, runTwinTool, TWIN_TOOL_DEFS } from "./twin";
 import { searchNotes, writeNote } from "./vault";
 import { fetchPage, webSearch } from "./web";
 
@@ -187,6 +188,7 @@ export const ALL_TOOLS: ToolDefinition[] = [
       parameters: { type: "object", properties: { url: { type: "string" } }, required: ["url"] },
     },
   },
+  ...TWIN_TOOL_DEFS,
 ];
 
 export const toolDefs = (names: readonly string[]) => ALL_TOOLS.filter((t) => names.includes(t.function.name));
@@ -289,6 +291,10 @@ async function executeTool(db: Db, name: string, rawArgs: string): Promise<ToolR
       }
     }
     default:
+      // The voice twin's propose-only tools (calls, emails, commitments) live in twin.ts.
+      if (isTwinTool(name)) return runTwinTool(db, name, json);
+      // Promise Keeper, used only on a live call. Loaded lazily: twin-calls.ts imports this module.
+      if (name === "confirm_task_done") return (await import("./twin-calls")).confirmTaskDone(db, json);
       return { output: `Error: unknown tool ${name}.`, citations: [] };
   }
 }
@@ -474,7 +480,7 @@ export function createApproval(db: Db, kind: Approval["kind"], payload: MemoryPr
 }
 
 export function pendingApprovals(db: Db): Approval[] {
-  const rows = db.prepare("SELECT * FROM approvals WHERE status = 'pending' ORDER BY id").all() as (Omit<Approval, "payload"> & {
+  const rows = db.prepare("SELECT * FROM approvals WHERE status = 'pending' AND kind IN ('memory', 'plan') ORDER BY id").all() as (Omit<Approval, "payload"> & {
     payload: string;
   })[];
   return rows.map((r) => ({ ...r, payload: JSON.parse(r.payload) }));
@@ -491,7 +497,7 @@ export function decideApproval(db: Db, id: number, approve: boolean): void {
   const row = db.prepare("SELECT * FROM approvals WHERE id = ? AND status = 'pending'").get(id) as
     | { kind: Approval["kind"]; payload: string }
     | undefined;
-  if (!row) throw new Error(`No pending approval #${id}.`);
+  if (!row || (row.kind !== "memory" && row.kind !== "plan")) throw new Error(`No pending approval #${id}.`);
 
   const run = db.transaction(() => {
     db.prepare("UPDATE approvals SET status = ?, decided_at = datetime('now') WHERE id = ?").run(approve ? "approved" : "rejected", id);

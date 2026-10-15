@@ -5,6 +5,10 @@ export const TOOL_LABELS: Record<string, string> = {
   propose_memory: "Proposed a memory",
   web_search: "Searched the web",
   fetch_url: "Read a web page",
+  propose_call: "Proposed a call",
+  propose_email: "Drafted an email",
+  propose_commitment: "Asked you to confirm a promise",
+  confirm_task_done: "Marked a promise kept",
 };
 
 export const toolLabel = (name: string) => TOOL_LABELS[name] ?? name.replace(/_/g, " ");
