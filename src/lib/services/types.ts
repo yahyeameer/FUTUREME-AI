@@ -1,5 +1,8 @@
 import type {
   CoachingStyle,
+  CouncilSession,
+  NightShift,
+  ResearchRun,
   DailyEdition,
   MemoryDraft,
   PlanProposal,
@@ -53,6 +56,16 @@ export interface SkillService {
   runSkill(skillId: string, inputs: Record<string, string>, onUpdate: (run: SkillRun) => void): Promise<{ workspace: Workspace; run: SkillRun }>;
 }
 
+/** FutureMe's agent team beyond the conversation: the council, the fact checker, research, the night shift and packs. */
+export interface AgentTeamService {
+  askCouncil(question: string): Promise<{ workspace: Workspace; session: CouncilSession }>;
+  saveCouncil(sessionId: string): Promise<Workspace>;
+  verifyMessage(messageId: string): Promise<Workspace>;
+  runResearch(topic: string): Promise<{ workspace: Workspace; run: ResearchRun }>;
+  runNightShift(): Promise<{ workspace: Workspace; shift: NightShift }>;
+  setPack(packId: string | null): Promise<Workspace>;
+}
+
 export interface FutureMeService
   extends WorkspaceService,
     ProfileService,
@@ -62,6 +75,7 @@ export interface FutureMeService
     MemoryService,
     ReflectionService,
     DailyService,
-    SkillService {
+    SkillService,
+    AgentTeamService {
   readonly mode: Workspace["runtime"]["mode"];
 }

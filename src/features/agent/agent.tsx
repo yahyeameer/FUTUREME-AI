@@ -16,7 +16,8 @@ import { ProvenanceBadge } from "@/features/memory/provenance";
 import { pendingApprovals } from "@/lib/derive";
 import { cn, pluralize, relativeDay } from "@/lib/utils";
 import { useWorkspace } from "@/lib/workspace-store";
-import { agentLog, TOOLS, toolUsage, vaultFiles, type LogEntry, type ToolInfo, type VaultFile } from "./agent-data";
+import { agentLog, agentTools, logKind, toolUsage, vaultFiles, type LogEntry, type ToolInfo, type VaultFile } from "./agent-data";
+import { NightShiftPanel, Packs, Privacy, Research, Team } from "./agent-team";
 
 export function Agent() {
   const { workspace } = useWorkspace();
@@ -25,6 +26,7 @@ export function Agent() {
   const waiting = pendingApprovals(workspace);
   const calls = [...usage.values()].reduce((n, u) => n + u.count, 0);
   const rt = workspace.runtime;
+  const tools = agentTools(workspace);
 
   return (
     <PageFrame rail={<AgentLog />} railTitle="Agent log" width="wide">
@@ -78,7 +80,7 @@ export function Agent() {
               </div>
             </div>
             <div className="hidden justify-self-center md:block">
-              <ToolOrbit />
+              <ToolOrbit tools={tools} />
             </div>
           </div>
           <div className="relative grid grid-cols-2 border-t border-border sm:grid-cols-4">
@@ -97,11 +99,26 @@ export function Agent() {
           <Loop />
         </RevealItem>
 
+        {/* Team */}
+        <RevealItem as="section" aria-labelledby="team-heading">
+          <SectionHead
+            id="team-heading"
+            title="The team"
+            note={`${workspace.platform.team.length} agents defined in ${workspace.platform.agentFile}. Each one gets only the tools its job needs.`}
+            action={
+              <Link href="/council" className="flex items-center gap-1 text-[12px] font-medium text-muted-foreground hover:text-foreground">
+                Ask the council <ArrowRight className="size-3" />
+              </Link>
+            }
+          />
+          <Team />
+        </RevealItem>
+
         {/* Tools */}
         <RevealItem as="section" aria-labelledby="tools-heading">
           <SectionHead id="tools-heading" title="Tools" note="What the agent can call on its own, and what it has to ask for." />
           <div className="grid grid-cols-[minmax(0,1fr)] gap-4 md:grid-cols-2">
-            {TOOLS.map((t) => (
+            {tools.map((t) => (
               <ToolCard key={t.name} tool={t} usage={usage.get(t.name)} />
             ))}
           </div>
@@ -131,6 +148,30 @@ export function Agent() {
             }
           />
           <FileAccess files={files} />
+        </RevealItem>
+
+        {/* Night shift */}
+        <RevealItem as="section" aria-labelledby="night-heading" id="night">
+          <SectionHead id="night-heading" title="Night shift" note="A scheduled agent run. Anything it proposes still waits for your approval." />
+          <NightShiftPanel />
+        </RevealItem>
+
+        {/* Research */}
+        <RevealItem as="section" aria-labelledby="research-heading">
+          <SectionHead id="research-heading" title="Research" note="Web research with real links. Summaries are saved to your vault only after you approve them." />
+          <Research />
+        </RevealItem>
+
+        {/* Persona */}
+        <RevealItem as="section" aria-labelledby="packs-heading">
+          <SectionHead id="packs-heading" title="Persona pack" note="Choose who your future self becomes. It changes the voice, not your facts." />
+          <Packs />
+        </RevealItem>
+
+        {/* Privacy */}
+        <RevealItem as="section" aria-labelledby="privacy-heading">
+          <SectionHead id="privacy-heading" title="Where it runs" note="What runs where, and what leaves your machine." />
+          <Privacy />
         </RevealItem>
 
         {/* Actions */}
@@ -179,7 +220,7 @@ function Metric({ label, value, tone }: { label: string; value: number; tone?: "
 }
 
 /** The real tools, orbiting the agent. Unavailable tools are drawn faded. */
-function ToolOrbit() {
+function ToolOrbit({ tools }: { tools: ToolInfo[] }) {
   const r = 118;
   return (
     <div className="relative size-[18rem]">
@@ -189,8 +230,8 @@ function ToolOrbit() {
         </Orb>
       </div>
       <div aria-hidden className="absolute inset-0 animate-orbit-slow">
-        {TOOLS.map((t, i) => {
-          const a = (i / TOOLS.length) * Math.PI * 2 - Math.PI / 2;
+        {tools.map((t, i) => {
+          const a = (i / tools.length) * Math.PI * 2 - Math.PI / 2;
           const x = Math.round(Math.cos(a) * r * 100) / 100;
           const y = Math.round(Math.sin(a) * r * 100) / 100;
           return (
@@ -449,7 +490,7 @@ function AgentLog() {
                     <p className="text-[13px] leading-snug">{e.title}</p>
                     {e.detail && <p className="mt-0.5 line-clamp-2 text-[12px] text-muted-foreground">{e.detail}</p>}
                     <p className="mt-0.5 t-meta">
-                      {e.tool ? <span className="font-mono">{e.tool}</span> : e.kind === "skill" ? "Action" : "Approval"} · {relativeDay(e.at)}
+                      <span className={cn(e.tool && "font-mono")}>{logKind(e)}</span> · {relativeDay(e.at)}
                     </p>
                   </Link>
                 </li>

@@ -10,6 +10,7 @@ import { cn, formatTime } from "@/lib/utils";
 import { useWorkspace } from "@/lib/workspace-store";
 import type { Message } from "@/types";
 import { ApprovalCard } from "./approval-card";
+import { FactCheck } from "./fact-check";
 import { ProgressBlock } from "./progress-block";
 import { ToolStatus } from "./tool-status";
 
@@ -66,6 +67,8 @@ export function AssistantMessage({ message, name = "Future you" }: { message: Me
           ))}
         </div>
       )}
+
+      <FactCheck message={message} />
 
       <footer className="mt-2 flex flex-wrap items-center gap-1.5">
         {message.citations.length > 0 && (

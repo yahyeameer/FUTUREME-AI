@@ -87,10 +87,10 @@ describe("core workflow", () => {
     expect(() => decideApproval(db, turn.approvals[0], true)).toThrow(/No pending approval/);
   });
 
-  it("returns readable errors for bad tool arguments instead of throwing", () => {
-    expect(runTool(db, "propose_plan", "{not json").output).toMatch(/not valid JSON/);
-    expect(runTool(db, "propose_plan", JSON.stringify({ goal: "x", tasks: [] })).output).toMatch(/invalid arguments/);
-    expect(runTool(db, "delete_everything", "{}").output).toMatch(/unknown tool/);
+  it("returns readable errors for bad tool arguments instead of throwing", async () => {
+    expect((await runTool(db, "propose_plan", "{not json")).output).toMatch(/not valid JSON/);
+    expect((await runTool(db, "propose_plan", JSON.stringify({ goal: "x", tasks: [] }))).output).toMatch(/invalid arguments/);
+    expect((await runTool(db, "delete_everything", "{}")).output).toMatch(/unknown tool/);
     expect(pendingApprovals(db)).toEqual([]);
   });
 

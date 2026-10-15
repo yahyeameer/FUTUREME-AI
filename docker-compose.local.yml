@@ -1,0 +1,15 @@
+# Private local mode: every agent runs on Docker Model Runner on this machine. Nothing is sent to a cloud model.
+#   docker model pull ai/qwen3
+#   docker compose -f docker-compose.yml -f docker-compose.local.yml up --build
+services:
+  futureme:
+    environment:
+      LLM_PROVIDER: local
+    models:
+      llm:
+        endpoint_var: LOCAL_LLM_URL
+        model_var: LOCAL_MODEL
+
+models:
+  llm:
+    model: ai/qwen3

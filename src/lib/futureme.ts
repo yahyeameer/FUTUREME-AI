@@ -2,7 +2,9 @@ import { z } from "zod";
 import type { Db } from "./db";
 import { getProvider, type ChatMessage, type LlmProvider, type ToolDefinition } from "./llm";
 import { STORY_MARKER } from "./mock-llm";
+import { activePack } from "./packs";
 import { searchNotes, writeNote } from "./vault";
+import { fetchPage, webSearch } from "./web";
 
 // Core FutureMe workflow: profile -> future story -> chat with memory -> approval-gated plans -> tasks.
 
@@ -98,9 +100,13 @@ const SearchArgs = z.object({ query: z.string().min(1), limit: z.number().int().
 const MemoryArgs = z.object({
   title: z.string().min(1).max(120),
   body: z.string().min(1),
-  folder: z.enum(["Profile", "Goals", "Reflections"]).default("Reflections"),
+  folder: z.enum(["Profile", "Goals", "Reflections", "Research"]).default("Reflections"),
   tags: z.array(z.string()).optional(),
+  /** Set by the app for research summaries, which are saved as AI interpretations. */
+  evidence: z.enum(["user-stated", "ai-inferred"]).optional(),
 });
+const WebSearchArgs = z.object({ query: z.string().min(2).max(300), limit: z.number().int().min(1).max(8).optional() });
+const FetchArgs = z.object({ url: z.string().url().max(2000) });
 const PlanArgs = z.object({
   goal: z.string().min(1).max(160),
   why: z.string().max(1000).optional(),
@@ -112,7 +118,7 @@ const PlanArgs = z.object({
 export type PlanProposal = z.infer<typeof PlanArgs>;
 export type MemoryProposal = z.infer<typeof MemoryArgs>;
 
-export const TOOLS: ToolDefinition[] = [
+export const ALL_TOOLS: ToolDefinition[] = [
   {
     type: "function",
     function: {
@@ -165,7 +171,28 @@ export const TOOLS: ToolDefinition[] = [
       },
     },
   },
+  {
+    type: "function",
+    function: {
+      name: "web_search",
+      description: "Search the public web. Returns titles, links and snippets. Cite only links it returns.",
+      parameters: { type: "object", properties: { query: { type: "string" }, limit: { type: "integer" } }, required: ["query"] },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "fetch_url",
+      description: "Read a public web page as plain text. Use it on links from web_search to check what a source says.",
+      parameters: { type: "object", properties: { url: { type: "string" } }, required: ["url"] },
+    },
+  },
 ];
+
+export const toolDefs = (names: readonly string[]) => ALL_TOOLS.filter((t) => names.includes(t.function.name));
+
+/** The future self's own tools. Other agents get narrower sets (see agents.ts). */
+export const TOOLS = toolDefs(["search_memory", "propose_memory", "propose_plan"]);
 
 export interface ToolResult {
   output: string;
@@ -174,8 +201,8 @@ export interface ToolResult {
 }
 
 // Every tool call is logged, so the app can show what the agent did even when Docker Agent ran the loop.
-export function runTool(db: Db, name: string, rawArgs: string): ToolResult {
-  const result = executeTool(db, name, rawArgs);
+export async function runTool(db: Db, name: string, rawArgs: string): Promise<ToolResult> {
+  const result = await executeTool(db, name, rawArgs);
   db.prepare("INSERT INTO tool_events (tool, arguments, output, citations, approval_id) VALUES (?, ?, ?, ?, ?)").run(
     name,
     rawArgs || "{}",
@@ -200,7 +227,7 @@ export function lastToolEventId(db: Db): number {
   return (db.prepare("SELECT COALESCE(MAX(id), 0) AS id FROM tool_events").get() as { id: number }).id;
 }
 
-function executeTool(db: Db, name: string, rawArgs: string): ToolResult {
+async function executeTool(db: Db, name: string, rawArgs: string): Promise<ToolResult> {
   let json: unknown;
   try {
     json = JSON.parse(rawArgs || "{}");
@@ -225,7 +252,10 @@ function executeTool(db: Db, name: string, rawArgs: string): ToolResult {
     case "propose_memory": {
       const args = MemoryArgs.safeParse(json);
       if (!args.success) return invalid(args.error);
-      const id = createApproval(db, "memory", args.data);
+      // Only the app may mark a memory as an AI interpretation; the agent's proposal is what the user said.
+      const memory = { ...args.data };
+      delete memory.evidence;
+      const id = createApproval(db, "memory", memory);
       return { output: `Memory proposal #${id} is waiting for the user's approval.`, citations: [], approvalId: id };
     }
     case "propose_plan": {
@@ -233,6 +263,30 @@ function executeTool(db: Db, name: string, rawArgs: string): ToolResult {
       if (!args.success) return invalid(args.error);
       const id = createApproval(db, "plan", args.data);
       return { output: `Plan proposal #${id} is waiting for the user's approval in the conversation.`, citations: [], approvalId: id };
+    }
+    case "web_search": {
+      const args = WebSearchArgs.safeParse(json);
+      if (!args.success) return invalid(args.error);
+      try {
+        const results = await webSearch(args.data.query, args.data.limit ?? 5);
+        if (!results.length) return { output: "No results.", citations: [] };
+        return {
+          output: results.map((r, i) => `${i + 1}. ${r.title}\n   ${r.url}\n   ${r.snippet}`).join("\n"),
+          citations: results.map((r) => r.url),
+        };
+      } catch (err) {
+        return { output: `Error: web search failed: ${err instanceof Error ? err.message : "unknown error"}`, citations: [] };
+      }
+    }
+    case "fetch_url": {
+      const args = FetchArgs.safeParse(json);
+      if (!args.success) return invalid(args.error);
+      try {
+        const page = await fetchPage(args.data.url);
+        return { output: `# ${page.title}\n${page.url}\n\n${page.text}`, citations: [page.url] };
+      } catch (err) {
+        return { output: `Error: could not read ${args.data.url}: ${err instanceof Error ? err.message : "unknown error"}`, citations: [] };
+      }
     }
     default:
       return { output: `Error: unknown tool ${name}.`, citations: [] };
@@ -247,19 +301,24 @@ const STYLE_GUIDE: Record<Profile["style"], string> = {
   strategic: "Be analytical; focus on leverage, trade-offs and sequencing.",
 };
 
-function systemPrompt(profile: Profile): string {
+function systemPrompt(profile: Profile, persona?: string): string {
   return [
     `You are ${profile.name}'s future self, ten years from now, having reached this dream: ${profile.dream}`,
+    persona && `Persona pack: ${persona}`,
     `Speak in the first person as them, from experience. ${STYLE_GUIDE[profile.style]}`,
     "Always call search_memory before answering so you use what they've told you, and mention what you remembered.",
     "When they commit to something or describe a goal, call propose_plan with small, concrete tasks.",
     "When they share an important new fact about themselves, call propose_memory.",
     "Never claim something was saved or created; proposals wait for their approval.",
     "Keep replies under 150 words and end with one reflective question.",
-  ].join("\n");
+  ]
+    .filter(Boolean)
+    .join("\n");
 }
 
 export interface ChatTurn {
+  /** The stored reply's id, so it can be fact-checked afterwards. */
+  id: number;
   reply: string;
   citations: string[];
   approvals: number[];
@@ -342,13 +401,18 @@ async function* sseData(body: ReadableStream<Uint8Array>): AsyncGenerator<string
   }
 }
 
-export function inProcessBackend(provider: LlmProvider = getProvider()): AgentBackend {
+export function inProcessBackend(
+  provider: LlmProvider = getProvider(),
+  opts: { tools?: ToolDefinition[]; instruction?: string } = {},
+): AgentBackend {
+  const tools = opts.tools ?? TOOLS;
   return {
     name: `in-process:${provider.name}`,
     async run(db, initial, onDelta) {
-      const messages = [...initial];
+      // The agent's own instruction comes first, as Docker Agent does with the YAML instruction.
+      const messages: ChatMessage[] = opts.instruction ? [{ role: "system", content: opts.instruction }, ...initial] : [...initial];
       for (let step = 0; step < MAX_STEPS; step++) {
-        const res = await provider.complete(messages, TOOLS);
+        const res = await provider.complete(messages, tools.length ? tools : undefined);
         if (!res.toolCalls.length) {
           const reply = (res.content ?? "").trim();
           if (reply) onDelta?.(reply);
@@ -360,7 +424,7 @@ export function inProcessBackend(provider: LlmProvider = getProvider()): AgentBa
           tool_calls: res.toolCalls.map((c) => ({ id: c.id, type: "function", function: { name: c.name, arguments: c.arguments } })),
         });
         for (const c of res.toolCalls) {
-          messages.push({ role: "tool", tool_call_id: c.id, content: runTool(db, c.name, c.arguments).output });
+          messages.push({ role: "tool", tool_call_id: c.id, content: (await runTool(db, c.name, c.arguments)).output });
         }
       }
       return "";
@@ -380,7 +444,7 @@ export async function chat(db: Db, userText: string, backend: AgentBackend = get
   if (!text) throw new Error("Say something to your future self.");
 
   const history = chatHistory(db, 12).map((m): ChatMessage => ({ role: m.role, content: m.content }));
-  const messages: ChatMessage[] = [{ role: "system", content: systemPrompt(profile) }, ...history, { role: "user", content: text }];
+  const messages: ChatMessage[] = [{ role: "system", content: systemPrompt(profile, activePack(db)?.persona) }, ...history, { role: "user", content: text }];
   db.prepare("INSERT INTO messages (role, content) VALUES ('user', ?)").run(text);
 
   const before = lastToolEventId(db);
@@ -389,8 +453,9 @@ export async function chat(db: Db, userText: string, backend: AgentBackend = get
   const citations = [...new Set(events.flatMap((e) => e.citations))];
   const approvals = events.flatMap((e) => (e.approval_id ? [e.approval_id] : []));
 
-  db.prepare("INSERT INTO messages (role, content, citations) VALUES ('assistant', ?, ?)").run(reply, JSON.stringify(citations));
-  return { reply, citations, approvals, tools: events.map((e) => e.tool), backend: backend.name };
+  const tools = events.map((e) => e.tool);
+  const info = db.prepare("INSERT INTO messages (role, content, citations, tools) VALUES ('assistant', ?, ?, ?)").run(reply, JSON.stringify(citations), JSON.stringify(tools));
+  return { id: Number(info.lastInsertRowid), reply, citations, approvals, tools, backend: backend.name };
 }
 
 // ---------- Approvals, goals and tasks ----------
@@ -403,7 +468,7 @@ export interface Approval {
   created_at: string;
 }
 
-function createApproval(db: Db, kind: Approval["kind"], payload: unknown): number {
+export function createApproval(db: Db, kind: Approval["kind"], payload: MemoryProposal | PlanProposal): number {
   const info = db.prepare("INSERT INTO approvals (kind, payload) VALUES (?, ?)").run(kind, JSON.stringify(payload));
   return Number(info.lastInsertRowid);
 }
@@ -433,7 +498,7 @@ export function decideApproval(db: Db, id: number, approve: boolean): void {
     if (!approve) return;
     if (row.kind === "memory") {
       const m = MemoryArgs.parse(JSON.parse(row.payload));
-      writeNote({ folder: m.folder, title: m.title, body: m.body, tags: m.tags, evidence: "user-stated" });
+      writeNote({ folder: m.folder, title: m.title, body: m.body, tags: m.tags, evidence: m.evidence ?? "user-stated" });
     } else {
       createGoal(db, PlanArgs.parse(JSON.parse(row.payload)));
     }

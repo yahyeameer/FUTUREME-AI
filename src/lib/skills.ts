@@ -29,11 +29,12 @@ export const SKILL_DEFS: SkillDef[] = [
   {
     id: "research",
     name: "Research and Summarize",
-    description: "Finds recent sources on a topic and summarises them with links.",
+    description: "The researcher agent searches the web, reads the best sources and summarises them with their links.",
     inputs: [{ name: "topic", label: "Topic", placeholder: "e.g. SMS advisory services for farmers", kind: "text", required: true }],
-    permissions: ["Web search", "Save a summary to memory (needs approval)"],
+    permissions: ["Web search", "Read web pages", "Save a summary to memory (needs approval)"],
+    // Runs through the researcher agent (POST runResearch), not the future self.
     livePrompt: null,
-    liveUnavailableReason: "No web search tool is connected to the agent yet.",
+    liveUnavailableReason: "Web search is turned off on this server (WEB_SEARCH=off).",
   },
   {
     id: "weekly-review",
@@ -53,12 +54,11 @@ export const SKILL_DEFS: SkillDef[] = [
   },
 ];
 
-export function skillsFor(mode: ServiceMode): Skill[] {
-  return SKILL_DEFS.map(({ livePrompt, liveUnavailableReason, ...s }) => ({
-    ...s,
-    available: mode === "demo" || livePrompt !== null,
-    unavailableReason: mode === "live" && livePrompt === null ? liveUnavailableReason : undefined,
-  }));
+export function skillsFor(mode: ServiceMode, opts: { research?: boolean } = {}): Skill[] {
+  return SKILL_DEFS.map(({ livePrompt, liveUnavailableReason, ...s }) => {
+    const available = mode === "demo" || livePrompt !== null || (s.id === "research" && !!opts.research);
+    return { ...s, available, unavailableReason: available ? undefined : liveUnavailableReason };
+  });
 }
 
 export function skillDef(id: string) {
