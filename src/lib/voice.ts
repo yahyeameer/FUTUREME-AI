@@ -196,7 +196,7 @@ export function voiceDir(): string {
 
 const EXT: Record<string, string> = { "audio/webm": "webm", "audio/ogg": "ogg", "audio/mp4": "m4a", "audio/mpeg": "mp3", "audio/wav": "wav", "audio/x-wav": "wav" };
 
-function checkAudio(a: AudioInput) {
+export function checkAudio(a: AudioInput) {
   if (!a.data.byteLength) throw new Error("The recording is empty.");
   if (a.data.byteLength > MAX_AUDIO_BYTES) throw new Error("Each recording must be 10 MB or smaller.");
   if (!a.type.startsWith("audio/") && !a.type.startsWith("video/webm")) throw new Error("That file isn't audio.");

@@ -19,7 +19,9 @@ export type AgentName =
   | "verifier"
   | "researcher"
   | "night_shift"
-  | "twin_voice";
+  | "twin"
+  | "twin_voice"
+  | "twin_proxy";
 
 export interface AgentSpec {
   name: string;
