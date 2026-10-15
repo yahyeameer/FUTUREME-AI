@@ -31,7 +31,7 @@ The UI talks to a typed service layer (`src/lib/services/types.ts`) with two imp
 
 Settings → Data mode chooses Automatic (server if reachable, otherwise demo), Demo data, or Server. Demo data can be reset or cleared from Settings. API keys only ever live on the server; the browser never sees one.
 
-Design: "Editorial Futurism". Obsidian, charcoal and graphite surfaces (ivory and paper in light mode), citron for action and copper for AI interpretation. Geist for the interface, Instrument Serif for display and Newsreader for reading. Primitives are shadcn-style components on Radix (`src/components/ui`), icons from Lucide, motion from Motion, forms from React Hook Form with Zod.
+Design: "Editorial Futurism". A warm ivory and paper theme by default (obsidian and graphite in dark mode), obsidian ink for the main action, citron for progress and copper for AI interpretation, with ambient light, an animated dashboard and staggered motion that switches off under reduced motion. Geist for the interface, Instrument Serif for display and Newsreader for reading. Primitives are shadcn-style components on Radix (`src/components/ui`), icons from Lucide, motion from Motion, forms from React Hook Form with Zod.
 
 ## How it fits together
 
