@@ -1,0 +1,157 @@
+import { BookmarkPlus, Globe, ListPlus, Search, type LucideIcon } from "lucide-react";
+import type { Memory, Workspace } from "@/types";
+
+export type ToolAccess = "read" | "write" | "none";
+export type ToolGate = "auto" | "approval" | "unavailable";
+
+export interface ToolInfo {
+  name: string;
+  label: string;
+  icon: LucideIcon;
+  description: string;
+  access: ToolAccess;
+  gate: ToolGate;
+  /** What the tool touches, in the user's words. */
+  touches: string;
+}
+
+/**
+ * The agent's real toolset: the FutureMe MCP server (mcp/futureme-server.ts) exposes exactly the first three.
+ * Web search is listed so it is clear the agent does not have it.
+ */
+export const TOOLS: ToolInfo[] = [
+  {
+    name: "search_memory",
+    label: "Search memory",
+    icon: Search,
+    description: "Looks through the notes in your vault by keyword before it answers, and cites what it used.",
+    access: "read",
+    gate: "auto",
+    touches: "Vault notes",
+  },
+  {
+    name: "propose_plan",
+    label: "Propose a plan",
+    icon: ListPlus,
+    description: "Drafts a goal with concrete steps. Once you approve it, it becomes a milestone and tasks on your roadmap.",
+    access: "write",
+    gate: "approval",
+    touches: "Roadmap",
+  },
+  {
+    name: "propose_memory",
+    label: "Propose a memory",
+    icon: BookmarkPlus,
+    description: "Suggests saving something you shared. Once you approve it, it is written to your vault as a Markdown note.",
+    access: "write",
+    gate: "approval",
+    touches: "Vault notes",
+  },
+  {
+    name: "web_search",
+    label: "Web search",
+    icon: Globe,
+    description: "Looking things up on the web. No search tool is connected to the agent, so it never browses.",
+    access: "none",
+    gate: "unavailable",
+    touches: "The web",
+  },
+];
+
+export interface LogEntry {
+  id: string;
+  at: string;
+  kind: "tool" | "skill" | "approval";
+  tool?: string;
+  title: string;
+  detail?: string;
+  status: "done" | "failed" | "running" | "pending" | "approved" | "rejected";
+  href: string;
+}
+
+/** Everything the agent did, newest first, built only from records in the workspace. */
+export function agentLog(ws: Workspace): LogEntry[] {
+  const out: LogEntry[] = [];
+  for (const m of ws.conversation) {
+    if (m.role !== "assistant") continue;
+    (m.tools ?? []).forEach((t, i) =>
+      out.push({ id: `${m.id}-t${i}`, at: m.createdAt, kind: "tool", tool: t.name, title: t.label, detail: t.detail, status: t.status, href: "/future-self" }),
+    );
+  }
+  const skillName = (id: string) => ws.skills.find((s) => s.id === id)?.name ?? id;
+  for (const r of ws.skillRuns) {
+    out.push({
+      id: `run-${r.id}`,
+      at: r.finishedAt ?? r.startedAt,
+      kind: "skill",
+      title: `Ran ${skillName(r.skillId)}`,
+      detail: r.summary,
+      status: r.status === "failed" ? "failed" : r.status === "running" ? "running" : "done",
+      href: "/skills",
+    });
+  }
+  for (const a of ws.approvals) {
+    out.push({
+      id: `ap-${a.id}`,
+      at: a.decidedAt ?? a.createdAt,
+      kind: "approval",
+      title: a.kind === "plan" ? `Plan: ${a.plan.goal}` : `Memory: ${a.memory.title}`,
+      detail: a.status === "pending" ? "Waiting for your approval" : a.status === "approved" ? "You approved it" : "You declined it",
+      status: a.status,
+      href: a.kind === "plan" ? "/roadmap" : "/memory",
+    });
+  }
+  return out.sort((a, b) => b.at.localeCompare(a.at));
+}
+
+export function toolUsage(ws: Workspace) {
+  const counts = new Map<string, { count: number; last?: string }>();
+  for (const m of ws.conversation) {
+    for (const t of m.tools ?? []) {
+      const c = counts.get(t.name) ?? { count: 0 };
+      c.count += 1;
+      if (!c.last || m.createdAt > c.last) c.last = m.createdAt;
+      counts.set(t.name, c);
+    }
+  }
+  return counts;
+}
+
+export interface VaultFile {
+  path: string;
+  folder: string;
+  name: string;
+  href: string;
+  updatedAt: string;
+  memory?: Memory;
+  /** False when the user told FutureMe not to retrieve this note and the backend enforces it. */
+  readable: boolean;
+}
+
+/** The Markdown files the agent can reach, grouped the way they sit in the vault. */
+export function vaultFiles(ws: Workspace): VaultFile[] {
+  const files: VaultFile[] = [];
+  const seen = new Set<string>();
+  for (const m of ws.memories) {
+    if (!m.path || m.archived || seen.has(m.path)) continue;
+    seen.add(m.path);
+    const [folder, ...rest] = m.path.split("/");
+    files.push({
+      path: m.path,
+      folder: rest.length ? folder : "Vault",
+      name: rest.length ? rest.join("/") : folder,
+      href: `/memory/${encodeURIComponent(m.id)}`,
+      updatedAt: m.updatedAt,
+      memory: m,
+      readable: m.retrievable || !ws.capabilities.memoryRetrievalControl,
+    });
+  }
+  for (const e of ws.editions) {
+    if (!e.path || seen.has(e.path)) continue;
+    seen.add(e.path);
+    const [folder, ...rest] = e.path.split("/");
+    // The live agent searches every Markdown file in the vault, Daily issues included; the demo searches memories only.
+    files.push({ path: e.path, folder: rest.length ? folder : "Daily", name: rest.length ? rest.join("/") : folder, href: "/daily", updatedAt: e.date, readable: ws.runtime.mode === "live" });
+  }
+  return files.sort((a, b) => a.folder.localeCompare(b.folder) || b.updatedAt.localeCompare(a.updatedAt));
+}

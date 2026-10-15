@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowRight, ArrowUpRight, BookOpenText, Check, CircleDashed, Flag, Hourglass, Library, ListChecks, MessageCircle, Newspaper, Sparkles, Target } from "lucide-react";
+import { ArrowRight, ArrowUpRight, BookOpenText, Bot, Check, CircleDashed, Flag, Hourglass, Library, ListChecks, MessageCircle, Newspaper, Sparkles, Target } from "lucide-react";
 import { motion } from "motion/react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -13,6 +13,7 @@ import { Reveal, RevealItem } from "@/components/motion/reveal";
 import { EmptyState } from "@/components/states";
 import { Button } from "@/components/ui/button";
 import { ApprovalCard } from "@/features/assistant/approval-card";
+import { agentLog, TOOLS, toolUsage, vaultFiles } from "@/features/agent/agent-data";
 import { excerpt, KIND_LABEL } from "@/features/memory/memory-preview";
 import { ProvenanceBadge } from "@/features/memory/provenance";
 import { TaskRow } from "@/features/roadmap/task-row";
@@ -147,6 +148,11 @@ export function Home() {
             </div>
           </RevealItem>
         )}
+
+        {/* Agent */}
+        <RevealItem as="section" aria-labelledby="agent-heading" className="card overflow-hidden lg:col-span-12">
+          <AgentPanel />
+        </RevealItem>
 
         {/* Journey */}
         <RevealItem as="section" aria-labelledby="journey-heading" className="card overflow-hidden lg:col-span-12">
@@ -320,6 +326,79 @@ function suggestions(ws: ReturnType<typeof useWorkspace>["workspace"]) {
   if (blocked) out.push(`Get unstuck on “${blocked.title}”`);
   out.push("How am I doing this week?");
   return out.slice(0, 3);
+}
+
+function AgentPanel() {
+  const { workspace } = useWorkspace();
+  const usage = toolUsage(workspace);
+  const log = agentLog(workspace).slice(0, 3);
+  const readable = vaultFiles(workspace).filter((f) => f.readable).length;
+  return (
+    <div className="grid grid-cols-[minmax(0,1fr)] lg:grid-cols-[minmax(0,7fr)_minmax(0,5fr)]">
+      <div className="p-6">
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2.5">
+            <span className="flex size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground shadow-card">
+              <Bot className="size-4" aria-hidden />
+            </span>
+            <div>
+              <h2 id="agent-heading" className="t-label">
+                Your agent
+              </h2>
+              <p className="text-[13px] text-muted-foreground">
+                {pluralize(TOOLS.filter((t) => t.gate !== "unavailable").length, "tool")} · {pluralize(readable, "file")} it can read · {pluralize(workspace.skills.filter((s) => s.available).length, "action")}
+              </p>
+            </div>
+          </div>
+          <Link href="/agent" className="flex shrink-0 items-center gap-1 text-[12px] font-medium text-muted-foreground hover:text-foreground">
+            Open agent <ArrowUpRight className="size-3.5" />
+          </Link>
+        </div>
+        <ul className="mt-5 grid grid-cols-[minmax(0,1fr)] gap-2.5 sm:grid-cols-2">
+          {TOOLS.map((t) => {
+            const u = usage.get(t.name);
+            const off = t.gate === "unavailable";
+            return (
+              <li key={t.name}>
+                <Link href="/agent" className={cn("flex items-center gap-3 rounded-xl border bg-surface-2/60 px-3 py-2.5 transition-colors hover:border-border-strong hover:bg-surface", off ? "border-dashed border-border" : "border-border")}>
+                  <span className={cn("flex size-8 shrink-0 items-center justify-center rounded-lg", off ? "text-subtle" : t.gate === "approval" ? "bg-copper-wash text-copper" : "bg-accent-wash text-accent-ink")}>
+                    <t.icon className="size-4" aria-hidden />
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className={cn("block truncate text-[13px] font-medium", off && "text-muted-foreground")}>{t.label}</span>
+                    <span className="block truncate text-[11.5px] text-subtle">{off ? "Not connected" : t.gate === "approval" ? "Asks before saving" : "Runs on its own"}</span>
+                  </span>
+                  {!off && <span className="t-meta">{u ? `${u.count}×` : "0×"}</span>}
+                </Link>
+              </li>
+            );
+          })}
+        </ul>
+      </div>
+      <div className="border-t border-border bg-sunken/50 p-6 lg:border-t-0 lg:border-l">
+        <p className="t-label">Latest actions</p>
+        {log.length ? (
+          <ol className="mt-4 space-y-3.5">
+            {log.map((e) => (
+              <li key={e.id}>
+                <Link href={e.href} className="group flex gap-3">
+                  <span className={cn("mt-1.5 size-2 shrink-0 rounded-full", e.status === "pending" ? "bg-warning" : e.status === "failed" ? "bg-destructive" : e.status === "rejected" ? "bg-subtle" : "bg-accent")} aria-hidden />
+                  <span className="min-w-0">
+                    <span className="block text-[13px] leading-snug group-hover:underline">{e.title}</span>
+                    <span className="mt-0.5 block t-meta">
+                      {e.tool ? <span className="font-mono">{e.tool}</span> : e.kind === "skill" ? "Action" : "Approval"} · {relativeDay(e.at)}
+                    </span>
+                  </span>
+                </Link>
+              </li>
+            ))}
+          </ol>
+        ) : (
+          <p className="mt-3 text-[13px] text-muted-foreground">Nothing yet. Ask your future self something and each tool it uses shows up here.</p>
+        )}
+      </div>
+    </div>
+  );
 }
 
 function Journey() {
