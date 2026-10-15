@@ -15,23 +15,11 @@ import { Switch } from "@/components/ui/switch";
 import { cn, pluralize } from "@/lib/utils";
 import { useWorkspaceContext } from "@/lib/workspace-store";
 import type { TwinState } from "@/app/api/twin/state";
+import { post, upload, type Act } from "./api";
+import { TalkSection } from "./talk";
 import { recordingFile, useRecorder, type Recording } from "./use-recorder";
 
 type Approval = TwinState["twin"]["approvals"][number];
-
-async function post(body: object): Promise<TwinState & Record<string, unknown>> {
-  const res = await fetch("/api/twin", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
-  const json = await res.json();
-  if (!res.ok) throw new Error(json.error ?? "That didn't work.");
-  return json;
-}
-
-async function upload(form: FormData): Promise<TwinState & Record<string, unknown>> {
-  const res = await fetch("/api/twin/audio", { method: "POST", body: form });
-  const json = await res.json();
-  if (!res.ok) throw new Error(json.error ?? "That didn't work.");
-  return json;
-}
 
 export function Twin() {
   const { service } = useWorkspaceContext();
@@ -57,8 +45,7 @@ export function Twin() {
     if (service?.mode === "live") void fetchState();
   }, [service?.mode, fetchState]);
 
-  /** Runs an action, swaps in the new state, and turns errors into toasts. */
-  const act = React.useCallback(async <T extends TwinState>(fn: () => Promise<T>, success?: string): Promise<T | null> => {
+  const act: Act = React.useCallback(async <T extends TwinState>(fn: () => Promise<T>, success?: string): Promise<T | null> => {
     try {
       const next = await fn();
       setState(next);
@@ -113,6 +100,7 @@ export function Twin() {
         </p>
       )}
       <div className="mt-8 space-y-12">
+        {state.voice.active?.status === "ready" && <TalkSection state={state} act={act} onState={setState} />}
         <VoiceSection state={state} act={act} />
         <section aria-labelledby="queue-h">
           <SectionHeading id="queue-h">Waiting for you{pending.length ? ` · ${pending.length}` : ""}</SectionHeading>
@@ -133,8 +121,6 @@ export function Twin() {
     </PageFrame>
   );
 }
-
-type Act = <T extends TwinState>(fn: () => Promise<T>, success?: string) => Promise<T | null>;
 
 function Header({ actions }: { actions?: React.ReactNode }) {
   return (
@@ -532,7 +518,7 @@ function TwinApprovalCard({ approval: a, act }: { approval: Approval; act: Act }
             </div>
           ) : (
             a.status === "approved" &&
-            a.kind !== "commitment" && <p className="text-[12px] text-muted-foreground">Approved. Placing calls and sending emails is the next phase, so this one is saved and waits for it.</p>
+            a.kind !== "commitment" && <p className="text-[12px] text-muted-foreground">Approved. Calling and emailing your contacts is the next phase, so this one is saved and waits for it.</p>
           )}
         </div>
       </div>

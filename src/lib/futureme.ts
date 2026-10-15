@@ -3,7 +3,7 @@ import type { Db } from "./db";
 import { getProvider, type ChatMessage, type LlmProvider, type ToolDefinition } from "./llm";
 import { STORY_MARKER } from "./mock-llm";
 import { activePack } from "./packs";
-import { isTwinTool, runTwinTool } from "./twin";
+import { isTwinTool, runTwinTool, TWIN_TOOL_DEFS } from "./twin";
 import { searchNotes, writeNote } from "./vault";
 import { fetchPage, webSearch } from "./web";
 
@@ -188,6 +188,7 @@ export const ALL_TOOLS: ToolDefinition[] = [
       parameters: { type: "object", properties: { url: { type: "string" } }, required: ["url"] },
     },
   },
+  ...TWIN_TOOL_DEFS,
 ];
 
 export const toolDefs = (names: readonly string[]) => ALL_TOOLS.filter((t) => names.includes(t.function.name));
@@ -292,6 +293,8 @@ async function executeTool(db: Db, name: string, rawArgs: string): Promise<ToolR
     default:
       // The voice twin's propose-only tools (calls, emails, commitments) live in twin.ts.
       if (isTwinTool(name)) return runTwinTool(db, name, json);
+      // Promise Keeper, used only on a live call. Loaded lazily: twin-calls.ts imports this module.
+      if (name === "confirm_task_done") return (await import("./twin-calls")).confirmTaskDone(db, json);
       return { output: `Error: unknown tool ${name}.`, citations: [] };
   }
 }

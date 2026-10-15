@@ -103,6 +103,14 @@ export const TEAM: AgentInfo[] = [
     tools: ["search_memory", "propose_call", "propose_email", "propose_commitment"],
     subAgents: [],
   },
+  {
+    name: "twin_voice",
+    label: "Future self on a call",
+    role: "twin",
+    description: "The future self on a live voice call. Short spoken replies; can mark a promised task done when the user says it is.",
+    tools: ["search_memory", "confirm_task_done"],
+    subAgents: [],
+  },
 ];
 
 export const teamLabel = (name: string) =>

@@ -18,7 +18,8 @@ export type AgentName =
   | "council_chair"
   | "verifier"
   | "researcher"
-  | "night_shift";
+  | "night_shift"
+  | "twin_voice";
 
 export interface AgentSpec {
   name: string;

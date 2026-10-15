@@ -34,16 +34,29 @@ CREATE TABLE IF NOT EXISTS voice_profiles (
   created_at TEXT NOT NULL DEFAULT (datetime('now')),
   updated_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
--- Calls and emails the twin was allowed to make. Dialling and sending arrive in a later phase; until then an
--- approved row waits with status 'approved'.
+-- Every call the twin is part of. direction: 'outbound' to a contact (approved in the queue), 'self' to the user's own
+-- verified phone, 'web' in the browser, 'inbound' reserved. ref_token is the secret half of the call_ref ElevenLabs
+-- passes back to the custom LLM, so a request can only speak as a call this app started.
 CREATE TABLE IF NOT EXISTS calls (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
-  direction TEXT NOT NULL CHECK (direction IN ('outbound', 'inbound')),
+  direction TEXT NOT NULL CHECK (direction IN ('outbound', 'inbound', 'self', 'web')),
+  mode TEXT NOT NULL DEFAULT 'contact',
   contact_id INTEGER REFERENCES contacts(id),
+  to_number TEXT,
   purpose TEXT,
+  topic TEXT,
+  task_id INTEGER,
   opener TEXT,
   status TEXT NOT NULL,
   approval_id INTEGER,
+  ref_token TEXT,
+  conversation_id TEXT,
+  scheduled_for TEXT,
+  started_at TEXT,
+  ended_at TEXT,
+  duration_secs INTEGER,
+  outcome TEXT,
+  error TEXT,
   transcript TEXT,
   summary TEXT,
   note_path TEXT,
@@ -63,3 +76,11 @@ CREATE TABLE IF NOT EXISTS twin_settings (
   value TEXT NOT NULL
 );
 `;
+
+/** Databases made before Phase 2 have a narrower calls table; rebuild it once, keeping its rows. */
+export function migrateTwin(db: { prepare: (sql: string) => { all: () => unknown[] }; exec: (sql: string) => unknown }) {
+  const cols = (db.prepare("PRAGMA table_info(calls)").all() as { name: string }[]).map((c) => c.name);
+  if (cols.includes("mode")) return;
+  const keep = cols.join(", ");
+  db.exec(`ALTER TABLE calls RENAME TO calls_v1; ${TWIN_SCHEMA} INSERT INTO calls (${keep}) SELECT ${keep} FROM calls_v1; DROP TABLE calls_v1;`);
+}

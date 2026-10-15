@@ -2,14 +2,14 @@ import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import type { Db } from "./db";
-import { ownerName } from "./twin";
+import { getTwinSetting, ownerName, setTwinSetting } from "./twin";
 
 // The voice twin's voice (Phase 1). Only the signed-in user's own voice is cloned:
 //   1. They read a consent phrase with three random code words aloud, live. ElevenLabs speech-to-text must hear all
 //      three, so a pre-recorded clip of someone else can't pass.
 //   2. That same recording is the first sample of the clone, so the voice that consented is the voice that is cloned.
 //   3. An instant clone comes first. The professional clone adds ElevenLabs' own voice CAPTCHA before training.
-//   4. Revoking deletes every voice at ElevenLabs and every recording here.
+//   4. Revoking deletes every voice and the call agent at ElevenLabs, and every recording here.
 
 export interface AudioInput {
   data: Uint8Array;
@@ -124,6 +124,57 @@ export class ElevenLabs {
   async speak(voiceId: string, text: string): Promise<ArrayBuffer> {
     return (await this.call(`/v1/text-to-speech/${encodeURIComponent(voiceId)}?output_format=mp3_44100_128`, this.json({ text, model_id: TTS_MODEL }))).arrayBuffer();
   }
+
+  // ---------- Conversational agent (Phase 2) ----------
+
+  async createAgent(config: unknown): Promise<string> {
+    return ((await (await this.call("/v1/convai/agents/create", this.json(config))).json()) as { agent_id: string }).agent_id;
+  }
+
+  async updateAgent(agentId: string, config: unknown): Promise<void> {
+    await this.call(`/v1/convai/agents/${encodeURIComponent(agentId)}`, { ...this.json(config), method: "PATCH" });
+  }
+
+  async deleteAgent(agentId: string): Promise<void> {
+    try {
+      await this.call(`/v1/convai/agents/${encodeURIComponent(agentId)}`, { method: "DELETE" });
+    } catch (err) {
+      if (!(err instanceof ElevenLabsError && err.status === 404)) throw err;
+    }
+  }
+
+  /** A short-lived token the browser uses to join a WebRTC conversation with an agent that requires auth. */
+  async conversationToken(agentId: string): Promise<string> {
+    return ((await (await this.call(`/v1/convai/conversation/token?agent_id=${encodeURIComponent(agentId)}`)).json()) as { token: string }).token;
+  }
+
+  /** Dials a phone number from the Twilio number imported into ElevenLabs. */
+  async outboundCall(input: { agentId: string; phoneNumberId: string; to: string; dynamicVariables: Record<string, string> }): Promise<{ conversationId: string | null }> {
+    const out = (await (
+      await this.call(
+        "/v1/convai/twilio/outbound-call",
+        this.json({
+          agent_id: input.agentId,
+          agent_phone_number_id: input.phoneNumberId,
+          to_number: input.to,
+          conversation_initiation_client_data: { dynamic_variables: input.dynamicVariables },
+        }),
+      )
+    ).json()) as { success?: boolean; message?: string; conversation_id?: string | null };
+    if (out.success === false) throw new ElevenLabsError(200, out.message ?? "the call could not be placed");
+    return { conversationId: out.conversation_id ?? null };
+  }
+
+  async getConversation(conversationId: string): Promise<Conversation> {
+    return (await (await this.call(`/v1/convai/conversations/${encodeURIComponent(conversationId)}`)).json()) as Conversation;
+  }
+}
+
+export interface Conversation {
+  status: "initiated" | "in-progress" | "processing" | "done" | "failed";
+  transcript?: { role: "user" | "agent"; message: string | null; time_in_call_secs?: number }[];
+  analysis?: { transcript_summary?: string | null } | null;
+  metadata?: { call_duration_secs?: number; start_time_unix_secs?: number } | null;
 }
 
 function toBlob(a: AudioInput): Blob {
@@ -314,7 +365,14 @@ export async function refreshProfessional(db: Db, api: ElevenLabs) {
 /** Deletes every voice at ElevenLabs, every recording on disk, and marks the consent revoked. */
 export async function revokeVoice(db: Db, api: ElevenLabs | null) {
   const rows = voices(db);
-  if (rows.length && !api) throw new Error("ELEVENLABS_API_KEY is needed to delete the voice at ElevenLabs.");
+  const agentId = getTwinSetting(db, "agent_id");
+  if ((rows.length || agentId) && !api) throw new Error("ELEVENLABS_API_KEY is needed to delete the voice at ElevenLabs.");
+  // The phone and browser agent speaks with this voice, so it goes too.
+  if (agentId) {
+    await api!.deleteAgent(agentId);
+    setTwinSetting(db, "agent_id", null);
+    setTwinSetting(db, "agent_hash", null);
+  }
   for (const v of rows) {
     await api!.deleteVoice(v.voice_id);
     db.prepare("DELETE FROM voice_profiles WHERE id = ?").run(v.id);

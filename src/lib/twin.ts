@@ -1,5 +1,6 @@
 import { z } from "zod";
 import type { Db } from "./db";
+import type { ToolDefinition } from "./llm";
 import { writeNote } from "./vault";
 
 // The voice twin's guardrails (Phase 0). The twin can only propose: a call, an email or a promise becomes a pending
@@ -17,15 +18,68 @@ const isTwinKind = (kind: string): kind is TwinApprovalKind => (TWIN_APPROVAL_KI
 /** Proposals per day, counted when the twin proposes (so a rejected proposal still counts). */
 export const DAILY_LIMITS: Record<Exclude<TwinApprovalKind, "commitment">, number> = { outbound_call: 10, send_email: 50 };
 
-// ---------- Kill switch ----------
+/** Tool schemas for the in-process agent loop. The MCP server registers the same tools for Docker Agent. */
+export const TWIN_TOOL_DEFS: ToolDefinition[] = [
+  {
+    type: "function",
+    function: {
+      name: "propose_call",
+      description: "Propose a phone call by the user's AI twin to one of their saved contacts. The user must approve it; no call is made until then.",
+      parameters: {
+        type: "object",
+        properties: { contact: { type: "string" }, purpose: { type: "string" }, talking_points: { type: "array", items: { type: "string" } } },
+        required: ["contact", "purpose"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "propose_email",
+      description: "Draft an email from the user's AI twin to one of their saved contacts. The user must approve it; nothing is sent until then.",
+      parameters: { type: "object", properties: { contact: { type: "string" }, subject: { type: "string" }, body: { type: "string" } }, required: ["contact", "subject", "body"] },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "propose_commitment",
+      description: "Record something someone wants the user to agree to. The twin never agrees itself; the user decides in the app.",
+      parameters: {
+        type: "object",
+        properties: { what: { type: "string" }, contact: { type: "string" }, when: { type: "string" }, context: { type: "string" } },
+        required: ["what"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "confirm_task_done",
+      description:
+        "On a Promise Keeper call only: mark the task this call is about as done, after the user clearly says they did it. Pass the call_ref from your instructions.",
+      parameters: { type: "object", properties: { call_ref: { type: "string" } }, required: ["call_ref"] },
+    },
+  },
+];
+
+// ---------- Settings and kill switch ----------
+
+export function getTwinSetting(db: Db, key: string): string | null {
+  return (db.prepare("SELECT value FROM twin_settings WHERE key = ?").get(key) as { value: string } | undefined)?.value ?? null;
+}
+
+export function setTwinSetting(db: Db, key: string, value: string | null) {
+  if (value === null) db.prepare("DELETE FROM twin_settings WHERE key = ?").run(key);
+  else db.prepare("INSERT INTO twin_settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value").run(key, value);
+}
 
 export function isTwinPaused(db: Db): boolean {
-  const row = db.prepare("SELECT value FROM twin_settings WHERE key = 'paused'").get() as { value: string } | undefined;
-  return row?.value === "1";
+  return getTwinSetting(db, "paused") === "1";
 }
 
 export function setTwinPaused(db: Db, paused: boolean) {
-  db.prepare("INSERT INTO twin_settings (key, value) VALUES ('paused', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value").run(paused ? "1" : "0");
+  setTwinSetting(db, "paused", paused ? "1" : "0");
 }
 
 // ---------- Contacts ----------

@@ -124,6 +124,18 @@ server.registerTool(
   async (args) => text((await runTool(db, "propose_commitment", JSON.stringify(args))).output),
 );
 
+// Promise Keeper: only works during a live Promise Keeper call, and only on that call's own task.
+server.registerTool(
+  "confirm_task_done",
+  {
+    description:
+      "On a Promise Keeper call only: mark the task the call is about as done, after the user clearly says they did it. Pass the call_ref from your instructions.",
+    inputSchema: { call_ref: z.string().min(1).max(100) },
+    annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: false },
+  },
+  async (args) => text((await runTool(db, "confirm_task_done", JSON.stringify(args))).output),
+);
+
 server.connect(new StdioServerTransport()).catch((err) => {
   console.error(err);
   process.exit(1);

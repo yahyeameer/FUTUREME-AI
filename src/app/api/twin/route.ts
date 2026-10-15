@@ -2,11 +2,23 @@ import { connection } from "next/server";
 import { z } from "zod";
 import { db } from "@/lib/server-db";
 import { addContact, decideTwinApproval, removeContact, setTwinPaused } from "@/lib/twin";
+import {
+  cancelCall,
+  confirmOwnerPhone,
+  removeOwnerPhone,
+  scheduleSelfCall,
+  setOwnerPhone,
+  startWebCall,
+  syncCalls,
+  webCallConnected,
+  webCallEnded,
+} from "@/lib/twin-calls";
 import { getVoiceApi, professionalCaptcha, refreshProfessional, revokeVoice, startConsent, startProfessionalClone } from "@/lib/voice";
 import { errorResponse, twinState } from "./state";
 
 // The Twin page's endpoint. GET returns the twin's state; POST runs one action and returns the new state.
-// Recordings go through POST /api/twin/audio, and the voice preview through POST /api/twin/preview.
+// Recordings go through POST /api/twin/audio, the voice preview through POST /api/twin/preview, and ElevenLabs reaches
+// the future self during a call through /api/twin/llm.
 
 export async function GET() {
   await connection();
@@ -23,11 +35,20 @@ const Action = z.discriminatedUnion("action", [
   z.object({ action: z.literal("captcha") }),
   z.object({ action: z.literal("refreshVoice") }),
   z.object({ action: z.literal("revokeVoice") }),
+  z.object({ action: z.literal("startWebCall"), topic: z.string().max(200).optional() }),
+  z.object({ action: z.literal("webCallConnected"), callId: z.number().int(), conversationId: z.string().min(1).max(200) }),
+  z.object({ action: z.literal("webCallEnded"), callId: z.number().int() }),
+  z.object({ action: z.literal("syncCalls") }),
+  z.object({ action: z.literal("setPhone"), phone: z.string().max(40) }),
+  z.object({ action: z.literal("confirmPhone"), code: z.string().max(20) }),
+  z.object({ action: z.literal("removePhone") }),
+  z.object({ action: z.literal("scheduleCall"), call: z.unknown() }),
+  z.object({ action: z.literal("cancelCall"), id: z.number().int() }),
 ]);
 
 const needsKey = () => {
   const api = getVoiceApi();
-  if (!api) throw new Error("Voice cloning needs ELEVENLABS_API_KEY on the server.");
+  if (!api) throw new Error("The voice twin needs ELEVENLABS_API_KEY on the server.");
   return api;
 };
 
@@ -66,6 +87,33 @@ export async function POST(request: Request) {
         break;
       case "revokeVoice":
         await revokeVoice(d, getVoiceApi());
+        break;
+      case "startWebCall":
+        extra = { webCall: await startWebCall(d, needsKey(), a.topic) };
+        break;
+      case "webCallConnected":
+        webCallConnected(d, a.callId, a.conversationId);
+        break;
+      case "webCallEnded":
+        webCallEnded(d, a.callId);
+        break;
+      case "syncCalls":
+        await syncCalls(d, needsKey());
+        break;
+      case "setPhone":
+        await setOwnerPhone(d, needsKey(), a.phone);
+        break;
+      case "confirmPhone":
+        confirmOwnerPhone(d, a.code);
+        break;
+      case "removePhone":
+        removeOwnerPhone(d);
+        break;
+      case "scheduleCall":
+        await scheduleSelfCall(d, getVoiceApi(), a.call);
+        break;
+      case "cancelCall":
+        cancelCall(d, a.id);
         break;
     }
     return Response.json({ ...twinState(d), ...extra });
