@@ -146,6 +146,18 @@ export interface Message {
   blocks?: RichBlock[];
   /** Set when the response came from deterministic demo content, not a model. */
   simulated?: boolean;
+  /** The fact checker's reading of this reply against the vault, once it has run. */
+  verification?: Verification;
+}
+
+export type ClaimStatus = "supported" | "unverified" | "opinion";
+
+export interface Verification {
+  verdict: "grounded" | "check" | "no_claims";
+  claims: { text: string; status: ClaimStatus; source: string | null }[];
+  checkedAt: string;
+  /** Checked by the demo's rules in the browser, not by the fact-checker agent. */
+  simulated?: boolean;
 }
 
 /** Structured content an assistant message can carry besides text and approvals. */
@@ -264,6 +276,89 @@ export interface SkillRun {
   simulated: boolean;
 }
 
+// ---------- Agent team (Docker Agent) ----------
+
+export type AgentRole = "chat" | "council" | "voice" | "check" | "research" | "schedule";
+
+export interface AgentInfo {
+  name: string;
+  label: string;
+  description: string;
+  role: AgentRole;
+  tools: string[];
+  subAgents: string[];
+}
+
+export interface CouncilVoice {
+  name: string;
+  label: string;
+  reply: string;
+  error?: string;
+}
+
+export interface CouncilSession {
+  id: string;
+  question: string;
+  createdAt: string;
+  voices: CouncilVoice[];
+  brief: { summary: string; agreements: string[]; tensions: string[]; nextStep: string };
+  citations: Citation[];
+  /** Set once the brief was saved to the vault. */
+  memoryId?: string;
+  simulated: boolean;
+}
+
+export interface NightShift {
+  id: string;
+  trigger: "schedule" | "manual";
+  status: "running" | "completed" | "failed";
+  startedAt: string;
+  finishedAt?: string;
+  brief?: string;
+  focus: { taskId: string; title: string }[];
+  watchOut?: string;
+  dailyDate?: string;
+  approvalIds: string[];
+  error?: string;
+  simulated: boolean;
+}
+
+export interface ResearchRun {
+  id: string;
+  topic: string;
+  status: "running" | "awaiting_approval" | "completed" | "failed";
+  startedAt: string;
+  finishedAt?: string;
+  summary?: string;
+  sources: { point: string; url: string }[];
+  approvalId?: string;
+  error?: string;
+}
+
+export interface Pack {
+  id: string;
+  name: string;
+  tagline: string;
+  persona: string;
+  file: string;
+}
+
+export interface AgentPlatform {
+  /** Every agent defined in agents/futureme.yaml. */
+  team: AgentInfo[];
+  /** Where the agents run right now. */
+  backend: "docker-agent" | "in-process" | "demo";
+  agentFile: string;
+  webSearch: "brave" | "duckduckgo" | "off" | "unavailable";
+  /** True when the model runs on this machine (Docker Model Runner). */
+  local: boolean;
+  /** "HH:MM" server time, or null when the schedule is off. */
+  nightShiftAt: string | null;
+  nextNightShift?: string;
+  packs: Pack[];
+  activePack: string | null;
+}
+
 // ---------- Activity ----------
 
 export type ActivityKind = "goal_created" | "task_completed" | "reflection_saved" | "memory_saved" | "plan_approved" | "plan_rejected" | "daily_published" | "skill_run";
@@ -287,6 +382,11 @@ export interface Capabilities {
   memoryRetrievalControl: boolean;
   editPlansBeforeApproval: boolean;
   streaming: boolean;
+  council: boolean;
+  verify: boolean;
+  research: boolean;
+  nightShift: boolean;
+  packs: boolean;
 }
 
 export interface Runtime {
@@ -314,4 +414,8 @@ export interface Workspace {
   activity: ActivityItem[];
   skills: Skill[];
   skillRuns: SkillRun[];
+  platform: AgentPlatform;
+  councils: CouncilSession[];
+  nightShifts: NightShift[];
+  research: ResearchRun[];
 }

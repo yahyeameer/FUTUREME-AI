@@ -64,7 +64,67 @@ CREATE TABLE IF NOT EXISTS messages (
   citations TEXT,
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
+CREATE TABLE IF NOT EXISTS councils (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  question TEXT NOT NULL,
+  voices TEXT NOT NULL,
+  brief TEXT NOT NULL,
+  backend TEXT NOT NULL,
+  note_path TEXT,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE TABLE IF NOT EXISTS night_shifts (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  trigger TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'running',
+  brief TEXT,
+  focus TEXT,
+  daily_date TEXT,
+  approvals TEXT,
+  error TEXT,
+  backend TEXT,
+  started_at TEXT NOT NULL DEFAULT (datetime('now')),
+  finished_at TEXT
+);
+CREATE TABLE IF NOT EXISTS research_runs (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  topic TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'running',
+  summary TEXT,
+  sources TEXT,
+  approval_id INTEGER,
+  error TEXT,
+  backend TEXT,
+  started_at TEXT NOT NULL DEFAULT (datetime('now')),
+  finished_at TEXT
+);
+CREATE TABLE IF NOT EXISTS settings (
+  key TEXT PRIMARY KEY,
+  value TEXT NOT NULL
+);
 `;
+
+// Columns added after the first release. SQLite has no ADD COLUMN IF NOT EXISTS, so check first.
+const COLUMNS: [table: string, column: string, type: string][] = [
+  ["messages", "verification", "TEXT"],
+  ["messages", "tools", "TEXT"],
+];
+
+function migrate(db: Database.Database) {
+  for (const [table, column, type] of COLUMNS) {
+    const cols = db.prepare(`PRAGMA table_info(${table})`).all() as { name: string }[];
+    if (!cols.some((c) => c.name === column)) db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${type}`);
+  }
+}
+
+export function getSetting(db: Database.Database, key: string): string | null {
+  return (db.prepare("SELECT value FROM settings WHERE key = ?").get(key) as { value: string } | undefined)?.value ?? null;
+}
+
+export function setSetting(db: Database.Database, key: string, value: string | null) {
+  if (value === null) db.prepare("DELETE FROM settings WHERE key = ?").run(key);
+  else db.prepare("INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value").run(key, value);
+}
 
 export function openDb(file = process.env.DATABASE_PATH ?? path.join(process.cwd(), "data", "futureme.db")) {
   if (file !== ":memory:") fs.mkdirSync(path.dirname(file), { recursive: true });
@@ -73,6 +133,7 @@ export function openDb(file = process.env.DATABASE_PATH ?? path.join(process.cwd
   db.pragma("foreign_keys = ON");
   db.pragma("busy_timeout = 5000");
   db.exec(SCHEMA);
+  migrate(db);
   return db;
 }
 

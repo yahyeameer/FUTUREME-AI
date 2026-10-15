@@ -1,9 +1,13 @@
 import type { FutureMeService } from "@/lib/services/types";
 import { skillDef, skillsFor } from "@/lib/skills";
-import { activeMilestone, nextStep } from "@/lib/derive";
+import { activeMilestone, liveMemories, nextStep } from "@/lib/derive";
+import { checkClaims, standInBrief, VOICES } from "@/lib/mock-llm";
+import { PACKS, TEAM } from "@/lib/team-info";
 import type {
   ActivityItem,
   Approval,
+  CouncilSession,
+  NightShift,
   DailyEdition,
   Memory,
   MemoryDraft,
@@ -93,6 +97,11 @@ export function createDemoService(): FutureMeService {
       memoryRetrievalControl: true,
       editPlansBeforeApproval: true,
       streaming: true,
+      council: true,
+      verify: true,
+      research: false,
+      nightShift: true,
+      packs: false,
     },
     profile: state.profile,
     milestones: state.milestones,
@@ -105,6 +114,19 @@ export function createDemoService(): FutureMeService {
     activity: state.activity,
     skills: skillsFor("demo"),
     skillRuns: state.skillRuns,
+    platform: {
+      team: TEAM,
+      backend: "demo",
+      agentFile: "agents/futureme.yaml",
+      webSearch: "unavailable",
+      local: false,
+      nightShiftAt: null,
+      packs: PACKS,
+      activePack: null,
+    },
+    councils: state.councils ?? [],
+    nightShifts: state.nightShifts ?? [],
+    research: [],
   });
 
   const commit = () => {
@@ -331,6 +353,102 @@ export function createDemoService(): FutureMeService {
       return { workspace, edition: workspace.editions[0] };
     },
 
+    async askCouncil(question) {
+      if (!state.profile) throw new Error("Complete onboarding first.");
+      const q = question.trim();
+      if (q.length < 3) throw new Error("Ask the council a question.");
+      await wait(1600);
+      const hits = searchDemo(state, q);
+      const voices = TEAM.filter((a) => a.role === "voice").map((a, i) => ({
+        name: a.name,
+        label: a.label,
+        reply: (VOICES[a.name] ?? VOICES.voice_mentor)(hits[i % Math.max(hits.length, 1)]?.title ?? null, q.slice(0, 120)),
+      }));
+      const b = standInBrief(voices.length);
+      const session: CouncilSession = {
+        id: id("council"),
+        question: q,
+        createdAt: now(),
+        voices,
+        brief: { summary: b.summary, agreements: b.agreements, tensions: b.tensions, nextStep: b.next_step },
+        citations: hits.map((m) => ({ memoryId: m.id, title: m.title })),
+        simulated: true,
+      };
+      (state.councils ??= []).unshift(session);
+      return { workspace: commit(), session };
+    },
+
+    async saveCouncil(sessionId) {
+      const c = state.councils?.find((x) => x.id === sessionId);
+      if (!c) throw new Error("That council session no longer exists.");
+      if (!c.memoryId) {
+        const mem = addMemory(
+          { title: `Council: ${c.question.slice(0, 80)}`, kind: "reflection", tags: ["council"], body: [`**Question:** ${c.question}`, c.brief.summary, c.brief.nextStep && `## Next step\n\n${c.brief.nextStep}`].filter(Boolean).join("\n\n") },
+          "Saved from a council session",
+          "ai-inferred",
+        );
+        c.memoryId = mem.id;
+        log("memory_saved", `Memory saved: ${mem.title}`, `/memory/${mem.id}`);
+      }
+      return commit();
+    },
+
+    async verifyMessage(messageId) {
+      const msg = state.conversation.find((m) => m.id === messageId && m.role === "assistant");
+      if (!msg) throw new Error("That reply no longer exists.");
+      await wait(500);
+      const notes = msg.citations.flatMap((c) => {
+        const m = state.memories.find((x) => x.id === c.memoryId);
+        return m ? [{ path: m.id, title: m.title }] : [];
+      });
+      const claims = checkClaims(msg.content, notes);
+      const factual = claims.filter((c) => c.status !== "opinion");
+      msg.verification = {
+        verdict: !factual.length ? "no_claims" : factual.every((c) => c.status === "supported") ? "grounded" : "check",
+        claims,
+        checkedAt: now(),
+        simulated: true,
+      };
+      return commit();
+    },
+
+    async runResearch() {
+      throw new Error("Web research needs the FutureMe server. Demo mode never goes online.");
+    },
+
+    async runNightShift() {
+      if (!state.profile) throw new Error("Complete onboarding first.");
+      await wait(1200);
+      const today = new Date().toISOString().slice(0, 10);
+      if (!state.editionDates.includes(today)) state.editionDates.push(today);
+      const dayAgo = new Date(Date.now() - 86_400_000).toISOString();
+      const done = state.tasks.filter((t) => t.completedAt && t.completedAt >= dayAgo);
+      const picks = rankForToday(state);
+      const blocked = state.tasks.filter((t) => t.status === "blocked");
+      const shift: NightShift = {
+        id: id("night"),
+        trigger: "manual",
+        status: "completed",
+        startedAt: now(),
+        finishedAt: now(),
+        brief: picks.length
+          ? `Good morning, ${state.profile.name}. ${done.length ? `You finished ${done.length} ${done.length === 1 ? "task" : "tasks"} yesterday. ` : ""}Today, start with “${picks[0].title}”.`
+          : `Good morning, ${state.profile.name}. Nothing is open on your roadmap, so today is a good day to plan the next step.`,
+        focus: picks.map((t) => ({ taskId: t.id, title: t.title })),
+        watchOut: blocked[0] ? `“${blocked[0].title}” is still blocked${blocked[0].blockedReason ? `: ${blocked[0].blockedReason}` : "."}` : undefined,
+        dailyDate: today,
+        approvalIds: [],
+        simulated: true,
+      };
+      (state.nightShifts ??= []).unshift(shift);
+      log("daily_published", "The night shift published today's FutureMe Daily", "/daily");
+      return { workspace: commit(), shift };
+    },
+
+    async setPack() {
+      throw new Error("Persona packs need the FutureMe server.");
+    },
+
     async runSkill(skillId, inputs, onUpdate) {
       const def = skillDef(skillId);
       if (!def) throw new Error("Unknown skill.");
@@ -397,6 +515,18 @@ export function createDemoService(): FutureMeService {
       return { workspace: commit(), run };
     },
   };
+}
+
+/** Keyword search over the demo's memories, standing in for the agent's search_memory tool. */
+function searchDemo(state: DemoState, query: string) {
+  const terms = query.toLowerCase().split(/\W+/).filter((t) => t.length > 3);
+  return liveMemories(state.memories)
+    .filter((m) => m.retrievable)
+    .map((m) => ({ m, score: terms.reduce((n, t) => n + (m.title.toLowerCase().includes(t) ? 3 : 0) + (m.body.toLowerCase().includes(t) ? 1 : 0), 0) }))
+    .filter((x) => x.score > 0)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 3)
+    .map((x) => x.m);
 }
 
 function rankForToday(state: DemoState, focus?: string): Task[] {

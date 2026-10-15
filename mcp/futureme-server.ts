@@ -1,4 +1,4 @@
-// MCP server giving the Docker Agent future self its tools: memory search, memory proposals, and plan proposals.
+// MCP server giving FutureMe's Docker Agent team its tools: memory search, memory and plan proposals, and web research.
 // Proposals land in SQLite as pending approvals; nothing is written to the vault until the user approves in the app.
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
@@ -7,7 +7,7 @@ import { openDb } from "../src/lib/db";
 import { runTool } from "../src/lib/futureme";
 
 const db = openDb();
-const server = new McpServer({ name: "futureme", version: "0.2.0" });
+const server = new McpServer({ name: "futureme", version: "0.3.0" });
 
 const text = (output: string) => ({ content: [{ type: "text" as const, text: output }] });
 const readOnly = { readOnlyHint: true, openWorldHint: false };
@@ -19,7 +19,7 @@ server.registerTool(
     inputSchema: { query: z.string().min(1), limit: z.number().int().min(1).max(10).optional() },
     annotations: readOnly,
   },
-  async (args) => text(runTool(db, "search_memory", JSON.stringify(args)).output),
+  async (args) => text((await runTool(db, "search_memory", JSON.stringify(args))).output),
 );
 
 server.registerTool(
@@ -34,7 +34,7 @@ server.registerTool(
     },
     annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: false },
   },
-  async (args) => text(runTool(db, "propose_memory", JSON.stringify(args)).output),
+  async (args) => text((await runTool(db, "propose_memory", JSON.stringify(args))).output),
 );
 
 server.registerTool(
@@ -51,7 +51,27 @@ server.registerTool(
     },
     annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: false },
   },
-  async (args) => text(runTool(db, "propose_plan", JSON.stringify(args)).output),
+  async (args) => text((await runTool(db, "propose_plan", JSON.stringify(args))).output),
+);
+
+server.registerTool(
+  "web_search",
+  {
+    description: "Search the public web. Returns titles, links and snippets. Cite only links it returns.",
+    inputSchema: { query: z.string().min(2).max(300), limit: z.number().int().min(1).max(8).optional() },
+    annotations: { readOnlyHint: true, openWorldHint: true },
+  },
+  async (args) => text((await runTool(db, "web_search", JSON.stringify(args))).output),
+);
+
+server.registerTool(
+  "fetch_url",
+  {
+    description: "Read a public web page as plain text. Use it on links from web_search to check what a source says.",
+    inputSchema: { url: z.string().url().max(2000) },
+    annotations: { readOnlyHint: true, openWorldHint: true },
+  },
+  async (args) => text((await runTool(db, "fetch_url", JSON.stringify(args))).output),
 );
 
 server.connect(new StdioServerTransport()).catch((err) => {

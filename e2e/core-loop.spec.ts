@@ -40,3 +40,28 @@ test("onboarding -> reflection -> chat with memory -> approve plan -> complete t
   await expect(page.getByRole("heading", { name: /Amina completes 1 step/ })).toBeVisible({ timeout: 30_000 });
   await page.screenshot({ path: "e2e/screenshots/daily.png", fullPage: true });
 });
+
+// Runs after the first test, on the same server: the agent team features, each through the real API.
+test("fact check -> council -> night shift", async ({ page }) => {
+  await page.goto("/future-self");
+  // The reply from the first test gets checked against the vault by the verifier agent.
+  await expect(page.getByRole("button", { name: /^Fact-checked:/ }).first()).toBeVisible({ timeout: 45_000 });
+
+  await page.goto("/council");
+  await page.getByPlaceholder("What decision are you weighing?").fill("Should I apply to the regional AI fellowship?");
+  await page.getByRole("button", { name: "Convene the council" }).click();
+  await expect(page.getByRole("heading", { name: "Decision brief" })).toBeVisible({ timeout: 60_000 });
+  await expect(page.getByRole("region", { name: "What each voice said" }).getByRole("article")).toHaveCount(4);
+  await page.getByRole("button", { name: "Save brief to vault" }).click();
+  await expect(page.getByRole("link", { name: "Saved to your vault" })).toBeVisible({ timeout: 15_000 });
+  await page.screenshot({ path: "e2e/screenshots/council.png", fullPage: true });
+
+  await page.goto("/agent");
+  await expect(page.getByRole("heading", { name: "The team" })).toBeVisible();
+  await page.getByRole("button", { name: "Run now" }).click();
+  await expect(page.getByText("Morning brief", { exact: true })).toBeVisible({ timeout: 45_000 });
+  await page.screenshot({ path: "e2e/screenshots/agent.png", fullPage: true });
+
+  await page.goto("/");
+  await expect(page.getByRole("heading", { name: "While you slept" })).toBeVisible();
+});

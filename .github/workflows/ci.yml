@@ -61,6 +61,39 @@ jobs:
         if: failure()
         run: tail -n 50 .e2e-agent/*.log
 
+  persona-packs:
+    # Pushes a persona pack to a throwaway OCI registry with Docker Agent, pulls it back and checks the app can use it.
+    runs-on: ubuntu-latest
+    services:
+      registry:
+        image: registry:2
+        ports:
+          - 5000:5000
+    env:
+      TELEMETRY_ENABLED: "false"
+      NEBIUS_API_KEY: unused-with-mock-flavor
+      DOCKER_AGENT_BIN: ${{ github.workspace }}/docker-agent
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Install Docker Agent
+        run: |
+          curl -fsSL "https://github.com/docker/docker-agent/releases/latest/download/docker-agent-linux-amd64" -o docker-agent
+          chmod +x docker-agent
+      - name: Every agent file loads
+        run: |
+          for a in root council verifier researcher night_shift; do ./docker-agent run agents/futureme.yaml --flavor mock --agent "$a" --dry-run --exec hi > /dev/null; done
+          for f in agents/packs/*.yaml; do ./docker-agent run "$f" --flavor mock --dry-run --exec hi > /dev/null; done
+      - name: Push and pull a pack
+        run: |
+          npm run pack -- push founder localhost:5000/futureme/futureme-founder:1.0
+          npm run pack -- pull localhost:5000/futureme/futureme-founder:1.0 founder-shared
+          npx tsx -e 'import { listPacks } from "./src/lib/packs"; const p = listPacks().find((x) => x.id === "founder-shared"); if (!p || p.name !== "The Founder") process.exit(1); console.log(p.name, "-", p.tagline)'
+
   docker-image:
     # Builds the deployable image and smoke-tests it with the seeded demo user and the stand-in model.
     runs-on: ubuntu-latest

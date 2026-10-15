@@ -1,4 +1,4 @@
-import { BookmarkPlus, Globe, ListPlus, Search, type LucideIcon } from "lucide-react";
+import { BookmarkPlus, FileSearch, Globe, ListPlus, Search, type LucideIcon } from "lucide-react";
 import type { Memory, Workspace } from "@/types";
 
 export type ToolAccess = "read" | "write" | "none";
@@ -13,55 +13,76 @@ export interface ToolInfo {
   gate: ToolGate;
   /** What the tool touches, in the user's words. */
   touches: string;
+  /** Which agents may call it, read from the team file. */
+  usedBy?: string[];
 }
 
 /**
- * The agent's real toolset: the FutureMe MCP server (mcp/futureme-server.ts) exposes exactly the first three.
- * Web search is listed so it is clear the agent does not have it.
+ * The real toolset: the FutureMe MCP server (mcp/futureme-server.ts) exposes exactly these five.
+ * Each agent in agents/futureme.yaml gets only the ones it needs, so the future self itself never browses.
  */
-export const TOOLS: ToolInfo[] = [
-  {
-    name: "search_memory",
-    label: "Search memory",
-    icon: Search,
-    description: "Looks through the notes in your vault by keyword before it answers, and cites what it used.",
-    access: "read",
-    gate: "auto",
-    touches: "Vault notes",
-  },
-  {
-    name: "propose_plan",
-    label: "Propose a plan",
-    icon: ListPlus,
-    description: "Drafts a goal with concrete steps. Once you approve it, it becomes a milestone and tasks on your roadmap.",
-    access: "write",
-    gate: "approval",
-    touches: "Roadmap",
-  },
-  {
-    name: "propose_memory",
-    label: "Propose a memory",
-    icon: BookmarkPlus,
-    description: "Suggests saving something you shared. Once you approve it, it is written to your vault as a Markdown note.",
-    access: "write",
-    gate: "approval",
-    touches: "Vault notes",
-  },
-  {
-    name: "web_search",
-    label: "Web search",
-    icon: Globe,
-    description: "Looking things up on the web. No search tool is connected to the agent, so it never browses.",
-    access: "none",
-    gate: "unavailable",
-    touches: "The web",
-  },
-];
+export function agentTools(ws: Workspace): ToolInfo[] {
+  const web = ws.platform.webSearch;
+  const webOn = web === "brave" || web === "duckduckgo";
+  const usedBy = (name: string) => ws.platform.team.filter((a) => a.tools.includes(name)).map((a) => a.label);
+  const offReason = web === "off" ? "Turned off on this server (WEB_SEARCH=off)." : "Needs the FutureMe server; the demo has no web access.";
+  return [
+    {
+      name: "search_memory",
+      label: "Search memory",
+      icon: Search,
+      description: "Looks through the notes in your vault by keyword before it answers, and cites what it used.",
+      access: "read",
+      gate: "auto",
+      touches: "Vault notes",
+    },
+    {
+      name: "propose_plan",
+      label: "Propose a plan",
+      icon: ListPlus,
+      description: "Drafts a goal with concrete steps. Once you approve it, it becomes a milestone and tasks on your roadmap.",
+      access: "write",
+      gate: "approval",
+      touches: "Roadmap",
+    },
+    {
+      name: "propose_memory",
+      label: "Propose a memory",
+      icon: BookmarkPlus,
+      description: "Suggests saving something you shared. Once you approve it, it is written to your vault as a Markdown note.",
+      access: "write",
+      gate: "approval",
+      touches: "Vault notes",
+    },
+    {
+      name: "web_search",
+      label: "Web search",
+      icon: Globe,
+      description: webOn
+        ? `Searches the web through ${web === "brave" ? "Brave Search" : "DuckDuckGo"}. Only the research agent has it; your future self never browses.`
+        : `Searches the web for the research agent. ${offReason}`,
+      access: webOn ? "read" : "none",
+      gate: webOn ? "auto" : "unavailable",
+      touches: "The web",
+    },
+    {
+      name: "fetch_url",
+      label: "Read a web page",
+      icon: FileSearch,
+      description: webOn
+        ? "Reads a public page as plain text so research cites what a page actually says. Private and local addresses are refused."
+        : `Reads public web pages for the research agent. ${offReason}`,
+      access: webOn ? "read" : "none",
+      gate: webOn ? "auto" : "unavailable",
+      touches: "Public web pages",
+    },
+  ].map((t) => ({ ...t, usedBy: usedBy(t.name) }) as ToolInfo);
+}
 
 export interface LogEntry {
   id: string;
   at: string;
-  kind: "tool" | "skill" | "approval";
+  kind: "tool" | "skill" | "approval" | "council" | "research" | "night";
   tool?: string;
   title: string;
   detail?: string;
@@ -99,6 +120,31 @@ export function agentLog(ws: Workspace): LogEntry[] {
       detail: a.status === "pending" ? "Waiting for your approval" : a.status === "approved" ? "You approved it" : "You declined it",
       status: a.status,
       href: a.kind === "plan" ? "/roadmap" : "/memory",
+    });
+  }
+  for (const c of ws.councils) {
+    out.push({ id: `council-${c.id}`, at: c.createdAt, kind: "council", title: "Council met", detail: c.question, status: "done", href: "/council" });
+  }
+  for (const r of ws.research) {
+    out.push({
+      id: `research-${r.id}`,
+      at: r.finishedAt ?? r.startedAt,
+      kind: "research",
+      title: `Researched ${r.topic}`,
+      detail: r.status === "failed" ? r.error : `${r.sources.length} sources`,
+      status: r.status === "failed" ? "failed" : r.status === "running" ? "running" : "done",
+      href: "/agent#research-heading",
+    });
+  }
+  for (const n of ws.nightShifts) {
+    out.push({
+      id: `night-${n.id}`,
+      at: n.finishedAt ?? n.startedAt,
+      kind: "night",
+      title: n.trigger === "schedule" ? "Night shift ran" : "Night shift ran (by you)",
+      detail: n.status === "failed" ? n.error : n.brief,
+      status: n.status === "failed" ? "failed" : n.status === "running" ? "running" : "done",
+      href: "/agent#night-heading",
     });
   }
   return out.sort((a, b) => b.at.localeCompare(a.at));
@@ -155,3 +201,8 @@ export function vaultFiles(ws: Workspace): VaultFile[] {
   }
   return files.sort((a, b) => a.folder.localeCompare(b.folder) || b.updatedAt.localeCompare(a.updatedAt));
 }
+
+const KIND_LABEL: Record<LogEntry["kind"], string> = { tool: "Tool", skill: "Action", approval: "Approval", council: "Council", research: "Research", night: "Night shift" };
+
+/** The small caption under a log entry: the tool's name, or what kind of record it is. */
+export const logKind = (e: LogEntry) => e.tool ?? KIND_LABEL[e.kind];

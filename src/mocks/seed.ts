@@ -1,4 +1,4 @@
-import type { ActivityItem, Approval, Memory, Message, Milestone, Profile, Reflection, SkillRun, Task } from "@/types";
+import type { ActivityItem, Approval, CouncilSession, Memory, Message, Milestone, NightShift, Profile, Reflection, SkillRun, Task } from "@/types";
 
 // Deterministic demo data: one fictional person, Hodan, a developer in Hargeisa.
 // Dates are offsets from the moment the demo was first opened (the anchor), so the story always reads as recent.
@@ -17,6 +17,9 @@ export interface DemoState {
   editionDates: string[];
   activity: ActivityItem[];
   skillRuns: SkillRun[];
+  /** Added after the first release, so older saved demos may not have them. */
+  councils?: CouncilSession[];
+  nightShifts?: NightShift[];
 }
 
 export function seedState(anchor: number): DemoState {

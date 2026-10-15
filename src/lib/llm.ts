@@ -36,10 +36,21 @@ export function modelId(): string {
 }
 
 export function nebiusProvider(): LlmProvider {
-  const client = llmClient();
-  const model = modelId();
+  return openAiCompatible(`nebius:${modelId()}`, llmClient(), modelId());
+}
+
+// Docker Model Runner serves an OpenAI-compatible API, so local mode is the same client pointed at this machine.
+// Inside Compose, the `models:` element injects LOCAL_LLM_URL and LOCAL_MODEL (see docker-compose.local.yml).
+export const LOCAL_LLM_URL = () => process.env.LOCAL_LLM_URL ?? "http://localhost:12434/engines/v1";
+export const LOCAL_MODEL = () => process.env.LOCAL_MODEL ?? "ai/qwen3";
+
+export function localProvider(): LlmProvider {
+  return openAiCompatible(`local:${LOCAL_MODEL()}`, new OpenAI({ apiKey: "local", baseURL: LOCAL_LLM_URL() }), LOCAL_MODEL());
+}
+
+function openAiCompatible(name: string, client: OpenAI, model: string): LlmProvider {
   return {
-    name: `nebius:${model}`,
+    name,
     async complete(messages, tools) {
       const res = await client.chat.completions.create({
         model,
@@ -57,8 +68,10 @@ export function nebiusProvider(): LlmProvider {
   };
 }
 
-// LLM_PROVIDER=mock forces the stand-in; otherwise Nebius is used whenever a key is configured.
+// LLM_PROVIDER=mock forces the stand-in and LLM_PROVIDER=local uses Docker Model Runner on this machine;
+// otherwise Nebius is used whenever a key is configured.
 export function getProvider(): LlmProvider {
+  if (process.env.LLM_PROVIDER === "local") return localProvider();
   if (process.env.LLM_PROVIDER === "mock" || !process.env.NEBIUS_API_KEY) return mockProvider;
   return nebiusProvider();
 }
