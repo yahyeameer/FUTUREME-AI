@@ -19,9 +19,33 @@ The app is a signed-in workspace (no landing page). Old links (`/chat`, `/plan`,
 7. **FutureMe Daily** (`/daily`): a magazine edition of your week. Edition history, section filters, a reading view, mark useful (kept on this device), save an insight to memory, turn a story into an action, and links to every source record. Everything comes from completed tasks, goals or saved notes.
 8. **Skills and Actions** (`/skills`): Plan My Day, Break Down My Goal, Weekly Review, Prepare an Action Plan and Research and Summarize. Each lists its permissions; runs show ready, running, waiting for approval, completed or failed, and anything that would create records goes through an approval card.
 9. **Agent** (`/agent`): the agent's control room. Its real tools (`search_memory`, `propose_plan`, `propose_memory`) with what each can read or write, whether it runs on its own or needs approval, and how often it was used; web search is shown as not connected. File access lists the vault's Markdown files by folder and whether the agent can read each one. Also the approval queue, the actions it can run, and a log of every tool call, action run and decision, built only from recorded data.
-10. **Settings** (`/settings`): profile, coaching style, theme (dark, light, system), motion, density, memory controls, data mode, and what runs where.
+10. **Voice Twin** (`/twin`, server only): the first two phases of the voice twin. See [Voice twin](#voice-twin) below.
+11. **Settings** (`/settings`): profile, coaching style, theme (dark, light, system), motion, density, memory controls, data mode, and what runs where.
 
-Plus a command palette (`⌘K`, and `g` then `h/f/a/r/m/d/s` to jump), dark and light themes, reduced-motion support and layouts down to phone width.
+Plus a command palette (`⌘K`, and `g` then `h/f/a/t/r/m/d/s` to jump), dark and light themes, reduced-motion support and layouts down to phone width.
+
+## Voice twin
+
+The twin is your future self speaking for you, in your own voice. Phases 0 and 1 are built: the guardrails and your voice. Placing calls and sending emails come next, so nothing reaches anyone yet.
+
+**Your voice (ElevenLabs).** Needs `ELEVENLABS_API_KEY` on the server.
+
+1. You read a consent phrase with three random code words aloud, within ten minutes. ElevenLabs speech-to-text must hear every code word and "agree", so an old recording of someone else can't pass.
+2. That same recording is the first sample of an instant clone, plus up to five samples you record. The voice that agreed is the voice that's cloned.
+3. "Hear yourself" plays a line in your cloned voice.
+4. The professional upgrade trains a closer voice from the same recordings after you read ElevenLabs' own verification CAPTCHA aloud. When it's ready, the instant clone is deleted, so one voice remains.
+5. "Delete my voice" deletes every clone at ElevenLabs and every recording on the server, and withdraws the consent.
+
+Recordings are kept in `data/voice/` (or `TWIN_DATA_DIR`) and go only to ElevenLabs.
+
+**Guardrails.** A `twin` agent in `agents/futureme.yaml` gets `search_memory` plus three propose-only MCP tools: `propose_call`, `propose_email` and `propose_commitment`. Each creates a pending approval (`outbound_call`, `send_email`, `commitment`) shown on `/twin`, never in the plan and memory queue.
+
+- It can only reach contacts you added on `/twin`.
+- Every call opens with a fixed line saying it's your AI twin and that the call may be recorded; every email starts with an AI disclosure and ends with the twin's signature. The app adds these, not the model.
+- It never agrees for you: requests become `commitment` approvals, and an approved one is filed in the vault under `Plans/`.
+- At most 10 proposed calls and 50 proposed emails a day.
+- The kill switch on `/twin` pauses it: no proposals and no approvals until you resume.
+- Approved calls and emails are saved in the `calls` and `email_threads` tables with status `approved`, waiting for the dialler and sender.
 
 ## Interface and data modes
 
@@ -59,7 +83,7 @@ Browser ── Next.js app ──► docker agent serve chat (agents/futureme.ya
 
 ## Planned
 
-Trend sourcing for FutureMe Daily, voice, avatars and VR.
+Voice twin Phases 2 to 4 (talking to your twin by browser and phone, then calls and email to your contacts, then public-launch hardening), trend sourcing for FutureMe Daily, avatars and VR.
 
 ## Deploy
 

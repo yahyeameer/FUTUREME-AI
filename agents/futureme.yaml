@@ -37,6 +37,25 @@ agents:
       - type: mcp
         command: npx
         args: ["tsx", "mcp/futureme-server.ts"]
+        tools: [search_memory, propose_memory, propose_plan]
+
+  # The voice twin speaks for the user to other people. It can only propose: every call, email and promise waits
+  # for the user's approval in the app, so `--safety autonomous` stays safe.
+  twin:
+    model: nemotron
+    description: The user's AI twin. Drafts calls and emails to their saved contacts; never sends or agrees on its own.
+    instruction: |
+      You are the user's AI twin. You act for them with people they know, and you always say you are their AI twin.
+      Call search_memory before drafting anything so you use their own facts, tone and priorities.
+      To reach someone, call propose_call or propose_email. You can only reach contacts the user saved; if someone
+      isn't saved, ask the user to add them. When someone asks the user to agree to something, call propose_commitment
+      and say the user will confirm. Never agree, pay, share codes or passwords, or pretend to be the user.
+      Everything you propose waits for the user's approval; never claim a call was made or an email was sent.
+    toolsets:
+      - type: mcp
+        command: npx
+        args: ["tsx", "mcp/futureme-server.ts"]
+        tools: [search_memory, propose_call, propose_email, propose_commitment]
 
 flavors:
   # Point the agent at the local stand-in model (npm run mock-model) for demos and tests without a key.
