@@ -1,52 +1,40 @@
-import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
-import Link from "next/link";
+import type { Metadata, Viewport } from "next";
+import { Geist, Geist_Mono, Instrument_Serif, Newsreader } from "next/font/google";
+import { Providers } from "@/components/providers";
+import { PREFS_SCRIPT } from "@/lib/preferences";
 import "./globals.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
+const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
+const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"] });
+// Display serif for headlines and moments of meaning; a text serif for long-form reading.
+const instrumentSerif = Instrument_Serif({ variable: "--font-instrument-serif", subsets: ["latin"], weight: "400", style: ["normal", "italic"] });
+const newsreader = Newsreader({ variable: "--font-newsreader", subsets: ["latin"], style: ["normal", "italic"], axes: ["opsz"] });
 
 export const metadata: Metadata = {
-  title: "FutureMe AI",
-  description: "Meet the person you are becoming.",
+  title: { default: "FutureMe", template: "%s · FutureMe" },
+  description: "A personal AI companion that connects who you are today with who you want to become.",
 };
 
-const NAV = [
-  { href: "/onboarding", label: "You" },
-  { href: "/future", label: "Future" },
-  { href: "/chat", label: "Chat" },
-  { href: "/plan", label: "Plan" },
-  { href: "/daily", label: "Daily" },
-];
+export const viewport: Viewport = {
+  themeColor: [
+    { media: "(prefers-color-scheme: dark)", color: "#101112" },
+    { media: "(prefers-color-scheme: light)", color: "#f5f2ea" },
+  ],
+};
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="en" className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}>
-      <body className="flex min-h-full flex-col bg-stone-50 text-stone-900 dark:bg-stone-950 dark:text-stone-100">
-        <header className="border-b border-stone-200 dark:border-stone-800">
-          <nav className="mx-auto flex max-w-3xl items-center justify-between px-4 py-3">
-            <Link href="/" className="font-semibold tracking-tight">
-              FutureMe
-            </Link>
-            <ul className="flex gap-1 text-sm">
-              {NAV.map((n) => (
-                <li key={n.href}>
-                  <Link href={n.href} className="rounded-md px-3 py-1.5 text-stone-600 hover:bg-stone-200/60 hover:text-stone-900 dark:text-stone-400 dark:hover:bg-stone-800 dark:hover:text-stone-100">
-                    {n.label}
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </nav>
-        </header>
-        <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col px-4 py-10">{children}</main>
+    <html
+      lang="en"
+      data-theme="dark"
+      suppressHydrationWarning
+      className={`${geistSans.variable} ${geistMono.variable} ${instrumentSerif.variable} ${newsreader.variable} antialiased`}
+    >
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: PREFS_SCRIPT }} />
+      </head>
+      <body className="min-h-dvh">
+        <Providers>{children}</Providers>
       </body>
     </html>
   );

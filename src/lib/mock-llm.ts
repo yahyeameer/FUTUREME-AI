@@ -99,7 +99,7 @@ export const mockProvider: LlmProvider = {
     const parts = [
       remembered ? `I remember "${remembered}" from what you've told me.` : "Tell me more about where you are right now.",
       used("propose_plan")
-        ? "I've drafted a plan with three small steps. Approve it on the Plan page and I'll track it with you."
+        ? "I've drafted a plan with three small steps. Review it below; nothing is created until you approve it."
         : "What's one thing you could do this week that your future self would thank you for?",
     ];
     return { content: parts.join(" "), toolCalls: [] };

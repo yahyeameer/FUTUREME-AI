@@ -74,7 +74,7 @@ jobs:
       - name: Smoke test
         run: |
           curl -sf http://127.0.0.1:3000/daily | grep -q "FutureMe Daily"
-          curl -sf http://127.0.0.1:3000/plan | grep -q "farmers"
+          curl -sf http://127.0.0.1:3000/api/workspace | grep -q "farmers"
           docker exec futureme sh -c 'node -e "fetch(\"http://127.0.0.1:8083/v1/models\").then(r=>r.json()).then(j=>{if(!j.data.length)process.exit(1);console.log(j)})"'
       - name: Container logs
         if: always()
