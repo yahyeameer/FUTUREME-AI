@@ -19,8 +19,10 @@ export function excerpt(body: string, n = 140) {
   const plain = body
     .replace(/^#+\s.*$/gm, "")
     .replace(/^\s*[-*]\s+\[[ x]\]\s+/gim, "")
+    .replace(/^\s*(?:[-*+]|>)\s*/gm, "")
     .replace(/\[\[([^\]|]+)(\|[^\]]+)?\]\]/g, "$1")
-    .replace(/[*_`>#-]/g, "")
+    // Markdown marks only: hyphens inside words and dates ("open-source", "2026-10-19") stay.
+    .replace(/[*_`#]/g, "")
     .replace(/\s+/g, " ")
     .trim();
   return plain.length > n ? `${plain.slice(0, n - 1)}…` : plain;

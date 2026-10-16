@@ -177,7 +177,7 @@ export function MemoryVault() {
                 {list.map((m) => (
                   <li key={m.id} className="flex items-start gap-3">
                     {selecting && <Checkbox className="mt-4" checked={selected.has(m.id)} onCheckedChange={() => toggle(m.id)} aria-label={`Select ${m.title}`} />}
-                    <MemoryPreview memory={m} className="mx-0 flex-1 rounded-none px-0 hover:bg-transparent" />
+                    <MemoryPreview memory={m} className="mx-0 min-w-0 flex-1 rounded-none px-0 hover:bg-transparent" />
                   </li>
                 ))}
               </ul>

@@ -141,6 +141,8 @@ const COLUMNS: [table: string, column: string, type: string][] = [
   ["messages", "verification", "TEXT"],
   ["messages", "tools", "TEXT"],
   ["tool_events", "run_id", "INTEGER"],
+  // JSON array of the approval ids a reply proposed. Older replies have none and are matched by time.
+  ["messages", "approvals", "TEXT"],
 ];
 
 function migrate(db: Database.Database) {
