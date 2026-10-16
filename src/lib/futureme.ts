@@ -2,6 +2,8 @@ import { z } from "zod";
 import type { Db } from "./db";
 import { getProvider, type ChatMessage, type LlmProvider, type ToolDefinition } from "./llm";
 import { STORY_MARKER } from "./mock-llm";
+import { dockerMcpConfigured, dockerToolDefs } from "./docker-mcp";
+import { isDockerTool, runDockerTool } from "./docker-tools";
 import { activePack } from "./packs";
 import { isTwinTool, runTwinTool, TWIN_TOOL_DEFS } from "./twin";
 import { searchNotes, writeNote } from "./vault";
@@ -297,6 +299,8 @@ async function executeTool(db: Db, name: string, rawArgs: string): Promise<ToolR
       if (name === "confirm_task_done") return (await import("./twin-calls")).confirmTaskDone(db, json);
       // On a call with someone else who asked not to be recorded.
       if (name === "stop_recording") return (await import("./twin-calls")).stopRecording(db, json);
+      // Tools from the Docker MCP Gateway: read-only ones run, the rest wait for approval (docker-tools.ts).
+      if (isDockerTool(name)) return runDockerTool(db, name, json);
       return { output: `Error: unknown tool ${name}.`, citations: [] };
   }
 }
@@ -318,6 +322,8 @@ function systemPrompt(profile: Profile, persona?: string): string {
     "When they commit to something or describe a goal, call propose_plan with small, concrete tasks.",
     "When they share an important new fact about themselves, call propose_memory.",
     "Never claim something was saved or created; proposals wait for their approval.",
+    dockerMcpConfigured() &&
+      "When they ask you to do something a docker_* tool can do, use it. Tools that change something wait for their approval on the Agent page; say so and never claim they ran.",
     "Keep replies under 150 words and end with one reflective question.",
   ]
     .filter(Boolean)
@@ -411,12 +417,14 @@ async function* sseData(body: ReadableStream<Uint8Array>): AsyncGenerator<string
 
 export function inProcessBackend(
   provider: LlmProvider = getProvider(),
-  opts: { tools?: ToolDefinition[]; instruction?: string } = {},
+  opts: { tools?: ToolDefinition[]; instruction?: string; extraTools?: () => Promise<ToolDefinition[]> } = {},
 ): AgentBackend {
-  const tools = opts.tools ?? TOOLS;
+  const base = opts.tools ?? TOOLS;
   return {
     name: `in-process:${provider.name}`,
     async run(db, initial, onDelta) {
+      // Tools discovered at run time (the Docker MCP Gateway's) join the fixed ones; none if the gateway is down.
+      const tools = opts.extraTools ? [...base, ...(await opts.extraTools().catch(() => []))] : base;
       // The agent's own instruction comes first, as Docker Agent does with the YAML instruction.
       const messages: ChatMessage[] = opts.instruction ? [{ role: "system", content: opts.instruction }, ...initial] : [...initial];
       for (let step = 0; step < MAX_STEPS; step++) {
@@ -442,7 +450,7 @@ export function inProcessBackend(
 
 export function getAgentBackend(): AgentBackend {
   const url = process.env.DOCKER_AGENT_URL;
-  return url ? dockerAgentBackend(url) : inProcessBackend();
+  return url ? dockerAgentBackend(url) : inProcessBackend(getProvider(), { extraTools: dockerMcpConfigured() ? dockerToolDefs : undefined });
 }
 
 export async function chat(db: Db, userText: string, backend: AgentBackend = getAgentBackend(), onDelta?: OnDelta): Promise<ChatTurn> {

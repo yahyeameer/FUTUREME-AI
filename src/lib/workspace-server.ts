@@ -17,6 +17,8 @@ import {
 } from "./futureme";
 import { agentFilePath, agentTeam } from "./agents";
 import { listCouncils } from "./council";
+import { dockerMcpState } from "./docker-mcp";
+import { listDockerRequests } from "./docker-tools";
 import { getProvider, LOCAL_LLM_URL } from "./llm";
 import { listNightShifts, nextRunAt, nightShiftSchedule } from "./night-shift";
 import { activePack, listPacks } from "./packs";
@@ -181,7 +183,7 @@ function runtime(): Workspace["runtime"] {
   return {
     mode: "live",
     agent: process.env.DOCKER_AGENT_URL
-      ? `Docker Agent team (agents/futureme.yaml, ${agentTeam().length} agents) with FutureMe's MCP tools`
+      ? `Docker Agent team (agents/futureme.yaml, ${agentTeam().length} agents) with FutureMe's MCP tools${dockerMcpState().status === "connected" ? " and the Docker MCP Gateway" : ""}`
       : "FutureMe's agent team, running in the app server",
     model: standIn
       ? "Built-in stand-in model (no Nebius key configured)"
@@ -415,6 +417,28 @@ export function buildWorkspace(db: Db): Workspace {
       sources: r.sources,
       approvalId: r.approval_id ? String(r.approval_id) : undefined,
       error: r.error ?? undefined,
+    })),
+    dockerMcp: dockerMcp(db),
+  };
+}
+
+function dockerMcp(db: Db): Workspace["dockerMcp"] {
+  const state = dockerMcpState();
+  return {
+    status: state.status,
+    via: state.via,
+    detail: state.detail,
+    tools: state.tools.map((t) => ({ name: t.name, title: t.title, description: t.description, gate: t.gate })),
+    requests: listDockerRequests(db).map((r) => ({
+      id: String(r.id),
+      tool: r.tool,
+      title: r.title,
+      arguments: r.arguments,
+      status: r.status,
+      createdAt: sqlTime(r.created_at)!,
+      decidedAt: sqlTime(r.decided_at),
+      result: r.result,
+      isError: r.isError,
     })),
   };
 }

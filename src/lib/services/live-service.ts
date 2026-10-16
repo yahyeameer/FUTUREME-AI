@@ -177,6 +177,7 @@ export function createLiveService(): FutureMeService {
       return { workspace, shift };
     },
     setPack: (id) => request({ action: "setPack", id }),
+    decideDockerTool: (id, decision) => request({ action: "decideDockerTool", id, decision }),
     async runSkill(skillId, inputs, onUpdate) {
       const def = skillDef(skillId);
       if (skillId === "research") {

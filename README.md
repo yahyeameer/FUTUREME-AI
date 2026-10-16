@@ -154,6 +154,8 @@ docker run -p 3000:3000 -v futureme-data:/data \
 
   Outside Docker, `LLM_PROVIDER=local` (with `LOCAL_LLM_URL`, default `http://localhost:12434/engines/v1`, and `LOCAL_MODEL`, default `ai/qwen3`) points the app at Model Runner, and `docker agent run agents/futureme.yaml --flavor local` does the same for Docker Agent.
 
+- **Docker MCP tools.** The future self can use tools from Docker's MCP catalog through the Docker MCP Gateway (Docker Desktop's MCP Toolkit), each running in its own container. Read-only tools run on their own; anything that changes something waits for your approval on the Agent page. Optional: set `DOCKER_MCP_GATEWAY_URL=http://localhost:8811/mcp` after `docker mcp gateway run --transport streaming --port 8811`. Setup, Windows notes and Compose: [docs/docker-mcp.md](docs/docker-mcp.md).
+
 ## Demo data
 
 ```bash

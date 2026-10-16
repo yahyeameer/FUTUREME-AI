@@ -4,8 +4,8 @@
 #                  docker agent run agents/futureme.yaml --agent council (the council, delegating to its voices)
 #   For the app:   docker agent serve chat agents/futureme.yaml --safety autonomous
 #                  then set DOCKER_AGENT_URL=http://127.0.0.1:8083. The app calls each agent by name.
-#                  `--safety autonomous` is safe here: the only tools are FutureMe's own MCP tools, and plans and
-#                  memories they propose still wait for the user's approval in the app.
+#                  `--safety autonomous` is safe here: every tool goes through FutureMe's own MCP servers, and plans,
+#                  memories and Docker MCP tools that change something still wait for the user's approval in the app.
 #   Without a key: npm run mock-model, then add `--flavor mock` to either command
 #   Private:       add `--flavor local` to run every agent on Docker Model Runner on this machine
 #
@@ -39,12 +39,19 @@ agents:
       When they commit to something or describe a goal, call propose_plan with small, concrete tasks.
       When they share an important new fact about themselves, call propose_memory.
       Proposals wait for the user's approval in the app; never claim something was saved or created.
+      When they ask you to do something one of your docker_* tools can do, use it. Tools that change something wait for
+      their approval on the Agent page; say so and never claim they ran.
       Keep replies under 150 words and end with one reflective question.
     toolsets:
       - type: mcp
         command: npx
         args: ["tsx", "mcp/futureme-server.ts"]
         tools: [search_memory, propose_memory, propose_plan]
+      # Tools from the Docker MCP Gateway (Docker Desktop's MCP Toolkit), through FutureMe so each call is logged and
+      # anything that can change something waits for approval. No tools when DOCKER_MCP_GATEWAY_URL isn't set.
+      - type: mcp
+        command: npx
+        args: ["tsx", "mcp/docker-tools-server.ts"]
 
   # ---------- The council: one question, several future selves ----------
 

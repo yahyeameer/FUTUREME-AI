@@ -2,6 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import yaml from "js-yaml";
 import type { Db } from "./db";
+import { DOCKER_TOOLSET, dockerToolDefs } from "./docker-mcp";
 import { dockerAgentBackend, inProcessBackend, lastToolEventId, toolDefs, toolEventsSince, type OnDelta } from "./futureme";
 import { getProvider, type ChatMessage, type LlmProvider } from "./llm";
 
@@ -32,7 +33,7 @@ export interface AgentSpec {
 }
 
 interface AgentFile {
-  agents: Record<string, { description?: string; instruction?: string; sub_agents?: string[]; toolsets?: { type: string; tools?: string[] }[] }>;
+  agents: Record<string, { description?: string; instruction?: string; sub_agents?: string[]; toolsets?: { type: string; tools?: string[]; args?: string[] }[] }>;
 }
 
 export function agentFilePath() {
@@ -49,12 +50,15 @@ export function agentTeam(file = agentFilePath()): AgentSpec[] {
     name,
     description: a.description ?? "",
     instruction: (a.instruction ?? "").trim(),
-    tools: (a.toolsets ?? []).flatMap((t) => (t.type === "mcp" ? (t.tools ?? []) : [t.type])),
+    tools: (a.toolsets ?? []).flatMap((t) => (t.type === "mcp" ? (t.tools ?? (isDockerToolset(t) ? [DOCKER_TOOLSET] : [])) : [t.type])),
     subAgents: a.sub_agents ?? [],
   }));
   cache = { mtime, specs };
   return specs;
 }
+
+// The bridge to the Docker MCP Gateway has no fixed tool list: it offers whatever servers the user enabled in Docker.
+const isDockerToolset = (t: { args?: string[] }) => (t.args ?? []).some((a) => a.endsWith("docker-tools-server.ts"));
 
 export function agentSpec(name: AgentName): AgentSpec {
   const spec = agentTeam().find((a) => a.name === name);
@@ -80,7 +84,11 @@ export async function runAgent(
   const url = process.env.DOCKER_AGENT_URL;
   const backend = url
     ? dockerAgentBackend(url, name)
-    : inProcessBackend(opts.provider ?? getProvider(), { tools: toolDefs(spec.tools), instruction: spec.instruction });
+    : inProcessBackend(opts.provider ?? getProvider(), {
+        tools: toolDefs(spec.tools),
+        instruction: spec.instruction,
+        extraTools: spec.tools.includes(DOCKER_TOOLSET) ? dockerToolDefs : undefined,
+      });
   const before = lastToolEventId(db);
   const reply = await backend.run(db, messages, opts.onDelta);
   return { reply, backend: backend.name, events: toolEventsSince(db, before) };

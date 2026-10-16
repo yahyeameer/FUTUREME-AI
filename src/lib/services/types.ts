@@ -64,6 +64,8 @@ export interface AgentTeamService {
   runResearch(topic: string): Promise<{ workspace: Workspace; run: ResearchRun }>;
   runNightShift(): Promise<{ workspace: Workspace; shift: NightShift }>;
   setPack(packId: string | null): Promise<Workspace>;
+  /** Live only: run (or decline) a Docker MCP tool call the agent asked to make. */
+  decideDockerTool?(requestId: string, decision: "approve" | "reject"): Promise<Workspace>;
 }
 
 export interface FutureMeService

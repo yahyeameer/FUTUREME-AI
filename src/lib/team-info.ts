@@ -8,7 +8,7 @@ export const TEAM: AgentInfo[] = [
     label: "Future self",
     role: "chat",
     description: "FutureMe, the user's future self ten years from now.",
-    tools: ["search_memory", "propose_memory", "propose_plan"],
+    tools: ["search_memory", "propose_memory", "propose_plan", "docker_mcp"],
     subAgents: [],
   },
   {

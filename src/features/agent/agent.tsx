@@ -18,6 +18,7 @@ import { cn, pluralize, relativeDay } from "@/lib/utils";
 import { useWorkspace } from "@/lib/workspace-store";
 import { agentLog, agentTools, logKind, toolUsage, vaultFiles, type LogEntry, type ToolInfo, type VaultFile } from "./agent-data";
 import { NightShiftPanel, Packs, Privacy, Research, Team } from "./agent-team";
+import { DockerTools } from "./docker-tools";
 
 export function Agent() {
   const { workspace } = useWorkspace();
@@ -122,6 +123,17 @@ export function Agent() {
               <ToolCard key={t.name} tool={t} usage={usage.get(t.name)} />
             ))}
           </div>
+        </RevealItem>
+
+        {/* Docker MCP */}
+        <RevealItem as="section" aria-labelledby="docker-heading" id="docker">
+          <SectionHead
+            id="docker-heading"
+            title="Docker MCP tools"
+            note="Tools from Docker's MCP Toolkit, each in its own container. Read-only ones run on their own; anything that changes something waits for you here."
+            dot={workspace.dockerMcp?.requests.some((r) => r.status === "pending") ? "warning" : undefined}
+          />
+          <DockerTools />
         </RevealItem>
 
         {waiting.length > 0 && (
