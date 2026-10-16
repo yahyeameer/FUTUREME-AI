@@ -8,7 +8,7 @@ export const TEAM: AgentInfo[] = [
     label: "Future self",
     role: "chat",
     description: "FutureMe, the user's future self ten years from now.",
-    tools: ["search_memory", "propose_memory", "propose_plan", "delegate_task", "spawn_agent"],
+    tools: ["search_memory", "propose_memory", "propose_plan", "delegate_task", "spawn_agent", "docker_mcp"],
     subAgents: [],
   },
   {
@@ -142,6 +142,14 @@ export const TEAM: AgentInfo[] = [
     role: "twin",
     description: "The future self on a live voice call. Short spoken replies; can mark a promised task done when the user says it is.",
     tools: ["search_memory", "confirm_task_done"],
+    subAgents: [],
+  },
+  {
+    name: "twin_proxy",
+    label: "Twin on a call",
+    role: "twin",
+    description: "The user's AI twin on a call with someone else. Says it's an AI, takes messages, never agrees to anything itself.",
+    tools: ["propose_commitment", "stop_recording"],
     subAgents: [],
   },
 ];

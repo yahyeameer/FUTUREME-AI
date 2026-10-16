@@ -17,6 +17,7 @@
     "night-shift": "tsx --env-file-if-exists=.env.local scripts/night-shift.ts",
     "twin-scheduler": "tsx --env-file-if-exists=.env.local scripts/twin-scheduler.ts",
     "pack": "tsx scripts/pack.ts",
+    "cloud-sync": "tsx --env-file-if-exists=.env.local scripts/cloud-sync.ts",
     "test:e2e": "playwright test",
     "seed:demo": "tsx --env-file-if-exists=.env.local scripts/seed-demo.ts"
   },

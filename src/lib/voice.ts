@@ -165,6 +165,15 @@ export class ElevenLabs {
     return { conversationId: out.conversation_id ?? null };
   }
 
+  /** Deletes a conversation's audio and transcript at ElevenLabs. Already gone is fine. */
+  async deleteConversation(conversationId: string): Promise<void> {
+    try {
+      await this.call(`/v1/convai/conversations/${encodeURIComponent(conversationId)}`, { method: "DELETE" });
+    } catch (err) {
+      if (!(err instanceof ElevenLabsError && err.status === 404)) throw err;
+    }
+  }
+
   async getConversation(conversationId: string): Promise<Conversation> {
     return (await (await this.call(`/v1/convai/conversations/${encodeURIComponent(conversationId)}`)).json()) as Conversation;
   }
@@ -196,7 +205,7 @@ export function voiceDir(): string {
 
 const EXT: Record<string, string> = { "audio/webm": "webm", "audio/ogg": "ogg", "audio/mp4": "m4a", "audio/mpeg": "mp3", "audio/wav": "wav", "audio/x-wav": "wav" };
 
-function checkAudio(a: AudioInput) {
+export function checkAudio(a: AudioInput) {
   if (!a.data.byteLength) throw new Error("The recording is empty.");
   if (a.data.byteLength > MAX_AUDIO_BYTES) throw new Error("Each recording must be 10 MB or smaller.");
   if (!a.type.startsWith("audio/") && !a.type.startsWith("video/webm")) throw new Error("That file isn't audio.");

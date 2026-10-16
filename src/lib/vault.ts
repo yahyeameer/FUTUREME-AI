@@ -13,6 +13,7 @@ export const VAULT_FOLDERS = [
   "Daily",
   "Research",
   "Calls",
+  "Inbox",
 ] as const;
 
 export type VaultFolder = (typeof VAULT_FOLDERS)[number];
@@ -79,6 +80,11 @@ export function writeNote(input: NoteInput, root = vaultRoot()): Note {
   const content = matter.stringify(`# ${input.title}\n\n${input.body.trim()}${linkLine}`, data);
   fs.writeFileSync(full, content, "utf8");
   return readNote(rel, root);
+}
+
+/** Deletes one note. Used when the twin's retention period ends or its data is deleted; a missing file is fine. */
+export function deleteNote(relPath: string, root = vaultRoot()) {
+  fs.rmSync(resolveInVault(relPath, root), { force: true });
 }
 
 export function readNote(relPath: string, root = vaultRoot()): Note {

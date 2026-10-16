@@ -62,7 +62,7 @@ describe("agent team file", () => {
     for (const name of ["root", "voice_horizon", "voice_next_year", "voice_skeptic", "voice_mentor", "council_chair", "verifier", "researcher", "night_shift", "helper_memory", "helper_web", "mission_lead", "supervisor"]) {
       expect(team.has(name), name).toBe(true);
     }
-    expect(team.get("root")!.tools).toEqual(["search_memory", "propose_memory", "propose_plan", "delegate_task", "spawn_agent"]);
+    expect(team.get("root")!.tools).toEqual(["search_memory", "propose_memory", "propose_plan", "delegate_task", "spawn_agent", "docker_mcp"]);
     expect(team.get("helper_memory")!.tools).toEqual(["search_memory"]);
     expect(team.get("supervisor")!.tools).toEqual([]);
     expect(team.get("voice_skeptic")!.tools).toEqual(["search_memory"]);

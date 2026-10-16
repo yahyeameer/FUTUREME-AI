@@ -1,6 +1,6 @@
 # Deploying FutureMe AI
 
-FutureMe ships as one Docker image that runs the Next.js app and the Docker Agent future-self agent together. SQLite and the Markdown vault live in `/data`, so mount a persistent volume there.
+FutureMe ships as one Docker image that runs the Next.js app and the Docker Agent future-self agent together. SQLite and the Markdown vault live in `/data`, so mount a persistent volume there. To also keep a cloud copy that a new server restores from, set `SUPABASE_URL` and `SUPABASE_SECRET_KEY` (see [supabase.md](supabase.md)).
 
 ## On a Nebius Compute VM (or any Linux VM)
 

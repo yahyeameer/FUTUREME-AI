@@ -2,6 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import yaml from "js-yaml";
 import type { Db } from "./db";
+import { DOCKER_TOOLSET, dockerToolDefs } from "./docker-mcp";
 import { dockerAgentBackend, inProcessBackend, lastToolEventId, runContext, toolDefs, toolEventsForRun, toolEventsSince, type OnDelta, type ToolEvent } from "./futureme";
 import { getProvider, type ChatMessage, type LlmProvider } from "./llm";
 
@@ -23,7 +24,9 @@ export type AgentName =
   | "helper_web"
   | "supervisor"
   | "mission_lead"
-  | "twin_voice";
+  | "twin"
+  | "twin_voice"
+  | "twin_proxy";
 
 export interface AgentSpec {
   name: string;
@@ -34,7 +37,7 @@ export interface AgentSpec {
 }
 
 interface AgentFile {
-  agents: Record<string, { description?: string; instruction?: string; sub_agents?: string[]; toolsets?: { type: string; tools?: string[] }[] }>;
+  agents: Record<string, { description?: string; instruction?: string; sub_agents?: string[]; toolsets?: { type: string; tools?: string[]; args?: string[] }[] }>;
 }
 
 export function agentFilePath() {
@@ -51,12 +54,15 @@ export function agentTeam(file = agentFilePath()): AgentSpec[] {
     name,
     description: a.description ?? "",
     instruction: (a.instruction ?? "").trim(),
-    tools: (a.toolsets ?? []).flatMap((t) => (t.type === "mcp" ? (t.tools ?? []) : [t.type])),
+    tools: (a.toolsets ?? []).flatMap((t) => (t.type === "mcp" ? (t.tools ?? (isDockerToolset(t) ? [DOCKER_TOOLSET] : [])) : [t.type])),
     subAgents: a.sub_agents ?? [],
   }));
   cache = { mtime, specs };
   return specs;
 }
+
+// The bridge to the Docker MCP Gateway has no fixed tool list: it offers whatever servers the user enabled in Docker.
+const isDockerToolset = (t: { args?: string[] }) => (t.args ?? []).some((a) => a.endsWith("docker-tools-server.ts"));
 
 export function agentSpec(name: AgentName): AgentSpec {
   const spec = agentTeam().find((a) => a.name === name);
@@ -90,7 +96,13 @@ export async function runAgent(
   const spec = agentSpec(name);
   const url = process.env.DOCKER_AGENT_URL;
   const tools = opts.tools ? spec.tools.filter((t) => opts.tools!.includes(t)) : spec.tools;
-  const backend = url ? dockerAgentBackend(url, name) : inProcessBackend(opts.provider ?? getProvider(), { tools: toolDefs(tools), instruction: spec.instruction });
+  const backend = url
+    ? dockerAgentBackend(url, name)
+    : inProcessBackend(opts.provider ?? getProvider(), {
+        tools: toolDefs(tools),
+        instruction: spec.instruction,
+        extraTools: tools.includes(DOCKER_TOOLSET) ? dockerToolDefs : undefined,
+      });
   const before = lastToolEventId(db);
   const go = () => backend.run(db, messages, opts.onDelta);
   const reply = opts.runId && !url ? await runContext.run({ runId: opts.runId }, go) : await go();

@@ -1,13 +1,15 @@
 "use client";
 
-import { Database, Laptop, Moon, RotateCcw, Sun } from "lucide-react";
+import { AudioLines, Database, Download, Laptop, Loader2, Moon, RotateCcw, Sun, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import * as React from "react";
+import { toast } from "sonner";
 import { PageFrame } from "@/components/layout/page-frame";
 import { PageHeader } from "@/components/layout/page-header";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
 import { Segmented } from "@/components/ui/segmented";
 import { liveMemories } from "@/lib/derive";
 import { usePreferences, type DensityPref, type ModePref, type MotionPref, type ThemePref } from "@/lib/preferences";
@@ -21,6 +23,7 @@ const SECTIONS = [
   { id: "appearance", label: "Appearance" },
   { id: "memory", label: "Memory" },
   { id: "data", label: "Data and privacy" },
+  { id: "twin-data", label: "Voice twin data" },
 ];
 
 export function Settings() {
@@ -60,6 +63,7 @@ export function Settings() {
           <AppearanceSection />
           {workspace && <MemorySection />}
           <DataSection />
+          <TwinDataSection />
         </div>
       </div>
     </PageFrame>
@@ -324,3 +328,83 @@ function DataSection() {
   );
 }
 
+// ---------- Voice twin data (server only) ----------
+
+function TwinDataSection() {
+  const { service } = useWorkspaceContext();
+  const [retention, setRetention] = React.useState<number | null>(null);
+  const [open, setOpen] = React.useState(false);
+  const [typed, setTyped] = React.useState("");
+  const [busy, setBusy] = React.useState(false);
+  const live = service?.mode === "live";
+
+  React.useEffect(() => {
+    if (!live) return;
+    fetch("/api/twin", { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((s: { guard?: { retentionDays?: number } } | null) => setRetention(s?.guard?.retentionDays ?? null))
+      .catch(() => undefined);
+  }, [live]);
+
+  if (!live) return null;
+
+  const deleteAll = async () => {
+    setBusy(true);
+    try {
+      const res = await fetch("/api/twin", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "deleteAll", confirm: "DELETE" }) });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error ?? "That didn't work.");
+      toast.success("Everything your twin held is deleted.");
+      setOpen(false);
+      setTyped("");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "That didn't work.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Section id="twin-data" title="Voice twin data" description="Your voice, your contacts, and the calls and emails your twin handled.">
+      <div className="card px-5">
+        <p className="flex gap-2 border-b border-border py-3.5 text-[12.5px] text-muted-foreground">
+          <AudioLines className="mt-0.5 size-3.5 shrink-0 text-subtle" aria-hidden />
+          What other people said to your twin (call transcripts and recordings, and mail it received) is deleted after {retention ?? 30} days, here and at ElevenLabs and
+          AgentMail. Calls with your future self stay in your notes until you delete them.
+        </p>
+        <Row label="Download twin data" hint="Contacts, calls, emails, approvals, consents and the review queue, as one JSON file. Secrets are left out.">
+          <Button asChild variant="secondary" size="sm">
+            <a href="/api/twin/export" download>
+              <Download /> Download
+            </a>
+          </Button>
+        </Row>
+        <Row label="Delete all twin data" hint="Deletes your cloned voice, its agent and every call at ElevenLabs, received mail at AgentMail, and all twin data here.">
+          <Button variant="destructive" size="sm" onClick={() => setOpen(true)}>
+            <Trash2 /> Delete
+          </Button>
+        </Row>
+      </div>
+      <Dialog open={open} onOpenChange={(o) => !busy && setOpen(o)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete everything your twin holds?</DialogTitle>
+            <DialogDescription>
+              Your cloned voice, contacts, call transcripts, emails and approvals are deleted here and at ElevenLabs and AgentMail. Your goals, memories and other notes stay.
+              This can&apos;t be undone. Type DELETE to confirm.
+            </DialogDescription>
+          </DialogHeader>
+          <Input value={typed} onChange={(e) => setTyped(e.target.value)} placeholder="DELETE" aria-label="Type DELETE to confirm" autoComplete="off" />
+          <DialogFooter>
+            <Button variant="ghost" disabled={busy} onClick={() => setOpen(false)}>
+              Cancel
+            </Button>
+            <Button variant="destructive" disabled={busy || typed !== "DELETE"} onClick={deleteAll}>
+              {busy ? <Loader2 className="animate-spin" /> : <Trash2 />} Delete everything
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </Section>
+  );
+}
