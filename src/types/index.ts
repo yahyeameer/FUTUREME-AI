@@ -359,6 +359,38 @@ export interface AgentPlatform {
   activePack: string | null;
 }
 
+// ---------- Docker MCP tools ----------
+
+export interface DockerMcpTool {
+  /** The name the agent calls: docker_<tool>. */
+  name: string;
+  title: string;
+  description: string;
+  /** "auto" for read-only tools; "approval" for anything that may change something. */
+  gate: "auto" | "approval";
+}
+
+export interface DockerToolRequest {
+  id: string;
+  tool: string;
+  title: string;
+  arguments: Record<string, unknown>;
+  status: ApprovalStatus;
+  createdAt: string;
+  decidedAt?: string;
+  result?: string;
+  isError?: boolean;
+}
+
+/** The agent's tools from the Docker MCP Gateway, and the calls that wait for (or got) the user's approval. */
+export interface DockerMcpInfo {
+  status: "off" | "connecting" | "connected" | "unavailable";
+  via: string;
+  detail?: string;
+  tools: DockerMcpTool[];
+  requests: DockerToolRequest[];
+}
+
 // ---------- Activity ----------
 
 export type ActivityKind = "goal_created" | "task_completed" | "reflection_saved" | "memory_saved" | "plan_approved" | "plan_rejected" | "daily_published" | "skill_run";
@@ -418,4 +450,6 @@ export interface Workspace {
   councils: CouncilSession[];
   nightShifts: NightShift[];
   research: ResearchRun[];
+  /** Live only: the Docker MCP Gateway's tools. Absent in demo mode. */
+  dockerMcp?: DockerMcpInfo;
 }

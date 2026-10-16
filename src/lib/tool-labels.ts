@@ -1,5 +1,6 @@
 // How each agent tool is described to the user. Shared by the server snapshot and the live service.
 export const TOOL_LABELS: Record<string, string> = {
+  docker_mcp: "Docker MCP tools",
   search_memory: "Searched your memory",
   propose_plan: "Drafted a plan",
   propose_memory: "Proposed a memory",
@@ -12,4 +13,5 @@ export const TOOL_LABELS: Record<string, string> = {
   stop_recording: "Stopped recording the call",
 };
 
-export const toolLabel = (name: string) => TOOL_LABELS[name] ?? name.replace(/_/g, " ");
+export const toolLabel = (name: string) =>
+  TOOL_LABELS[name] ?? (name.startsWith("docker_") ? `Docker tool: ${name.slice(7).replace(/_/g, " ")}` : name.replace(/_/g, " "));
