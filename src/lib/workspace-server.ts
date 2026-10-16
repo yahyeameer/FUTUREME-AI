@@ -305,19 +305,23 @@ export function buildWorkspace(db: Db): Workspace {
         }
       : null;
 
+  // The approval ids each reply recorded (null for replies saved before replies kept them).
+  const proposedBy = new Map<string, string[] | null>();
   const conversation: Message[] = (
-    db.prepare("SELECT id, role, content, citations, tools, verification, created_at FROM messages ORDER BY id DESC LIMIT 60").all() as {
+    db.prepare("SELECT id, role, content, citations, tools, approvals, verification, created_at FROM messages ORDER BY id DESC LIMIT 60").all() as {
       id: number;
       role: "user" | "assistant";
       content: string;
       citations: string | null;
       tools: string | null;
+      approvals: string | null;
       verification: string | null;
       created_at: string;
     }[]
   )
     .reverse()
     .map((m): Message => {
+      proposedBy.set(`msg-${m.id}`, m.approvals ? (JSON.parse(m.approvals) as number[]).map(String) : null);
       const citations = m.citations ? (JSON.parse(m.citations) as string[]) : [];
       const tools = m.tools ? (JSON.parse(m.tools) as string[]) : [];
       const counts = new Map<string, number>();
@@ -345,10 +349,13 @@ export function buildWorkspace(db: Db): Workspace {
   // Proposals from research and the night shift belong to those runs, not to a conversation reply.
   const ownedElsewhere = new Set([...researchRuns.flatMap((r) => (r.approval_id ? [String(r.approval_id)] : [])), ...nightShifts.flatMap((n) => n.approvals.map(String))]);
 
-  // Approvals aren't stored with a message id; a proposal belongs to the first reply saved at or after it.
+  // Each reply records the approvals it proposed. Older replies didn't, so their proposals go to the first such reply
+  // saved at or after them (timestamps are only to the second, so this can pick the wrong one of two quick turns).
   for (const a of approvals) {
     if (ownedElsewhere.has(a.id)) continue;
-    const reply = conversation.find((m) => m.role === "assistant" && m.createdAt >= a.createdAt);
+    const reply =
+      conversation.find((m) => proposedBy.get(m.id)?.includes(a.id)) ??
+      conversation.find((m) => m.role === "assistant" && proposedBy.get(m.id) === null && m.createdAt >= a.createdAt);
     if (reply) (reply.approvalIds ??= []).push(a.id);
   }
 

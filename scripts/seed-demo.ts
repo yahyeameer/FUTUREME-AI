@@ -39,7 +39,7 @@ async function main() {
     });
   }
   await generateDaily(db, provider);
-  console.log("Demo user ready: open /future, /chat, /plan and /daily.");
+  console.log("Demo user ready: open /future-self, /roadmap, /memory and /daily.");
 }
 
 main().catch((err) => {
