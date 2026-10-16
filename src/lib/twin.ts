@@ -27,7 +27,7 @@ export const TWIN_TOOL_DEFS: ToolDefinition[] = [
       description: "Propose a phone call by the user's AI twin to one of their saved contacts. The user must approve it; no call is made until then.",
       parameters: {
         type: "object",
-        properties: { contact: { type: "string" }, purpose: { type: "string" }, talking_points: { type: "array", items: { type: "string" } } },
+        properties: { contact: { type: "string" }, purpose: { type: "string", description: "What the call is about, worded to follow \"I'm calling about\", like \"moving Thursday's review to 3pm\"." }, talking_points: { type: "array", items: { type: "string" } } },
         required: ["contact", "purpose"],
       },
     },
@@ -185,6 +185,8 @@ export interface EmailProposal {
   email: string;
   subject: string;
   body: string;
+  /** Set by the app (never the model) when the draft answers an email the twin's inbox received. */
+  in_reply_to?: string;
 }
 export interface CommitmentProposal {
   contact_id?: number;
@@ -297,10 +299,10 @@ export function twinApprovals(db: Db, limit = 100): TwinApproval[] {
 }
 
 /**
- * Approving a call or email records it as allowed; the dialler and sender arrive in a later phase and act only on
- * approved rows. Approving a commitment files it in the vault.
+ * Approving a call or email records it as allowed and returns its row, which the caller then dials or sends
+ * (twin-calls.ts, mail.ts); nothing else ever dials a contact or sends mail. Approving a commitment files it in the vault.
  */
-export function decideTwinApproval(db: Db, id: number, approve: boolean) {
+export function decideTwinApproval(db: Db, id: number, approve: boolean): { callId?: number; emailId?: number } {
   const row = db.prepare("SELECT kind, payload FROM approvals WHERE id = ? AND status = 'pending'").get(id) as { kind: string; payload: string } | undefined;
   if (!row || !isTwinKind(row.kind)) throw new Error(`No pending twin approval #${id}.`);
   if (approve && isTwinPaused(db)) throw new Error("The twin is paused. Resume it before approving anything.");
@@ -309,15 +311,21 @@ export function decideTwinApproval(db: Db, id: number, approve: boolean) {
     throw new Error("That contact was removed, so this can't be approved.");
   }
 
-  db.transaction(() => {
+  return db.transaction(() => {
     db.prepare("UPDATE approvals SET status = ?, decided_at = datetime('now') WHERE id = ?").run(approve ? "approved" : "rejected", id);
-    if (!approve) return;
+    if (!approve) return {};
     if (row.kind === "outbound_call") {
       const p = payload as CallProposal;
-      db.prepare("INSERT INTO calls (direction, contact_id, purpose, opener, status, approval_id) VALUES ('outbound', ?, ?, ?, 'approved', ?)").run(p.contact_id, p.purpose, p.opener, id);
+      const info = db
+        .prepare("INSERT INTO calls (direction, mode, contact_id, to_number, purpose, opener, status, approval_id) VALUES ('outbound', 'contact', ?, ?, ?, ?, 'approved', ?)")
+        .run(p.contact_id, p.phone, p.purpose, p.opener, id);
+      return { callId: Number(info.lastInsertRowid) };
     } else if (row.kind === "send_email") {
       const p = payload as EmailProposal;
-      db.prepare("INSERT INTO email_threads (contact_id, subject, body, status, approval_id) VALUES (?, ?, ?, 'approved', ?)").run(p.contact_id, p.subject, p.body, id);
+      const info = db
+        .prepare("INSERT INTO email_threads (direction, contact_id, to_email, subject, body, status, approval_id, in_reply_to) VALUES ('outbound', ?, ?, ?, ?, 'approved', ?, ?)")
+        .run(p.contact_id, p.email, p.subject, p.body, id, p.in_reply_to ?? null);
+      return { emailId: Number(info.lastInsertRowid) };
     } else {
       const p = payload as CommitmentProposal;
       writeNote({
@@ -329,6 +337,7 @@ export function decideTwinApproval(db: Db, id: number, approve: boolean) {
           .filter(Boolean)
           .join("\n\n"),
       });
+      return {};
     }
   })();
 }

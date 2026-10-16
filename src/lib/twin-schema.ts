@@ -43,6 +43,7 @@ CREATE TABLE IF NOT EXISTS calls (
   mode TEXT NOT NULL DEFAULT 'contact',
   contact_id INTEGER REFERENCES contacts(id),
   to_number TEXT,
+  from_number TEXT,
   purpose TEXT,
   topic TEXT,
   task_id INTEGER,
@@ -62,13 +63,25 @@ CREATE TABLE IF NOT EXISTS calls (
   note_path TEXT,
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
+-- Emails through the twin's own AgentMail inbox. 'outbound' rows are approved drafts (approved, sending, sent, failed);
+-- 'inbound' rows are mail the inbox received.
 CREATE TABLE IF NOT EXISTS email_threads (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
+  direction TEXT NOT NULL DEFAULT 'outbound',
   contact_id INTEGER REFERENCES contacts(id),
+  from_email TEXT,
+  to_email TEXT,
+  cc TEXT,
   subject TEXT NOT NULL,
   body TEXT NOT NULL,
   status TEXT NOT NULL,
   approval_id INTEGER,
+  message_id TEXT,
+  thread_id TEXT,
+  in_reply_to TEXT,
+  error TEXT,
+  note_path TEXT,
+  sent_at TEXT,
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 CREATE TABLE IF NOT EXISTS twin_settings (
@@ -77,10 +90,32 @@ CREATE TABLE IF NOT EXISTS twin_settings (
 );
 `;
 
-/** Databases made before Phase 2 have a narrower calls table; rebuild it once, keeping its rows. */
-export function migrateTwin(db: { prepare: (sql: string) => { all: () => unknown[] }; exec: (sql: string) => unknown }) {
-  const cols = (db.prepare("PRAGMA table_info(calls)").all() as { name: string }[]).map((c) => c.name);
-  if (cols.includes("mode")) return;
-  const keep = cols.join(", ");
-  db.exec(`ALTER TABLE calls RENAME TO calls_v1; ${TWIN_SCHEMA} INSERT INTO calls (${keep}) SELECT ${keep} FROM calls_v1; DROP TABLE calls_v1;`);
+/** Columns added after a table first shipped. Missing ones are added on open. */
+const ADDED_COLUMNS: [table: string, column: string, type: string][] = [
+  ["calls", "from_number", "TEXT"],
+  ["email_threads", "direction", "TEXT NOT NULL DEFAULT 'outbound'"],
+  ["email_threads", "from_email", "TEXT"],
+  ["email_threads", "to_email", "TEXT"],
+  ["email_threads", "cc", "TEXT"],
+  ["email_threads", "message_id", "TEXT"],
+  ["email_threads", "thread_id", "TEXT"],
+  ["email_threads", "in_reply_to", "TEXT"],
+  ["email_threads", "error", "TEXT"],
+  ["email_threads", "note_path", "TEXT"],
+  ["email_threads", "sent_at", "TEXT"],
+];
+
+type MiniDb = { prepare: (sql: string) => { all: () => unknown[] }; exec: (sql: string) => unknown };
+const columns = (db: MiniDb, table: string) => (db.prepare(`PRAGMA table_info(${table})`).all() as { name: string }[]).map((c) => c.name);
+
+export function migrateTwin(db: MiniDb) {
+  // Databases made before Phase 2 have a narrower calls table (and a stricter direction check); rebuild it once.
+  const cols = columns(db, "calls");
+  if (!cols.includes("mode")) {
+    const keep = cols.join(", ");
+    db.exec(`ALTER TABLE calls RENAME TO calls_v1; ${TWIN_SCHEMA} INSERT INTO calls (${keep}) SELECT ${keep} FROM calls_v1; DROP TABLE calls_v1;`);
+  }
+  for (const [table, column, type] of ADDED_COLUMNS) {
+    if (!columns(db, table).includes(column)) db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${type}`);
+  }
 }

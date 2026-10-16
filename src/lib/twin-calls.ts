@@ -4,9 +4,9 @@ import { runAgent } from "./agents";
 import type { Db } from "./db";
 import { completeTask, getProfile, type OnDelta, type ToolResult } from "./futureme";
 import type { ChatMessage } from "./llm";
-import { getTwinSetting, isTwinPaused, ownerName, setTwinSetting } from "./twin";
+import { DAILY_LIMITS, getTwinSetting, isTwinPaused, ownerName, setTwinSetting, type CallProposal } from "./twin";
 import { writeNote } from "./vault";
-import { activeVoice, ElevenLabsError, type Conversation, type ElevenLabs } from "./voice";
+import { activeVoice, checkAudio, ElevenLabsError, type AudioInput, type Conversation, type ElevenLabs } from "./voice";
 
 // Talking to your twin (Phase 2). ElevenLabs runs the voice (speech-to-text, the cloned voice, turn-taking, the phone
 // line) and calls back into this app for every reply, as a custom LLM. The reply comes from the twin_voice agent in
@@ -17,22 +17,32 @@ import { activeVoice, ElevenLabsError, type Conversation, type ElevenLabs } from
 //                  Call From 2036 (a topic) and Promise Keeper (one open task) can be scheduled or started now.
 //   Transcripts    every finished call is filed in the vault's Calls folder.
 //
+// Reaching other people (Phase 3). A different agent, twin_proxy, speaks on these calls. It has no memory search, so
+// nothing from the vault can leak to the other person; it knows only the purpose and talking points the user approved.
+//   Contact calls  an approved outbound_call is dialled at once, to the number the user approved, with the fixed opener.
+//   Call screening calls to the twin's number are answered by the twin, which takes a message. ElevenLabs asks
+//                  /api/twin/inbound for each caller before answering; blocked numbers hear a one-line refusal.
+//   Time capsule   the user records a message for a future date; that day the twin calls them and reads it back.
+//
 // Each call has a call_ref ("<id>.<random token>") that the agent's prompt carries back to the custom LLM, so a
 // request can only speak as a call this app started, and only while that call is live.
 
-export type CallMode = "web" | "future_call" | "promise_check" | "verify_phone";
+export type CallMode = "web" | "future_call" | "promise_check" | "verify_phone" | "capsule" | "contact" | "screen";
 export type CallStatus = "connecting" | "scheduled" | "dialing" | "in_progress" | "done" | "missed" | "failed" | "cancelled";
 
 export interface CallRow {
   id: number;
   direction: "outbound" | "inbound" | "self" | "web";
-  mode: CallMode | "contact";
+  mode: CallMode;
   contact_id: number | null;
   to_number: string | null;
+  from_number: string | null;
   purpose: string | null;
   topic: string | null;
   task_id: number | null;
   status: CallStatus | "approved";
+  approval_id: number | null;
+  opener: string | null;
   ref_token: string | null;
   conversation_id: string | null;
   scheduled_for: string | null;
@@ -53,6 +63,9 @@ const VERIFY_CALLS_PER_DAY = 3;
 const CODE_TTL_MINUTES = 15;
 const MAX_CODE_ATTEMPTS = 5;
 const MAX_CALL_SECONDS = 600;
+/** Calls to the twin's number it will answer per day. */
+export const INBOUND_CALLS_PER_DAY = 30;
+const MAX_CAPSULE_DAYS = 2 * 366;
 const VOICE_TTS_MODEL = "eleven_flash_v2_5";
 export const SECRET_HEADER = "x-futureme-twin-secret";
 const LIVE: CallStatus[] = ["connecting", "dialing", "in_progress"];
@@ -115,8 +128,15 @@ function agentConfig(db: Db, voiceId: string, publicUrl: string) {
       tts: { voice_id: voiceId, model_id: VOICE_TTS_MODEL },
       conversation: { max_duration_seconds: MAX_CALL_SECONDS },
     },
-    // Only this app can start a conversation: the browser needs a token from the server.
-    platform_settings: { auth: { enable_auth: true } },
+    platform_settings: {
+      // Only this app can start a conversation: the browser needs a token from the server.
+      auth: { enable_auth: true },
+      // Calls to the twin's number: ElevenLabs asks this app who is calling before it answers.
+      overrides: { enable_conversation_initiation_client_data_from_webhook: true },
+      workspace_overrides: {
+        conversation_initiation_client_data_webhook: { url: `${publicUrl}/api/twin/inbound`, request_headers: { [SECRET_HEADER]: llmSecret(db) } },
+      },
+    },
   };
 }
 
@@ -177,13 +197,75 @@ export function openingLine(db: Db, call: CallRow): string {
       const promise = task ? (/^[A-Z][a-z]/.test(task.title) ? task.title[0].toLowerCase() + task.title.slice(1) : task.title) : "do something";
       return `${hi}, it's FutureMe, your AI future self. This call is recorded for your notes. You told me you'd ${promise.replace(/\.$/, "")}. Did you do it?`;
     }
+    case "capsule": {
+      const when = call.created_at.slice(0, 10);
+      return `${hi}, it's FutureMe, your AI future self. This call is recorded for your notes. On ${when} you left a message for today. Here's what you said: "${call.topic}". So, how did it turn out?`;
+    }
+    case "contact": {
+      const opener = call.purpose ? `${call.opener ?? ""} I'm calling about ${call.purpose.replace(/\.$/, "")}.` : (call.opener ?? "");
+      return `${opener} Is now a good time?`.trim();
+    }
+    case "screen": {
+      const owner = ownerName(db);
+      if (isBlocked(db, call.from_number)) return `Hi, ${owner} isn't taking calls from this number. Goodbye.`;
+      const contact = contactOf(db, call.contact_id);
+      return `Hi${contact ? ` ${contact.name}` : ""}, you've reached ${owner}'s AI twin, an AI assistant that answers ${owner}'s calls. This call is recorded and transcribed. ${contact ? "What can I pass on" : "Who's calling, and what's it about"}?`;
+    }
     default:
       return `Hey${name ? ` ${name}` : ""}. It's you, from ${year}. Not a recording: an AI version of your future self, in your own voice. What's on your mind?`;
   }
 }
 
-/** The per-call system prompt, added before the twin_voice agent's own instruction. */
+const contactOf = (db: Db, id: number | null) =>
+  id === null ? undefined : (db.prepare("SELECT id, name, phone, email FROM contacts WHERE id = ?").get(id) as { id: number; name: string; phone: string | null; email: string | null } | undefined);
+
+/** Talking points the user approved with a contact call. */
+function talkingPoints(db: Db, call: CallRow): string[] {
+  if (call.approval_id === null) return [];
+  const row = db.prepare("SELECT payload FROM approvals WHERE id = ?").get(call.approval_id) as { payload: string } | undefined;
+  return row ? ((JSON.parse(row.payload) as CallProposal).talking_points ?? []) : [];
+}
+
+/** The rules for every call with someone other than the user. Fixed here, on top of twin_proxy's own instruction. */
+function proxyRules(owner: string, who: string) {
+  return [
+    `You are ${owner}'s AI twin, an AI assistant. You are not ${owner}; never say or imply you are.`,
+    `Never agree to anything for ${owner}: meetings, money, favours, deadlines or promises. Call propose_commitment with what ${who} wants (and contact "${who}" if they are a saved contact), and tell them ${owner} will confirm.`,
+    `Never share ${owner}'s address, schedule, whereabouts, finances, codes or passwords, and never take or make payments.`,
+    `If they want to speak to ${owner}, or don't want to talk to an AI or be recorded, apologise, say ${owner} will get back to them, call propose_commitment with what "Call ${who} back", and say goodbye.`,
+  ];
+}
+
+/** The agent that speaks on a call: the future self with the user, twin_proxy with anyone else. */
+const callAgent = (call: CallRow) => (call.mode === "contact" || call.mode === "screen" ? "twin_proxy" : "twin_voice");
+
+/** The per-call system prompt, added before the agent's own instruction. */
 function callPrompt(db: Db, call: CallRow): string {
+  if (call.mode === "contact") {
+    const owner = ownerName(db);
+    const contact = contactOf(db, call.contact_id)?.name ?? "the person you called";
+    const points = talkingPoints(db, call);
+    return [
+      `You called ${contact} for ${owner} about: ${call.purpose}.`,
+      points.length ? `Talking points ${owner} approved:\n${points.map((p) => `- ${p}`).join("\n")}` : "",
+      "Stick to that purpose. You know nothing else about the user; if asked something beyond it, say they'll follow up.",
+      ...proxyRules(owner, contact),
+    ]
+      .filter(Boolean)
+      .join("\n");
+  }
+  if (call.mode === "screen") {
+    const owner = ownerName(db);
+    if (isBlocked(db, call.from_number)) return `This caller is blocked. Say only: "${owner} isn't taking calls from this number. Goodbye."`;
+    const contact = contactOf(db, call.contact_id);
+    const who = contact?.name ?? "the caller";
+    return [
+      `You are answering ${owner}'s phone. The caller is ${contact ? `${contact.name}, one of ${owner}'s contacts` : `not in ${owner}'s contacts (number ${call.from_number ?? "hidden"})`}.`,
+      `Find out who they are and why they're calling, and take a clear message. Say ${owner} will get it. You can't put calls through.`,
+      "If it sounds like a scam or a sales call, stay polite, don't share anything, and end the call.",
+      ...proxyRules(owner, who),
+    ].join("\n");
+  }
   const profile = getProfile(db);
   const lines = [
     profile
@@ -197,6 +279,12 @@ function callPrompt(db: Db, call: CallRow): string {
       break;
     case "future_call":
       lines.push(`You called them about: ${call.topic}. Share what you learned about it from where you are now, then ask what they'll do this week.`);
+      break;
+    case "capsule":
+      lines.push(
+        `On ${call.created_at.slice(0, 10)} they recorded a message for today, and you just read it to them: "${call.topic}".`,
+        "Call search_memory to see what actually happened since then, and compare it with what they hoped, kindly and honestly.",
+      );
       break;
     case "promise_check": {
       const task = taskInfo(db, call.task_id);
@@ -215,11 +303,28 @@ function callPrompt(db: Db, call: CallRow): string {
 
 // ---------- Calls ----------
 
-function insertCall(db: Db, c: { direction: "self" | "web"; mode: CallMode; status: CallStatus; topic?: string | null; taskId?: number | null; to?: string | null; scheduledFor?: string | null }): CallRow {
-  const token = crypto.randomBytes(18).toString("base64url");
+const newToken = () => crypto.randomBytes(18).toString("base64url");
+
+function insertCall(
+  db: Db,
+  c: {
+    direction: CallRow["direction"];
+    mode: CallMode;
+    status: CallStatus;
+    topic?: string | null;
+    taskId?: number | null;
+    to?: string | null;
+    from?: string | null;
+    contactId?: number | null;
+    conversationId?: string | null;
+    scheduledFor?: string | null;
+  },
+): CallRow {
   const info = db
-    .prepare("INSERT INTO calls (direction, mode, topic, task_id, to_number, status, ref_token, scheduled_for) VALUES (?, ?, ?, ?, ?, ?, ?, ?)")
-    .run(c.direction, c.mode, c.topic ?? null, c.taskId ?? null, c.to ?? null, c.status, token, c.scheduledFor ?? null);
+    .prepare(
+      "INSERT INTO calls (direction, mode, topic, task_id, to_number, from_number, contact_id, conversation_id, status, ref_token, scheduled_for) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+    )
+    .run(c.direction, c.mode, c.topic ?? null, c.taskId ?? null, c.to ?? null, c.from ?? null, c.contactId ?? null, c.conversationId ?? null, c.status, newToken(), c.scheduledFor ?? null);
   return getCall(db, Number(info.lastInsertRowid))!;
 }
 
@@ -404,6 +509,116 @@ export async function dialDueCalls(db: Db, api: ElevenLabs, now = new Date()) {
   return due.length;
 }
 
+// ---------- Calls to contacts ----------
+
+/**
+ * Dials a contact call the user approved. Called right after approval, or from "Call now" on an approved call that
+ * was waiting. Everything is checked again at dial time: the kill switch, that the contact still exists with the
+ * number the user approved, and the daily limit.
+ */
+export async function dialApprovedCall(db: Db, api: ElevenLabs, callId: number) {
+  const call = getCall(db, callId);
+  if (call?.direction !== "outbound" || call.mode !== "contact") throw new Error("That isn't an approved call.");
+  if (isTwinPaused(db)) throw new Error("The twin is paused. Resume it to place this call.");
+  const { phoneNumberId } = callsConfig();
+  if (!phoneNumberId) throw new Error("Calling contacts needs ELEVENLABS_PHONE_NUMBER_ID, a Twilio number imported into ElevenLabs.");
+  const dialledToday = (db.prepare("SELECT COUNT(*) AS n FROM calls WHERE direction = 'outbound' AND started_at IS NOT NULL AND date(started_at) = date('now')").get() as { n: number }).n;
+  if (dialledToday >= DAILY_LIMITS.outbound_call) throw new Error(`The daily limit of ${DAILY_LIMITS.outbound_call} calls to contacts is reached.`);
+  // Claim the row, so a double click can't dial twice. A failed call can be tried again.
+  if (!db.prepare("UPDATE calls SET status = 'dialing', started_at = datetime('now'), error = NULL, ref_token = ? WHERE id = ? AND status IN ('approved', 'failed')").run(newToken(), callId).changes) {
+    throw new Error("This call was already placed.");
+  }
+  const fresh = getCall(db, callId)!;
+  const fail = (error: string) => {
+    setCall(db, callId, { status: "failed", error });
+    return new Error(error);
+  };
+  const contact = contactOf(db, fresh.contact_id);
+  if (!contact) throw fail("That contact was removed.");
+  if (!contact.phone || contact.phone !== fresh.to_number) throw fail(`${contact.name}'s number changed since you approved this call. Ask the twin to propose it again.`);
+  try {
+    const agentId = await ensureTwinAgent(db, api);
+    const { conversationId } = await api.outboundCall({
+      agentId,
+      phoneNumberId,
+      to: contact.phone,
+      dynamicVariables: { call_ref: callRef(fresh), opening_line: openingLine(db, fresh) },
+    });
+    setCall(db, callId, { conversation_id: conversationId });
+  } catch (err) {
+    throw fail(err instanceof Error ? err.message : "The call could not be placed.");
+  }
+}
+
+// ---------- Calls to the twin's number ----------
+
+function blockedNumbers(db: Db): string[] {
+  return JSON.parse(getTwinSetting(db, "blocked_numbers") ?? "[]") as string[];
+}
+
+export const isBlocked = (db: Db, number: string | null) => !!number && blockedNumbers(db).includes(number);
+
+export function setBlocked(db: Db, number: string, blocked: boolean) {
+  if (!PHONE.test(number)) throw new Error("That isn't a phone number.");
+  const list = new Set(blockedNumbers(db));
+  if (blocked) list.add(number);
+  else list.delete(number);
+  setTwinSetting(db, "blocked_numbers", JSON.stringify([...list]));
+}
+
+const InboundCall = z.object({
+  caller_id: z.string().max(40).nullish(),
+  called_number: z.string().max(40).nullish(),
+  agent_id: z.string().max(200).nullish(),
+  call_sid: z.string().max(200).nullish(),
+  conversation_id: z.string().max(200).nullish(),
+});
+
+/**
+ * ElevenLabs asks this before it answers a call to the twin's number, and speaks the opening line returned here.
+ * A paused twin, a blocked number or a full day get a one-line goodbye instead of a conversation.
+ */
+export function answerInbound(db: Db, input: unknown) {
+  const p = InboundCall.parse(input);
+  const from = p.caller_id && PHONE.test(p.caller_id) ? p.caller_id : null;
+  const owner = ownerName(db);
+  const answeredToday = (db.prepare("SELECT COUNT(*) AS n FROM calls WHERE direction = 'inbound' AND date(created_at) = date('now')").get() as { n: number }).n;
+  const contact = from ? (db.prepare("SELECT id FROM contacts WHERE phone = ?").get(from) as { id: number } | undefined) : undefined;
+  const call = insertCall(db, {
+    direction: "inbound",
+    mode: "screen",
+    status: "in_progress",
+    from,
+    to: p.called_number ?? null,
+    contactId: contact?.id ?? null,
+    conversationId: p.conversation_id ?? null,
+  });
+  db.prepare("UPDATE calls SET started_at = datetime('now') WHERE id = ?").run(call.id);
+  let opening = openingLine(db, call);
+  const paused = isTwinPaused(db);
+  if (paused || answeredToday >= INBOUND_CALLS_PER_DAY) {
+    opening = `Hi, ${owner}'s AI twin isn't answering right now. Please reach ${owner} another way. Goodbye.`;
+    setCall(db, call.id, { outcome: paused ? "Twin paused" : "Daily limit reached" });
+  }
+  return { type: "conversation_initiation_client_data", dynamic_variables: { call_ref: callRef(call), opening_line: opening } };
+}
+
+// ---------- Time capsule ----------
+
+/** Seals a voicemail to your future self: transcribed now, read back on a call to your verified phone on that date. */
+export async function sealCapsule(db: Db, api: ElevenLabs, audio: AudioInput, at: Date) {
+  if (isTwinPaused(db)) throw new Error("The twin is paused. Resume it first.");
+  const phone = ownerPhone(db);
+  if (!phone.verified) throw new Error("Verify your phone number first.");
+  if (Number.isNaN(at.getTime()) || at.getTime() < Date.now() + 3_600_000) throw new Error("Pick a date at least an hour from now.");
+  if (at.getTime() > Date.now() + MAX_CAPSULE_DAYS * 86_400_000) throw new Error("Pick a date within two years.");
+  checkAudio(audio);
+  const text = (await api.transcribe(audio)).trim().replace(/\s+/g, " ");
+  if (text.length < 3) throw new Error("We couldn't hear a message. Try recording again.");
+  // Only the words are kept; the recording itself is never stored.
+  return insertCall(db, { direction: "self", mode: "capsule", status: "scheduled", topic: text.slice(0, 600), to: phone.number, scheduledFor: sqlTime(at) });
+}
+
 // ---------- Transcripts ----------
 
 const MODE_LABEL: Record<CallMode, string> = {
@@ -411,6 +626,9 @@ const MODE_LABEL: Record<CallMode, string> = {
   future_call: "Call From the Future",
   promise_check: "Promise Keeper call",
   verify_phone: "Phone verification",
+  capsule: "Time capsule call",
+  contact: "Call",
+  screen: "Call to your twin",
 };
 
 /** Fetches finished conversations and files each transcript in the vault's Calls folder. */
@@ -456,13 +674,17 @@ function finishCall(db: Db, call: CallRow, conv: Conversation) {
     summary,
     transcript: JSON.stringify(turns.map((t) => ({ role: t.role, message: t.message, at: t.time_in_call_secs ?? null }))),
   };
-  if (spoke && call.mode !== "verify_phone" && call.mode !== "contact") {
+  if (spoke && call.mode !== "verify_phone") {
     const mode = call.mode;
     const task = taskInfo(db, call.task_id);
+    const contact = contactOf(db, call.contact_id);
+    const other = mode === "contact" || mode === "screen";
+    const them = contact?.name ?? call.from_number ?? "Unknown caller";
+    const label = mode === "contact" ? `Call with ${them}` : mode === "screen" ? `Call from ${them}` : MODE_LABEL[mode];
     const when = new Date(`${call.started_at ?? call.created_at}Z`);
     const note = writeNote({
       folder: "Calls",
-      title: `${MODE_LABEL[mode]} ${when.toISOString().slice(0, 10)} #${call.id}`,
+      title: `${label} ${when.toISOString().slice(0, 10)} #${call.id}`,
       tags: ["call", mode.replace("_", "-")],
       links: task ? [task.title] : [],
       evidence: "verified",
@@ -470,15 +692,16 @@ function finishCall(db: Db, call: CallRow, conv: Conversation) {
         [
           `**When:** ${when.toISOString().slice(0, 16).replace("T", " ")} UTC`,
           duration !== null && `**Length:** ${Math.max(1, Math.round(duration / 60))} min`,
-          call.direction === "self" ? "**Where:** your phone" : "**Where:** in the browser",
-          call.topic && `**About:** ${call.topic}`,
+          other ? `**Who:** ${them}, spoke with your AI twin` : call.direction === "self" ? "**Where:** your phone" : "**Where:** in the browser",
+          call.purpose && `**Purpose:** ${call.purpose}`,
+          call.topic && `**${mode === "capsule" ? "Your message" : "About"}:** ${call.topic}`,
           task && `**Promise:** ${task.title} (${task.status === "done" ? "kept" : "still open"})`,
         ]
           .filter(Boolean)
           .map((line) => `- ${line}`)
           .join("\n"),
         summary && `## Summary\n\n_Written by AI from the transcript._\n\n${summary}`,
-        `## Transcript\n\n${turns.map((t) => `**${t.role === "user" ? "You" : "Future you (AI)"}:** ${t.message!.trim()}`).join("\n\n")}`,
+        `## Transcript\n\n${turns.map((t) => `**${t.role === "agent" ? (other ? "Your AI twin" : "Future you (AI)") : other ? them : "You"}:** ${t.message!.trim()}`).join("\n\n")}`,
       ]
         .filter(Boolean)
         .join("\n\n"),
@@ -523,7 +746,7 @@ export async function replyOnCall(db: Db, messages: ChatMessage[], onDelta?: OnD
     .map((m): ChatMessage => ({ role: m.role as "user" | "assistant", content: contentText(m.content) }))
     .filter((m) => m.content)
     .slice(-20);
-  const { reply } = await runAgent(db, "twin_voice", [{ role: "system", content: callPrompt(db, call) }, ...turns], { onDelta });
+  const { reply } = await runAgent(db, callAgent(call), [{ role: "system", content: callPrompt(db, call) }, ...turns], { onDelta });
   return reply;
 }
 
@@ -544,10 +767,17 @@ export function confirmTaskDone(db: Db, json: unknown): ToolResult {
 
 export function callsSnapshot(db: Db) {
   const { publicUrl, phoneNumberId } = callsConfig();
-  const calls = db.prepare("SELECT * FROM calls WHERE direction IN ('self', 'web') AND status != 'cancelled' ORDER BY COALESCE(scheduled_for, created_at) DESC, id DESC LIMIT 20").all() as CallRow[];
+  // Approved contact calls still waiting to be dialled show on their approval card instead.
+  const calls = db.prepare("SELECT * FROM calls WHERE status NOT IN ('cancelled', 'approved') ORDER BY COALESCE(scheduled_for, created_at) DESC, id DESC LIMIT 30").all() as CallRow[];
   const openTasks = db
     .prepare("SELECT t.id, t.title, g.title AS goal FROM tasks t JOIN goals g ON g.id = t.goal_id WHERE t.status != 'done' ORDER BY t.due_date IS NULL, t.due_date, t.id LIMIT 50")
     .all() as { id: number; title: string; goal: string }[];
+  const approved = db.prepare("SELECT id, approval_id, status, error FROM calls WHERE direction = 'outbound' AND approval_id IS NOT NULL").all() as {
+    id: number;
+    approval_id: number;
+    status: string;
+    error: string | null;
+  }[];
   return {
     ready: { publicUrl: !!publicUrl, phone: !!phoneNumberId },
     phone: ownerPhone(db),
@@ -555,22 +785,37 @@ export function callsSnapshot(db: Db) {
     selfCallLimit: SELF_CALLS_PER_DAY,
     horizonYear: horizonYear(),
     openTasks,
-    calls: calls.map((c) => ({
-      id: c.id,
-      direction: c.direction as "self" | "web",
-      mode: c.mode as CallMode,
-      label: MODE_LABEL[c.mode as CallMode] ?? "Call",
-      topic: c.topic,
-      task: taskInfo(db, c.task_id)?.title ?? null,
-      status: c.status as CallStatus,
-      scheduledFor: c.scheduled_for,
-      startedAt: c.started_at,
-      createdAt: c.created_at,
-      durationSecs: c.duration_secs,
-      summary: c.summary,
-      notePath: c.note_path,
-      outcome: c.outcome,
-      error: c.error,
-    })),
+    blocked: blockedNumbers(db),
+    /** The call row behind each approved outbound_call approval, so its card can show "Call now" or what happened. */
+    byApproval: Object.fromEntries(approved.map((c) => [c.approval_id, { callId: c.id, status: c.status, error: c.error }])),
+    calls: calls.map((c) => {
+      const contact = contactOf(db, c.contact_id);
+      const label =
+        c.mode === "contact"
+          ? `Call with ${contact?.name ?? "a removed contact"}`
+          : c.mode === "screen"
+            ? `Call from ${contact?.name ?? c.from_number ?? "a hidden number"}`
+            : (MODE_LABEL[c.mode] ?? "Call");
+      return {
+        id: c.id,
+        direction: c.direction,
+        mode: c.mode,
+        label,
+        // A sealed capsule stays a surprise until its call.
+        topic: c.mode === "capsule" && c.status === "scheduled" ? null : (c.topic ?? c.purpose),
+        task: taskInfo(db, c.task_id)?.title ?? null,
+        fromNumber: c.mode === "screen" ? c.from_number : null,
+        blocked: isBlocked(db, c.from_number),
+        status: c.status as CallStatus,
+        scheduledFor: c.scheduled_for,
+        startedAt: c.started_at,
+        createdAt: c.created_at,
+        durationSecs: c.duration_secs,
+        summary: c.summary,
+        notePath: c.note_path,
+        outcome: c.outcome,
+        error: c.error,
+      };
+    }),
   };
 }

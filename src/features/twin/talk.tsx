@@ -1,7 +1,7 @@
 "use client";
 
 import { ConversationProvider, useConversation } from "@elevenlabs/react";
-import { CalendarClock, Check, Hourglass, Loader2, Phone, PhoneCall, PhoneOff, ShieldCheck, Trash2, X } from "lucide-react";
+import { Archive, Ban, CalendarClock, Check, Hourglass, Loader2, Mic, Phone, PhoneCall, PhoneIncoming, PhoneOff, PhoneOutgoing, ShieldCheck, Square, Trash2, X } from "lucide-react";
 import * as React from "react";
 import { toast } from "sonner";
 import { SectionHeading } from "@/components/layout/page-header";
@@ -13,9 +13,11 @@ import { Segmented } from "@/components/ui/segmented";
 import { Select } from "@/components/ui/select";
 import { cn, formatDate, formatTime, relativeDay } from "@/lib/utils";
 import type { TwinState } from "@/app/api/twin/state";
-import { post, type Act } from "./api";
+import { post, upload, type Act } from "./api";
+import { recordingFile, useRecorder, type Recording } from "./use-recorder";
 
 // Phase 2: talk to your future self in your own cloned voice, in the browser or on your phone.
+// Phase 3 adds the time capsule, and the log shows calls the twin made to contacts and calls it answered.
 
 type Calls = TwinState["calls"];
 type CallItem = Calls["calls"][number];
@@ -197,7 +199,15 @@ function VerifyPhone({ state, act }: { state: TwinState; act: Act }) {
   );
 }
 
-type Kind = "future_call" | "promise_check";
+type Kind = "future_call" | "promise_check" | "capsule";
+
+const pad = (n: number) => String(n).padStart(2, "0");
+/** A datetime-local value for a year from now at 9am. */
+function aYearFromNow() {
+  const d = new Date();
+  d.setFullYear(d.getFullYear() + 1);
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T09:00`;
+}
 
 function Schedule({ state, act }: { state: TwinState; act: Act }) {
   const c = state.calls;
@@ -208,6 +218,10 @@ function Schedule({ state, act }: { state: TwinState; act: Act }) {
   const [busy, setBusy] = React.useState(false);
   const task = c.openTasks.find((t) => String(t.id) === taskId);
   const valid = kind === "future_call" ? !!topic.trim() : !!task;
+  const pick = (k: Kind) => {
+    setKind(k);
+    if (k === "capsule" && !when) setWhen(aYearFromNow());
+  };
 
   const submit = async (now: boolean) => {
     setBusy(true);
@@ -231,37 +245,86 @@ function Schedule({ state, act }: { state: TwinState; act: Act }) {
       </div>
       <Segmented<Kind>
         label="Kind of call"
+        className="flex flex-wrap"
         value={kind}
-        onValueChange={setKind}
+        onValueChange={pick}
         options={[
           { value: "future_call", label: `Call from ${c.horizonYear}`, icon: <Hourglass /> },
           { value: "promise_check", label: "Promise Keeper", icon: <Check /> },
+          { value: "capsule", label: "Time capsule", icon: <Archive /> },
         ]}
       />
-      {kind === "future_call" ? (
-        <Input value={topic} onChange={(e) => setTopic(e.target.value)} maxLength={200} placeholder="What should future you call about?" aria-label="What the call is about" />
-      ) : c.openTasks.length ? (
-        <>
-          <Select value={taskId} onValueChange={setTaskId} aria-label="Task to check on" options={c.openTasks.map((t) => ({ value: String(t.id), label: t.title }))} />
-          <p className="text-[12.5px] text-muted-foreground">Future you asks whether you did it. Say yes and it&apos;s marked done; say no and you pick the next small step together.</p>
-        </>
+      {kind === "capsule" ? (
+        <Capsule when={when} setWhen={setWhen} paused={state.twin.paused} act={act} />
       ) : (
-        <p className="text-[13px] text-muted-foreground">No open tasks. Approve a plan from your future self first.</p>
+        <>
+          {kind === "future_call" ? (
+            <Input value={topic} onChange={(e) => setTopic(e.target.value)} maxLength={200} placeholder="What should future you call about?" aria-label="What the call is about" />
+          ) : c.openTasks.length ? (
+            <>
+              <Select value={taskId} onValueChange={setTaskId} aria-label="Task to check on" options={c.openTasks.map((t) => ({ value: String(t.id), label: t.title }))} />
+              <p className="text-[12.5px] text-muted-foreground">Future you asks whether you did it. Say yes and it&apos;s marked done; say no and you pick the next small step together.</p>
+            </>
+          ) : (
+            <p className="text-[13px] text-muted-foreground">No open tasks. Approve a plan from your future self first.</p>
+          )}
+          <div className="flex flex-col gap-2">
+            <Input type="datetime-local" value={when} onChange={(e) => setWhen(e.target.value)} aria-label="When to call" />
+            <div className="flex flex-wrap gap-2">
+              <Button variant="secondary" disabled={busy || !valid || !when} onClick={() => submit(false)}>
+                <CalendarClock /> Schedule
+              </Button>
+              <Button variant="primary" disabled={busy || !valid || state.twin.paused} onClick={() => submit(true)}>
+                {busy ? <Loader2 className="animate-spin" /> : <PhoneCall />} Call me now
+              </Button>
+            </div>
+          </div>
+        </>
       )}
-      <div className="flex flex-col gap-2">
-        <Input type="datetime-local" value={when} onChange={(e) => setWhen(e.target.value)} aria-label="When to call" />
-        <div className="flex flex-wrap gap-2">
-          <Button variant="secondary" disabled={busy || !valid || !when} onClick={() => submit(false)}>
-            <CalendarClock /> Schedule
-          </Button>
-          <Button variant="primary" disabled={busy || !valid || state.twin.paused} onClick={() => submit(true)}>
-            {busy ? <Loader2 className="animate-spin" /> : <PhoneCall />} Call me now
-          </Button>
-        </div>
-      </div>
       <p className="text-[12px] text-muted-foreground">
         {c.selfCallsToday} of {c.selfCallLimit} calls to your phone today.
       </p>
+    </div>
+  );
+}
+
+/** Record a message for a future date. That day, future you calls and reads it back. */
+function Capsule({ when, setWhen, paused, act }: { when: string; setWhen: (v: string) => void; paused: boolean; act: Act }) {
+  const rec = useRecorder();
+  const [recording, setRecording] = React.useState<Recording | null>(null);
+  const [busy, setBusy] = React.useState(false);
+  const seal = async () => {
+    if (!recording) return;
+    setBusy(true);
+    const form = new FormData();
+    form.set("action", "capsule");
+    form.set("at", new Date(when).toISOString());
+    form.set("audio", recordingFile(recording, "capsule"));
+    if (await act(() => upload(form), "Sealed. Future you will call on that day.")) setRecording(null);
+    setBusy(false);
+  };
+  return (
+    <div className="space-y-3">
+      <p className="text-[12.5px] text-muted-foreground">
+        Leave a message for future you: what you hope for, what worries you. On the day you pick, your twin calls, reads your words back, and compares them with what your notes say happened. Only the words are kept, not the recording.
+      </p>
+      <div className="flex flex-wrap items-center gap-3">
+        {rec.state === "recording" ? (
+          <Button variant="destructive" onClick={rec.stop}>
+            <Square /> Stop · {rec.seconds}s
+          </Button>
+        ) : (
+          <Button variant="secondary" disabled={busy} onClick={() => rec.start().then(setRecording, () => undefined)}>
+            <Mic /> {recording ? "Record again" : "Record a message"}
+          </Button>
+        )}
+        {recording && <audio controls src={recording.url} className="h-9" />}
+        {rec.error && <p className="text-[12.5px] text-destructive">{rec.error}</p>}
+      </div>
+      <Input type="datetime-local" value={when} onChange={(e) => setWhen(e.target.value)} aria-label="When to open the capsule" />
+      <Button variant="primary" disabled={busy || !recording || !when || paused} onClick={seal}>
+        {busy ? <Loader2 className="animate-spin" /> : <Archive />} Seal the capsule
+      </Button>
     </div>
   );
 }
@@ -287,20 +350,24 @@ function CallLog({ calls, act }: { calls: CallItem[]; act: Act }) {
         {calls.map((call) => {
           const at = call.scheduledFor && call.status === "scheduled" ? call.scheduledFor : (call.startedAt ?? call.scheduledFor ?? call.createdAt);
           const s = STATUS[call.status] ?? STATUS.done;
+          const Icon = call.direction === "inbound" ? PhoneIncoming : call.direction === "outbound" ? PhoneOutgoing : call.direction === "self" ? Phone : PhoneCall;
+          const where = { web: " · in the browser", self: " · your phone", outbound: " · your twin called", inbound: " · to your twin's number" }[call.direction];
           return (
             <li key={call.id} className="flex items-start gap-3 px-4 py-3">
-              {call.direction === "self" ? <Phone className="mt-0.5 size-4 shrink-0 text-subtle" aria-hidden /> : <PhoneCall className="mt-0.5 size-4 shrink-0 text-subtle" aria-hidden />}
+              <Icon className="mt-0.5 size-4 shrink-0 text-subtle" aria-hidden />
               <div className="min-w-0 flex-1 space-y-1">
                 <div className="flex flex-wrap items-center gap-2">
                   <p className="text-[13.5px] font-medium">{call.label}</p>
                   <Badge tone={s.tone}>{s.label}</Badge>
                   {call.outcome === "kept" && <Badge tone="success">Promise kept</Badge>}
+                  {call.blocked && <Badge tone="neutral">Blocked</Badge>}
+                  {call.mode === "capsule" && call.status === "scheduled" && <Badge tone="copper">Sealed</Badge>}
                 </div>
                 {(call.topic || call.task) && <p className="text-[12.5px]">{call.topic ?? call.task}</p>}
                 <p className="text-[12px] text-muted-foreground">
                   {at && `${relativeDay(fromSql(at))}, ${formatTime(fromSql(at))}`}
                   {call.durationSecs ? ` · ${Math.max(1, Math.round(call.durationSecs / 60))} min` : ""}
-                  {call.direction === "web" ? " · in the browser" : " · your phone"}
+                  {where}
                 </p>
                 {call.summary && <p className="text-[12.5px] text-muted-foreground">{call.summary}</p>}
                 {call.error && <p className="text-[12.5px] text-destructive">{call.error}</p>}
@@ -311,6 +378,15 @@ function CallLog({ calls, act }: { calls: CallItem[]; act: Act }) {
                   </a>
                 )}
               </div>
+              {call.fromNumber && (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => act(() => post({ action: "setBlocked", number: call.fromNumber, blocked: !call.blocked }), call.blocked ? "Unblocked" : "Blocked. Your twin won't talk to this number.")}
+                >
+                  <Ban /> {call.blocked ? "Unblock" : "Block"}
+                </Button>
+              )}
               {call.status === "scheduled" && (
                 <Button size="icon-sm" variant="ghost" aria-label={`Cancel the call on ${formatDate(fromSql(at!))}`} onClick={() => act(() => post({ action: "cancelCall", id: call.id }), "Call cancelled")}>
                   <X />

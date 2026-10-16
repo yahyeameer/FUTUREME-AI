@@ -111,6 +111,14 @@ export const TEAM: AgentInfo[] = [
     tools: ["search_memory", "confirm_task_done"],
     subAgents: [],
   },
+  {
+    name: "twin_proxy",
+    label: "Twin on a call",
+    role: "twin",
+    description: "The user's AI twin on a call with someone else. Says it's an AI, takes messages, never agrees to anything itself.",
+    tools: ["propose_commitment"],
+    subAgents: [],
+  },
 ];
 
 export const teamLabel = (name: string) =>

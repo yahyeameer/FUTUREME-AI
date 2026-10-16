@@ -16,6 +16,7 @@ import { cn, pluralize } from "@/lib/utils";
 import { useWorkspaceContext } from "@/lib/workspace-store";
 import type { TwinState } from "@/app/api/twin/state";
 import { post, upload, type Act } from "./api";
+import { EmailSection } from "./email";
 import { TalkSection } from "./talk";
 import { recordingFile, useRecorder, type Recording } from "./use-recorder";
 
@@ -49,7 +50,10 @@ export function Twin() {
     try {
       const next = await fn();
       setState(next);
-      if (success) toast.success(success);
+      // The action worked, but what it set off didn't (an approved call that couldn't be dialled, say).
+      const warning = (next as Record<string, unknown>).warning;
+      if (typeof warning === "string") toast.error(warning);
+      else if (success) toast.success(success);
       return next;
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "That didn't work.");
@@ -84,6 +88,7 @@ export function Twin() {
   if (!state) return null;
 
   const pending = state.twin.approvals.filter((a) => a.status === "pending");
+  const hasVoice = state.voice.active?.status === "ready";
   return (
     <PageFrame rail={<Rules state={state} />} railTitle="Twin rules">
       <Header
@@ -96,18 +101,17 @@ export function Twin() {
       />
       {state.twin.paused && (
         <p role="status" className="mt-6 rounded-lg border border-warning/30 bg-warning-wash px-4 py-3 text-[13px]">
-          The twin is paused. It can&apos;t propose calls, emails or promises, and nothing can be approved until you resume it.
+          The twin is paused. It can&apos;t propose, call, email or answer anything, and nothing can be approved until you resume it.
         </p>
       )}
       <div className="mt-8 space-y-12">
-        {state.voice.active?.status === "ready" && <TalkSection state={state} act={act} onState={setState} />}
-        <VoiceSection state={state} act={act} />
+        {hasVoice ? <TalkSection state={state} act={act} onState={setState} /> : <VoiceSection state={state} act={act} />}
         <section aria-labelledby="queue-h">
           <SectionHeading id="queue-h">Waiting for you{pending.length ? ` · ${pending.length}` : ""}</SectionHeading>
           {state.twin.approvals.length ? (
             <div className="space-y-3">
               {[...pending, ...state.twin.approvals.filter((a) => a.status !== "pending")].slice(0, 20).map((a) => (
-                <TwinApprovalCard key={a.id} approval={a} act={act} />
+                <TwinApprovalCard key={a.id} approval={a} state={state} act={act} />
               ))}
             </div>
           ) : (
@@ -116,7 +120,9 @@ export function Twin() {
             </EmptyState>
           )}
         </section>
+        <EmailSection state={state} act={act} />
         <Contacts state={state} act={act} />
+        {hasVoice && <VoiceSection state={state} act={act} />}
       </div>
     </PageFrame>
   );
@@ -459,8 +465,13 @@ function ProfessionalStep({ state, act }: { state: TwinState; act: Act }) {
 
 // ---------- Approvals ----------
 
-function TwinApprovalCard({ approval: a, act }: { approval: Approval; act: Act }) {
+function TwinApprovalCard({ approval: a, state, act }: { approval: Approval; state: TwinState; act: Act }) {
   const [busy, setBusy] = React.useState(false);
+  const run = async (body: object, success: string) => {
+    setBusy(true);
+    await act(() => post(body), success);
+    setBusy(false);
+  };
   const p = a.payload as unknown as Record<string, unknown>;
   const decide = async (decision: "approve" | "reject") => {
     setBusy(true);
@@ -498,7 +509,11 @@ function TwinApprovalCard({ approval: a, act }: { approval: Approval; act: Act }
           )}
           {a.kind === "send_email" && (
             <>
-              <p className="text-[12.5px] text-muted-foreground">To {String(p.email)}</p>
+              <p className="text-[12.5px] text-muted-foreground">
+                To {String(p.email)}
+                {p.in_reply_to ? ", as a reply to their email" : ""}
+                {state.mail.ownerEmail ? `, cc ${state.mail.ownerEmail}` : ""}
+              </p>
               <pre className="max-h-60 overflow-auto rounded-lg border border-border bg-surface-2 px-3 py-2 font-sans text-[13px] whitespace-pre-wrap">{String(p.body)}</pre>
             </>
           )}
@@ -517,13 +532,51 @@ function TwinApprovalCard({ approval: a, act }: { approval: Approval; act: Act }
               </Button>
             </div>
           ) : (
-            a.status === "approved" &&
-            a.kind !== "commitment" && <p className="text-[12px] text-muted-foreground">Approved. Calling and emailing your contacts is the next phase, so this one is saved and waits for it.</p>
+            a.status === "approved" && <Delivery approval={a} state={state} busy={busy} run={run} />
           )}
         </div>
       </div>
     </article>
   );
+}
+
+/** What happened to an approved call or email, with a way to send it again when it didn't go out. */
+function Delivery({ approval: a, state, busy, run }: { approval: Approval; state: TwinState; busy: boolean; run: (body: object, success: string) => Promise<void> }) {
+  if (a.kind === "outbound_call") {
+    const call = state.calls.byApproval[a.id];
+    if (!call) return null;
+    const retry = call.status === "approved" || call.status === "failed";
+    return (
+      <div className="flex flex-wrap items-center gap-2 pt-1">
+        {call.status === "failed" && <p className="text-[12.5px] text-destructive">{call.error}</p>}
+        {call.status === "approved" && <p className="text-[12.5px] text-muted-foreground">Approved, not called yet.</p>}
+        {!retry && <p className="text-[12.5px] text-muted-foreground">{call.status === "done" ? "Called. The transcript is in your call log." : call.status === "missed" ? "No answer." : "Calling now."}</p>}
+        {retry && (
+          <Button size="sm" variant="secondary" disabled={busy || state.twin.paused} onClick={() => run({ action: "dialApproved", callId: call.callId }, "Calling now.")}>
+            <Phone /> {call.status === "failed" ? "Try again" : "Call now"}
+          </Button>
+        )}
+      </div>
+    );
+  }
+  if (a.kind === "send_email") {
+    const email = state.mail.byApproval[a.id];
+    if (!email) return null;
+    const retry = email.status === "approved" || email.status === "failed";
+    return (
+      <div className="flex flex-wrap items-center gap-2 pt-1">
+        {email.status === "failed" && <p className="text-[12.5px] text-destructive">{email.error}</p>}
+        {email.status === "approved" && <p className="text-[12.5px] text-muted-foreground">Approved, not sent yet.</p>}
+        {email.status === "sent" && <p className="text-[12.5px] text-muted-foreground">Sent from your twin&apos;s inbox{state.mail.ownerEmail ? `, with you cc'd` : ""}.</p>}
+        {retry && (
+          <Button size="sm" variant="secondary" disabled={busy || state.twin.paused} onClick={() => run({ action: "sendApproved", emailId: email.emailId }, "Sent.")}>
+            <Mail /> {email.status === "failed" ? "Try again" : "Send now"}
+          </Button>
+        )}
+      </div>
+    );
+  }
+  return null;
 }
 
 // ---------- Contacts ----------
@@ -587,7 +640,9 @@ function Rules({ state }: { state: TwinState }) {
           <li>Clones only your voice, after you say yes out loud.</li>
           <li>Opens every call and email by saying it&apos;s your AI twin.</li>
           <li>Reaches only the contacts you added.</li>
-          <li>Waits for your approval before any call, email or promise.</li>
+          <li>Waits for your approval before any call, email or promise, then sends it right away.</li>
+          <li>Answers calls to its number as your AI twin and only takes messages.</li>
+          <li>Never uses your memory on calls or emails with anyone else.</li>
           <li>Never pays, shares codes or passwords, or pretends to be you.</li>
         </ul>
       </RailSection>

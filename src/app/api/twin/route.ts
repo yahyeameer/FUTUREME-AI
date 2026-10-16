@@ -2,11 +2,14 @@ import { connection } from "next/server";
 import { z } from "zod";
 import { db } from "@/lib/server-db";
 import { addContact, decideTwinApproval, removeContact, setTwinPaused } from "@/lib/twin";
+import { ensureInbox, getMailApi, sendApprovedEmail, setOwnerEmail } from "@/lib/mail";
 import {
   cancelCall,
   confirmOwnerPhone,
+  dialApprovedCall,
   removeOwnerPhone,
   scheduleSelfCall,
+  setBlocked,
   setOwnerPhone,
   startWebCall,
   syncCalls,
@@ -44,7 +47,18 @@ const Action = z.discriminatedUnion("action", [
   z.object({ action: z.literal("removePhone") }),
   z.object({ action: z.literal("scheduleCall"), call: z.unknown() }),
   z.object({ action: z.literal("cancelCall"), id: z.number().int() }),
+  z.object({ action: z.literal("dialApproved"), callId: z.number().int() }),
+  z.object({ action: z.literal("sendApproved"), emailId: z.number().int() }),
+  z.object({ action: z.literal("setBlocked"), number: z.string().max(40), blocked: z.boolean() }),
+  z.object({ action: z.literal("setOwnerEmail"), email: z.string().max(200) }),
+  z.object({ action: z.literal("setupInbox") }),
 ]);
+
+const needsMail = () => {
+  const api = getMailApi();
+  if (!api) throw new Error("The twin's email needs AGENTMAIL_API_KEY on the server.");
+  return api;
+};
 
 const needsKey = () => {
   const api = getVoiceApi();
@@ -69,8 +83,34 @@ export async function POST(request: Request) {
       case "setPaused":
         setTwinPaused(d, a.paused);
         break;
-      case "decide":
-        decideTwinApproval(d, a.id, a.decision === "approve");
+      case "decide": {
+        // Approving is the user's go: an approved call is dialled and an approved email sent right away. If that
+        // can't happen (not set up, or it fails), the approval stands and the card offers to try again.
+        const { callId, emailId } = decideTwinApproval(d, a.id, a.decision === "approve");
+        try {
+          const voice = getVoiceApi();
+          const mail = getMailApi();
+          if (callId && voice) await dialApprovedCall(d, voice, callId);
+          if (emailId && mail) await sendApprovedEmail(d, mail, emailId);
+        } catch (err) {
+          extra = { warning: err instanceof Error ? err.message : "Approved, but it couldn't go out yet." };
+        }
+        break;
+      }
+      case "dialApproved":
+        await dialApprovedCall(d, needsKey(), a.callId);
+        break;
+      case "sendApproved":
+        await sendApprovedEmail(d, needsMail(), a.emailId);
+        break;
+      case "setBlocked":
+        setBlocked(d, a.number, a.blocked);
+        break;
+      case "setOwnerEmail":
+        setOwnerEmail(d, a.email);
+        break;
+      case "setupInbox":
+        await ensureInbox(d, needsMail());
         break;
       case "startConsent":
         needsKey();
