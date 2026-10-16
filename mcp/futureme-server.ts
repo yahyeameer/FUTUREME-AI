@@ -136,6 +136,18 @@ server.registerTool(
   async (args) => text((await runTool(db, "confirm_task_done", JSON.stringify(args))).output),
 );
 
+// On a call with someone else: they asked not to be recorded, so nothing of the call is kept.
+server.registerTool(
+  "stop_recording",
+  {
+    description:
+      "On a call with someone other than the user, when they don't want to be recorded or transcribed: turn recording off so nothing of the call is kept. Pass the call_ref from your instructions.",
+    inputSchema: { call_ref: z.string().min(1).max(100) },
+    annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: false },
+  },
+  async (args) => text((await runTool(db, "stop_recording", JSON.stringify(args))).output),
+);
+
 server.connect(new StdioServerTransport()).catch((err) => {
   console.error(err);
   process.exit(1);

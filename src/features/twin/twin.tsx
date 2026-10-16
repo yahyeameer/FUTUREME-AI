@@ -17,6 +17,7 @@ import { useWorkspaceContext } from "@/lib/workspace-store";
 import type { TwinState } from "@/app/api/twin/state";
 import { post, upload, type Act } from "./api";
 import { EmailSection } from "./email";
+import { ReviewSection } from "./review";
 import { TalkSection } from "./talk";
 import { recordingFile, useRecorder, type Recording } from "./use-recorder";
 
@@ -99,6 +100,12 @@ export function Twin() {
           </label>
         }
       />
+      {state.guard.exposed && (
+        <p role="alert" className="mt-6 rounded-lg border border-destructive/30 bg-destructive-wash px-4 py-3 text-[13px]">
+          Your twin has a public address (TWIN_PUBLIC_URL), but FutureMe has no access code, so anyone who finds it could open this page and approve calls. Set
+          FUTUREME_ACCESS_CODE on the server.
+        </p>
+      )}
       {state.twin.paused && (
         <p role="status" className="mt-6 rounded-lg border border-warning/30 bg-warning-wash px-4 py-3 text-[13px]">
           The twin is paused. It can&apos;t propose, call, email or answer anything, and nothing can be approved until you resume it.
@@ -120,6 +127,7 @@ export function Twin() {
             </EmptyState>
           )}
         </section>
+        <ReviewSection state={state} act={act} />
         <EmailSection state={state} act={act} />
         <Contacts state={state} act={act} />
         {hasVoice && <VoiceSection state={state} act={act} />}
@@ -643,6 +651,8 @@ function Rules({ state }: { state: TwinState }) {
           <li>Waits for your approval before any call, email or promise, then sends it right away.</li>
           <li>Answers calls to its number as your AI twin and only takes messages.</li>
           <li>Never uses your memory on calls or emails with anyone else.</li>
+          <li>Calls contacts only between {state.guard.callingHours}, their time.</li>
+          <li>Stops recording when someone asks, and deletes what others said after {state.guard.retentionDays} days.</li>
           <li>Never pays, shares codes or passwords, or pretends to be you.</li>
         </ul>
       </RailSection>
@@ -661,6 +671,25 @@ function Rules({ state }: { state: TwinState }) {
             </dd>
           </div>
         </dl>
+      </RailSection>
+      <RailSection title="This month">
+        <dl className="space-y-1.5 text-[12.5px]">
+          <div className="flex justify-between">
+            <dt className="text-muted-foreground">Estimated cost</dt>
+            <dd className={cn(state.guard.usage.over && "text-destructive")}>
+              ${state.guard.usage.spent.toFixed(2)} of ${state.guard.usage.budget}
+            </dd>
+          </div>
+          <div className="flex justify-between">
+            <dt className="text-muted-foreground">Call minutes</dt>
+            <dd>{state.guard.usage.minutes}</dd>
+          </div>
+          <div className="flex justify-between">
+            <dt className="text-muted-foreground">Emails</dt>
+            <dd>{state.guard.usage.emails}</dd>
+          </div>
+        </dl>
+        {state.guard.usage.over && <p className="mt-2 text-[12px] text-destructive">The cap is reached, so the twin won&apos;t call or email until next month.</p>}
       </RailSection>
       <RailSection title="The opener">
         <p className="text-[12.5px] leading-relaxed text-muted-foreground">“Hi, this is {state.twin.owner}&apos;s AI twin, an AI assistant calling for {state.twin.owner}. This call may be recorded and transcribed…”</p>

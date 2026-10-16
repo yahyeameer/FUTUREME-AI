@@ -5,6 +5,7 @@ import type { Db } from "./db";
 import { completeTask, getProfile, type OnDelta, type ToolResult } from "./futureme";
 import type { ChatMessage } from "./llm";
 import { DAILY_LIMITS, getTwinSetting, isTwinPaused, ownerName, setTwinSetting, type CallProposal } from "./twin";
+import { checkBudget, checkCallTime, MAX_CALL_SECONDS, raiseFlag, retentionDays, usage } from "./twin-guard";
 import { writeNote } from "./vault";
 import { activeVoice, checkAudio, ElevenLabsError, type AudioInput, type Conversation, type ElevenLabs } from "./voice";
 
@@ -23,6 +24,10 @@ import { activeVoice, checkAudio, ElevenLabsError, type AudioInput, type Convers
 //   Call screening calls to the twin's number are answered by the twin, which takes a message. ElevenLabs asks
 //                  /api/twin/inbound for each caller before answering; blocked numbers hear a one-line refusal.
 //   Time capsule   the user records a message for a future date; that day the twin calls them and reads it back.
+//
+// Public-launch guards (Phase 4, twin-guard.ts). Contact calls only go to allowed countries, inside calling hours in
+// the contact's own time; nothing is dialled once the monthly cost cap is reached; someone who asks not to be recorded
+// gets stop_recording, and then nothing of that call is kept. twin-data.ts deletes third-party transcripts later.
 //
 // Each call has a call_ref ("<id>.<random token>") that the agent's prompt carries back to the custom LLM, so a
 // request can only speak as a call this app started, and only while that call is live.
@@ -54,6 +59,8 @@ export interface CallRow {
   transcript: string | null;
   summary: string | null;
   note_path: string | null;
+  no_record: number;
+  purged_at: string | null;
   created_at: string;
 }
 
@@ -62,7 +69,6 @@ export const SELF_CALLS_PER_DAY = 6;
 const VERIFY_CALLS_PER_DAY = 3;
 const CODE_TTL_MINUTES = 15;
 const MAX_CODE_ATTEMPTS = 5;
-const MAX_CALL_SECONDS = 600;
 /** Calls to the twin's number it will answer per day. */
 export const INBOUND_CALLS_PER_DAY = 30;
 const MAX_CAPSULE_DAYS = 2 * 366;
@@ -133,6 +139,8 @@ function agentConfig(db: Db, voiceId: string, publicUrl: string) {
       auth: { enable_auth: true },
       // Calls to the twin's number: ElevenLabs asks this app who is calling before it answers.
       overrides: { enable_conversation_initiation_client_data_from_webhook: true },
+      // ElevenLabs deletes every conversation (audio and transcript) after the retention period.
+      privacy: { retention_days: retentionDays() },
       workspace_overrides: {
         conversation_initiation_client_data_webhook: { url: `${publicUrl}/api/twin/inbound`, request_headers: { [SECRET_HEADER]: llmSecret(db) } },
       },
@@ -227,12 +235,13 @@ function talkingPoints(db: Db, call: CallRow): string[] {
 }
 
 /** The rules for every call with someone other than the user. Fixed here, on top of twin_proxy's own instruction. */
-function proxyRules(owner: string, who: string) {
+function proxyRules(owner: string, who: string, call: CallRow) {
   return [
     `You are ${owner}'s AI twin, an AI assistant. You are not ${owner}; never say or imply you are.`,
     `Never agree to anything for ${owner}: meetings, money, favours, deadlines or promises. Call propose_commitment with what ${who} wants (and contact "${who}" if they are a saved contact), and tell them ${owner} will confirm.`,
     `Never share ${owner}'s address, schedule, whereabouts, finances, codes or passwords, and never take or make payments.`,
-    `If they want to speak to ${owner}, or don't want to talk to an AI or be recorded, apologise, say ${owner} will get back to them, call propose_commitment with what "Call ${who} back", and say goodbye.`,
+    `If they want to speak to ${owner}, or don't want to talk to an AI, apologise, say ${owner} will get back to them, call propose_commitment with what "Call ${who} back", and say goodbye.`,
+    `If they don't want to be recorded or transcribed, call stop_recording with call_ref "${callRef(call)}" at once, tell them nothing from this call will be kept, and carry on only if they still want to talk.`,
   ];
 }
 
@@ -249,7 +258,7 @@ function callPrompt(db: Db, call: CallRow): string {
       `You called ${contact} for ${owner} about: ${call.purpose}.`,
       points.length ? `Talking points ${owner} approved:\n${points.map((p) => `- ${p}`).join("\n")}` : "",
       "Stick to that purpose. You know nothing else about the user; if asked something beyond it, say they'll follow up.",
-      ...proxyRules(owner, contact),
+      ...proxyRules(owner, contact, call),
     ]
       .filter(Boolean)
       .join("\n");
@@ -263,7 +272,7 @@ function callPrompt(db: Db, call: CallRow): string {
       `You are answering ${owner}'s phone. The caller is ${contact ? `${contact.name}, one of ${owner}'s contacts` : `not in ${owner}'s contacts (number ${call.from_number ?? "hidden"})`}.`,
       `Find out who they are and why they're calling, and take a clear message. Say ${owner} will get it. You can't put calls through.`,
       "If it sounds like a scam or a sales call, stay polite, don't share anything, and end the call.",
-      ...proxyRules(owner, who),
+      ...proxyRules(owner, who, call),
     ].join("\n");
   }
   const profile = getProfile(db);
@@ -336,6 +345,7 @@ const setCall = (db: Db, id: number, fields: Partial<Omit<CallRow, "id">>) => {
 /** Starts a browser call: returns what the page passes to the ElevenLabs SDK. */
 export async function startWebCall(db: Db, api: ElevenLabs, topic?: string) {
   if (isTwinPaused(db)) throw new Error("The twin is paused. Resume it to talk.");
+  checkBudget(db);
   const agentId = await ensureTwinAgent(db, api);
   const call = insertCall(db, { direction: "web", mode: "web", status: "connecting", topic: topic?.trim().slice(0, 200) || null });
   try {
@@ -383,6 +393,7 @@ export async function setOwnerPhone(db: Db, api: ElevenLabs, phone: string) {
   if (!PHONE.test(number)) throw new Error("Use international format, like +14155550123.");
   if (!callsConfig().phoneNumberId) throw new Error("Phone calls need ELEVENLABS_PHONE_NUMBER_ID, a Twilio number imported into ElevenLabs.");
   if (callsToday(db, "verify_phone") >= VERIFY_CALLS_PER_DAY) throw new Error(`You can ask for ${VERIFY_CALLS_PER_DAY} codes a day. Try again tomorrow.`);
+  checkBudget(db);
   db.prepare("UPDATE calls SET status = 'cancelled' WHERE direction = 'self' AND status = 'scheduled'").run();
   setTwinSetting(db, "owner_phone", number);
   setTwinSetting(db, "owner_phone_verified", null);
@@ -478,6 +489,11 @@ async function dial(db: Db, api: ElevenLabs, call: CallRow) {
   const { phoneNumberId } = callsConfig();
   if (!phoneNumberId) return fail("ELEVENLABS_PHONE_NUMBER_ID isn't set.");
   if (isTwinPaused(db)) return fail("The twin was paused.");
+  try {
+    checkBudget(db);
+  } catch (err) {
+    return fail((err as Error).message);
+  }
   if (call.direction !== "self" || !call.to_number) return fail("The twin only calls your own phone.");
   if (call.mode === "verify_phone" ? call.to_number !== getTwinSetting(db, "owner_phone") : call.to_number !== (ownerPhone(db).verified ? ownerPhone(db).number : null)) {
     return fail("That number isn't your verified phone any more.");
@@ -516,7 +532,7 @@ export async function dialDueCalls(db: Db, api: ElevenLabs, now = new Date()) {
  * was waiting. Everything is checked again at dial time: the kill switch, that the contact still exists with the
  * number the user approved, and the daily limit.
  */
-export async function dialApprovedCall(db: Db, api: ElevenLabs, callId: number) {
+export async function dialApprovedCall(db: Db, api: ElevenLabs, callId: number, now = new Date()) {
   const call = getCall(db, callId);
   if (call?.direction !== "outbound" || call.mode !== "contact") throw new Error("That isn't an approved call.");
   if (isTwinPaused(db)) throw new Error("The twin is paused. Resume it to place this call.");
@@ -524,6 +540,10 @@ export async function dialApprovedCall(db: Db, api: ElevenLabs, callId: number) 
   if (!phoneNumberId) throw new Error("Calling contacts needs ELEVENLABS_PHONE_NUMBER_ID, a Twilio number imported into ElevenLabs.");
   const dialledToday = (db.prepare("SELECT COUNT(*) AS n FROM calls WHERE direction = 'outbound' AND started_at IS NOT NULL AND date(started_at) = date('now')").get() as { n: number }).n;
   if (dialledToday >= DAILY_LIMITS.outbound_call) throw new Error(`The daily limit of ${DAILY_LIMITS.outbound_call} calls to contacts is reached.`);
+  checkBudget(db, now);
+  // Checked before claiming the row, so a call outside calling hours stays approved and can be placed later.
+  const when = checkCallTime(call.to_number ?? "", now);
+  if (!when.ok) throw new Error(when.reason);
   // Claim the row, so a double click can't dial twice. A failed call can be tried again.
   if (!db.prepare("UPDATE calls SET status = 'dialing', started_at = datetime('now'), error = NULL, ref_token = ? WHERE id = ? AND status IN ('approved', 'failed')").run(newToken(), callId).changes) {
     throw new Error("This call was already placed.");
@@ -595,10 +615,19 @@ export function answerInbound(db: Db, input: unknown) {
   });
   db.prepare("UPDATE calls SET started_at = datetime('now') WHERE id = ?").run(call.id);
   let opening = openingLine(db, call);
+  if (from && isBlocked(db, from)) raiseFlag(db, "blocked_caller", `${from} called again and heard the goodbye line.`, from);
+  else if (from && !contact) {
+    const today = (db.prepare("SELECT COUNT(*) AS n FROM calls WHERE direction = 'inbound' AND from_number = ? AND date(created_at) = date('now')").get(from) as { n: number }).n;
+    if (today >= 3) raiseFlag(db, "repeat_caller", `${from} isn't a contact and called ${today} times today. Block it from the call log if it's unwanted.`, from);
+  }
   const paused = isTwinPaused(db);
-  if (paused || answeredToday >= INBOUND_CALLS_PER_DAY) {
+  const full = answeredToday >= INBOUND_CALLS_PER_DAY;
+  const broke = usage(db).over;
+  if (full) raiseFlag(db, "limit", `More than ${INBOUND_CALLS_PER_DAY} calls to your twin's number today. Later callers heard a goodbye line.`, "inbound calls");
+  if (broke) raiseFlag(db, "budget", "This month's twin spending reached its cap. Callers to your twin's number hear a goodbye line.", usage(db).month);
+  if (paused || full || broke) {
     opening = `Hi, ${owner}'s AI twin isn't answering right now. Please reach ${owner} another way. Goodbye.`;
-    setCall(db, call.id, { outcome: paused ? "Twin paused" : "Daily limit reached" });
+    setCall(db, call.id, { outcome: paused ? "Twin paused" : full ? "Daily limit reached" : "Monthly cost cap reached" });
   }
   return { type: "conversation_initiation_client_data", dynamic_variables: { call_ref: callRef(call), opening_line: opening } };
 }
@@ -656,11 +685,23 @@ export async function syncCalls(db: Db, api: ElevenLabs) {
     if (conv.status === "processing") continue;
     finishCall(db, call, conv);
     finished++;
+    // Nothing of an unrecorded call stays at ElevenLabs either. If this fails, the retention sweep deletes it later.
+    if (getCall(db, call.id)?.no_record) await api.deleteConversation(call.conversation_id).catch(() => undefined);
   }
   return finished;
 }
 
 function finishCall(db: Db, call: CallRow, conv: Conversation) {
+  // They asked not to be recorded: keep only that the call happened, never what was said.
+  if (getCall(db, call.id)?.no_record) {
+    setCall(db, call.id, {
+      status: conv.status === "failed" ? "failed" : "done",
+      ended_at: call.ended_at ?? sqlTime(new Date()),
+      duration_secs: conv.metadata?.call_duration_secs ?? null,
+      outcome: "They asked not to be recorded, so nothing from this call was kept.",
+    });
+    return;
+  }
   const turns = (conv.transcript ?? []).filter((t) => t.message?.trim());
   const spoke = turns.some((t) => t.role === "user");
   const duration = conv.metadata?.call_duration_secs ?? null;
@@ -763,6 +804,16 @@ export function confirmTaskDone(db: Db, json: unknown): ToolResult {
   return { output: `Marked "${task.title}" done. Congratulate them.`, citations: [] };
 }
 
+/** Turns recording off for a live call with someone else who asked not to be recorded. */
+export function stopRecording(db: Db, json: unknown): ToolResult {
+  const args = z.object({ call_ref: z.string() }).safeParse(json);
+  const match = args.success ? args.data.call_ref.trim().match(/^(\d+)\.([A-Za-z0-9_-]{8,})$/) : null;
+  const call = match ? liveCall(db, match[1], match[2]) : null;
+  if (!call || (call.mode !== "contact" && call.mode !== "screen")) return { output: "Error: stop_recording only works during a call with someone else, with its call_ref.", citations: [] };
+  setCall(db, call.id, { no_record: 1 });
+  return { output: "Recording is off: no transcript, summary or audio of this call will be kept. Tell them so.", citations: [] };
+}
+
 // ---------- Snapshot for the Twin page ----------
 
 export function callsSnapshot(db: Db) {
@@ -815,6 +866,8 @@ export function callsSnapshot(db: Db) {
         notePath: c.note_path,
         outcome: c.outcome,
         error: c.error,
+        noRecord: !!c.no_record,
+        purged: !!c.purged_at,
       };
     }),
   };

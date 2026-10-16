@@ -165,6 +165,15 @@ export class ElevenLabs {
     return { conversationId: out.conversation_id ?? null };
   }
 
+  /** Deletes a conversation's audio and transcript at ElevenLabs. Already gone is fine. */
+  async deleteConversation(conversationId: string): Promise<void> {
+    try {
+      await this.call(`/v1/convai/conversations/${encodeURIComponent(conversationId)}`, { method: "DELETE" });
+    } catch (err) {
+      if (!(err instanceof ElevenLabsError && err.status === 404)) throw err;
+    }
+  }
+
   async getConversation(conversationId: string): Promise<Conversation> {
     return (await (await this.call(`/v1/convai/conversations/${encodeURIComponent(conversationId)}`)).json()) as Conversation;
   }

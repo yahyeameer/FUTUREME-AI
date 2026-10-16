@@ -18,6 +18,7 @@ const STATUS: Record<string, { label: string; tone: "neutral" | "accent" | "succ
   received: { label: "New", tone: "accent" },
   drafted: { label: "Reply drafted", tone: "success" },
   read: { label: "No reply needed", tone: "neutral" },
+  flagged: { label: "Held for review", tone: "accent" },
 };
 
 export function EmailSection({ state, act }: { state: TwinState; act: Act }) {

@@ -35,8 +35,10 @@ CREATE TABLE IF NOT EXISTS voice_profiles (
   updated_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 -- Every call the twin is part of. direction: 'outbound' to a contact (approved in the queue), 'self' to the user's own
--- verified phone, 'web' in the browser, 'inbound' reserved. ref_token is the secret half of the call_ref ElevenLabs
--- passes back to the custom LLM, so a request can only speak as a call this app started.
+-- verified phone, 'web' in the browser, 'inbound' to the twin's number. no_record: the other person asked not to be
+-- recorded, so nothing of the call is kept. purged_at: a third-party call's transcript was deleted after retention.
+-- ref_token is the secret half of the call_ref ElevenLabs passes back to the custom LLM, so a request can only speak as
+-- a call this app started.
 CREATE TABLE IF NOT EXISTS calls (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   direction TEXT NOT NULL CHECK (direction IN ('outbound', 'inbound', 'self', 'web')),
@@ -61,6 +63,8 @@ CREATE TABLE IF NOT EXISTS calls (
   transcript TEXT,
   summary TEXT,
   note_path TEXT,
+  no_record INTEGER NOT NULL DEFAULT 0,
+  purged_at TEXT,
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 -- Emails through the twin's own AgentMail inbox. 'outbound' rows are approved drafts (approved, sending, sent, failed);
@@ -82,7 +86,19 @@ CREATE TABLE IF NOT EXISTS email_threads (
   error TEXT,
   note_path TEXT,
   sent_at TEXT,
+  purged_at TEXT,
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+-- The review queue (twin-guard.ts): signs of abuse or misuse for the user to look at.
+CREATE TABLE IF NOT EXISTS twin_flags (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  kind TEXT NOT NULL,
+  subject TEXT NOT NULL DEFAULT '',
+  detail TEXT NOT NULL,
+  count INTEGER NOT NULL DEFAULT 1,
+  status TEXT NOT NULL DEFAULT 'open',
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 CREATE TABLE IF NOT EXISTS twin_settings (
   key TEXT PRIMARY KEY,
@@ -103,6 +119,9 @@ const ADDED_COLUMNS: [table: string, column: string, type: string][] = [
   ["email_threads", "error", "TEXT"],
   ["email_threads", "note_path", "TEXT"],
   ["email_threads", "sent_at", "TEXT"],
+  ["calls", "no_record", "INTEGER NOT NULL DEFAULT 0"],
+  ["calls", "purged_at", "TEXT"],
+  ["email_threads", "purged_at", "TEXT"],
 ];
 
 type MiniDb = { prepare: (sql: string) => { all: () => unknown[] }; exec: (sql: string) => unknown };

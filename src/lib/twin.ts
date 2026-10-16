@@ -1,6 +1,7 @@
 import { z } from "zod";
 import type { Db } from "./db";
 import type { ToolDefinition } from "./llm";
+import { checkCallable, raiseFlag } from "./twin-guard";
 import { writeNote } from "./vault";
 
 // The voice twin's guardrails (Phase 0). The twin can only propose: a call, an email or a promise becomes a pending
@@ -61,6 +62,15 @@ export const TWIN_TOOL_DEFS: ToolDefinition[] = [
       parameters: { type: "object", properties: { call_ref: { type: "string" } }, required: ["call_ref"] },
     },
   },
+  {
+    type: "function",
+    function: {
+      name: "stop_recording",
+      description:
+        "On a call with someone other than the user, when they don't want to be recorded or transcribed: turn recording off so nothing of the call is kept. Pass the call_ref from your instructions.",
+      parameters: { type: "object", properties: { call_ref: { type: "string" } }, required: ["call_ref"] },
+    },
+  },
 ];
 
 // ---------- Settings and kill switch ----------
@@ -109,6 +119,10 @@ export interface Contact {
 
 export function addContact(db: Db, input: unknown): Contact {
   const c = ContactInput.parse(input);
+  if (c.phone) {
+    const callable = checkCallable(c.phone);
+    if (!callable.ok) throw new Error(`${callable.reason} Save ${c.name} with an email address only, or leave the phone out.`);
+  }
   const info = db.prepare("INSERT INTO contacts (name, phone, email, relationship) VALUES (?, ?, ?, ?)").run(c.name, c.phone ?? null, c.email ?? null, c.relationship ?? null);
   return db.prepare("SELECT * FROM contacts WHERE id = ?").get(info.lastInsertRowid) as Contact;
 }
@@ -222,8 +236,18 @@ function propose(db: Db, kind: TwinApprovalKind, payload: TwinPayload): number {
   return Number(db.prepare("INSERT INTO approvals (kind, payload) VALUES (?, ?)").run(kind, JSON.stringify(payload)).lastInsertRowid);
 }
 
-const unknownContact = (ref: string) =>
-  fail(`"${ref}" is not one of the user's contacts. The twin can only reach people the user added on the Twin page; ask them to add this person first.`);
+function unknownContact(db: Db, tool: TwinTool, ref: string) {
+  const verb = tool === "propose_call" ? "to call" : tool === "propose_email" ? "to email" : "to note a promise with";
+  raiseFlag(db, "unknown_contact", `The twin tried ${verb} "${ref}", who isn't one of your contacts. Nothing was proposed.`, ref.toLowerCase());
+  return fail(`"${ref}" is not one of the user's contacts. The twin can only reach people the user added on the Twin page; ask them to add this person first.`);
+}
+
+function overLimit(db: Db, kind: Exclude<TwinApprovalKind, "commitment">) {
+  if (proposedToday(db, kind) < DAILY_LIMITS[kind]) return null;
+  const what = kind === "outbound_call" ? "calls" : "emails";
+  raiseFlag(db, "limit", `The twin reached today's limit of ${DAILY_LIMITS[kind]} proposed ${what} and was refused.`, kind);
+  return fail(`the daily limit of ${DAILY_LIMITS[kind]} proposed ${what} is reached.`);
+}
 
 /** Runs one twin tool. Called through runTool, which logs every call. */
 export function runTwinTool(db: Db, name: TwinTool, json: unknown): TwinToolResult {
@@ -236,9 +260,12 @@ export function runTwinTool(db: Db, name: TwinTool, json: unknown): TwinToolResu
       const args = CallArgs.safeParse(json);
       if (!args.success) return invalid(args.error);
       const contact = findContact(db, args.data.contact);
-      if (!contact) return unknownContact(args.data.contact);
+      if (!contact) return unknownContact(db, name, args.data.contact);
       if (!contact.phone) return fail(`${contact.name} has no phone number saved.`);
-      if (proposedToday(db, "outbound_call") >= DAILY_LIMITS.outbound_call) return fail(`the daily limit of ${DAILY_LIMITS.outbound_call} proposed calls is reached.`);
+      const callable = checkCallable(contact.phone);
+      if (!callable.ok) return fail(callable.reason);
+      const limited = overLimit(db, "outbound_call");
+      if (limited) return limited;
       const id = propose(db, "outbound_call", {
         contact_id: contact.id,
         contact_name: contact.name,
@@ -253,9 +280,10 @@ export function runTwinTool(db: Db, name: TwinTool, json: unknown): TwinToolResu
       const args = EmailArgs.safeParse(json);
       if (!args.success) return invalid(args.error);
       const contact = findContact(db, args.data.contact);
-      if (!contact) return unknownContact(args.data.contact);
+      if (!contact) return unknownContact(db, name, args.data.contact);
       if (!contact.email) return fail(`${contact.name} has no email address saved.`);
-      if (proposedToday(db, "send_email") >= DAILY_LIMITS.send_email) return fail(`the daily limit of ${DAILY_LIMITS.send_email} proposed emails is reached.`);
+      const limited = overLimit(db, "send_email");
+      if (limited) return limited;
       const id = propose(db, "send_email", {
         contact_id: contact.id,
         contact_name: contact.name,
@@ -271,7 +299,7 @@ export function runTwinTool(db: Db, name: TwinTool, json: unknown): TwinToolResu
       let contact: Contact | undefined;
       if (args.data.contact) {
         contact = findContact(db, args.data.contact);
-        if (!contact) return unknownContact(args.data.contact);
+        if (!contact) return unknownContact(db, name, args.data.contact);
       }
       const id = propose(db, "commitment", {
         contact_id: contact?.id,

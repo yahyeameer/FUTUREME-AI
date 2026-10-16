@@ -27,7 +27,7 @@ Plus a command palette (`⌘K`, and `g` then `h/f/a/t/c/r/m/d/s` to jump), dark 
 
 ## Voice twin
 
-The twin is your future self speaking for you, in your own voice. Phases 0 to 3 are built: the guardrails, your voice, talking to your twin in the browser or on your own phone, and reaching your contacts by phone and email once you approve.
+The twin is your future self speaking for you, in your own voice. Phases 0 to 4 are built: the guardrails, your voice, talking to your twin in the browser or on your own phone, reaching your contacts by phone and email once you approve, and the safeguards for running it on a public address.
 
 **Your voice (ElevenLabs).** Needs `ELEVENLABS_API_KEY` on the server.
 
@@ -67,6 +67,17 @@ Recordings are kept in `data/voice/` (or `TWIN_DATA_DIR`) and go only to ElevenL
 - **Time Capsule Voicemail:** record a message to yourself and pick a date between an hour and two years ahead. Only the transcript is kept, never the recording, and your future self reads it back on a call to your verified phone on that day.
 - **Email:** the twin gets its own AgentMail inbox ("Create its inbox" on `/twin`, or `AGENTMAIL_INBOX_ID`), so it never writes as you. Approved emails go out from that address with you cc'd (add your address on `/twin`). To receive mail, point an AgentMail webhook for `message.received` at `/api/twin/email` and set `AGENTMAIL_WEBHOOK_SECRET`; requests without a valid Svix signature are refused. Received mail is filed under `Inbox/`. Mail from a contact gets a drafted reply, threaded to that message, waiting for your approval; the email is treated as untrusted text, and mail from anyone else is only filed.
 
+**Running it publicly (Phase 4).** Before you put FutureMe on a public address:
+
+- **Lock the app.** `TWIN_PUBLIC_URL` must be reachable from the internet, so set `FUTUREME_ACCESS_CODE`. Every page and API then asks for that code (`/login`, a 30-day cookie, five wrong tries per 15 minutes). Only the three webhooks stay open, and each checks its own secret or signature. `/twin` shows a warning while the twin is public and the app isn't locked.
+- **Calling rules.** The twin calls only numbers in the countries it knows (narrow them with `TWIN_CALL_COUNTRIES`, like `US,GB,SO`), never premium-rate numbers, and calls contacts only between 8 am and 9 pm in every time zone of their country (`TWIN_CALL_HOURS`, US numbers use the four mainland zones). An approved call outside those hours stays on its card to place later.
+- **Recording consent.** If someone on a call doesn't want to be recorded, the twin calls its `stop_recording` tool: nothing of that call is kept, and its conversation is deleted at ElevenLabs.
+- **Retention.** What other people said is deleted after `TWIN_RETENTION_DAYS` (30): transcripts and notes of calls with contacts and callers, their recordings at ElevenLabs (also set as the agent's own retention), and mail the twin received, here and at AgentMail. Your calls with your future self stay in your notes. The scheduler runs this.
+- **Export and delete.** Settings, "Voice twin data": download everything the twin holds as JSON (secrets left out), or delete it all here and at ElevenLabs and AgentMail. Your goals, memories and other notes stay.
+- **Cost cap.** The twin estimates this month's spending (`TWIN_COST_PER_MINUTE`, default $0.10; `TWIN_COST_PER_EMAIL`, default $0.001) and stops calling and emailing at `TWIN_MONTHLY_BUDGET` (default $20). The meter is in the rail on `/twin`.
+- **Review queue.** "Needs a look" on `/twin` lists what the twin refused: someone it tried to reach who isn't a contact, hit limits, a blocked or repeat caller, mail that tries to give it orders (no reply is drafted), and requests with a wrong secret. Block a number or dismiss each item.
+- **Before launch:** have a lawyer review the opener, recording consent and retention for each country you call. This is an engineering reading of the rules, not legal advice.
+
 ## Interface and data modes
 
 The UI talks to a typed service layer (`src/lib/services/types.ts`) with two implementations:
@@ -104,7 +115,7 @@ Browser ── Next.js app ──► docker agent serve chat (agents/futureme.ya
 
 ## Planned
 
-Voice twin Phase 4 (Twin-to-Twin calls between users and public-launch hardening), trend sourcing for FutureMe Daily, avatars and VR.
+Voice twin Twin-to-Twin calls (it needs more than one FutureMe user), trend sourcing for FutureMe Daily, avatars and VR.
 
 ## Deploy
 

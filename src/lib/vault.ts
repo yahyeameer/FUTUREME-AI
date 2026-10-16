@@ -82,6 +82,11 @@ export function writeNote(input: NoteInput, root = vaultRoot()): Note {
   return readNote(rel, root);
 }
 
+/** Deletes one note. Used when the twin's retention period ends or its data is deleted; a missing file is fine. */
+export function deleteNote(relPath: string, root = vaultRoot()) {
+  fs.rmSync(resolveInVault(relPath, root), { force: true });
+}
+
 export function readNote(relPath: string, root = vaultRoot()): Note {
   const full = resolveInVault(relPath, root);
   const parsed = matter(fs.readFileSync(full, "utf8"));
