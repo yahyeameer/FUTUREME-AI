@@ -88,7 +88,7 @@ export async function decideDockerRequest(db: Db, id: number, approve: boolean):
       id,
     );
     const excerpt = done.result!.length > 1500 ? `${done.result!.slice(0, 1500)}\n…` : done.result!;
-    db.prepare("INSERT INTO messages (role, content, citations, tools) VALUES ('assistant', ?, '[]', ?)").run(
+    db.prepare("INSERT INTO messages (role, content, citations, tools, approvals) VALUES ('assistant', ?, '[]', ?, '[]')").run(
       `You approved **${payload.title}**${res.isError ? ", but it reported an error" : ""}. Here's what ${name} returned:\n\n${excerpt
         .split("\n")
         .map((l) => `> ${l}`)

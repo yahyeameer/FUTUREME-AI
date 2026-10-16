@@ -470,7 +470,9 @@ export async function chat(db: Db, userText: string, backend: AgentBackend = get
   const approvals = events.flatMap((e) => (e.approval_id ? [e.approval_id] : []));
 
   const tools = events.map((e) => e.tool);
-  const info = db.prepare("INSERT INTO messages (role, content, citations, tools) VALUES ('assistant', ?, ?, ?)").run(reply, JSON.stringify(citations), JSON.stringify(tools));
+  const info = db
+    .prepare("INSERT INTO messages (role, content, citations, tools, approvals) VALUES ('assistant', ?, ?, ?, ?)")
+    .run(reply, JSON.stringify(citations), JSON.stringify(tools), JSON.stringify(approvals));
   return { id: Number(info.lastInsertRowid), reply, citations, approvals, tools, backend: backend.name };
 }
 

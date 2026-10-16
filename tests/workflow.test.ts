@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { openDb, type Db } from "../src/lib/db";
 import {
   chat,
@@ -17,6 +17,8 @@ import {
 } from "../src/lib/futureme";
 import { mockProvider } from "../src/lib/mock-llm";
 import { listNotes, readNote } from "../src/lib/vault";
+
+vi.mock("server-only", () => ({}));
 
 let dir: string;
 let db: Db;
@@ -77,6 +79,17 @@ describe("core workflow", () => {
     const turn = await chat(db, "What do I value most?", backend);
     expect(turn.citations).toContain("Profile/values.md");
     expect(turn.reply).toMatch(/I remember/);
+  });
+
+  it("shows each proposal under the reply that made it, even when two turns land in the same second", async () => {
+    const { buildWorkspace } = await import("../src/lib/workspace-server");
+    saveProfile(db, profile);
+    const first = await chat(db, "Help me plan a marathon", backend);
+    const second = await chat(db, "Help me plan a podcast", backend);
+    db.prepare("UPDATE messages SET created_at = '2026-10-16 08:25:32'").run();
+    db.prepare("UPDATE approvals SET created_at = '2026-10-16 08:25:32'").run();
+    const replies = buildWorkspace(db).conversation.filter((m) => m.role === "assistant");
+    expect(replies.map((m) => m.approvalIds)).toEqual([first.approvals.map(String), second.approvals.map(String)]);
   });
 
   it("does nothing on a rejected proposal", async () => {
