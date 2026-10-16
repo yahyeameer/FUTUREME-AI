@@ -6,7 +6,7 @@ the private `futureme-files` Storage bucket. A new server or a lost disk gets ev
 
 ## Set it up
 
-1. Apply the files in `supabase/migrations/`, oldest first, to the project (SQL editor, `supabase db push`,
+1. Apply `supabase/migrations/20261016063000_futureme_cloud_copy.sql` to the project (SQL editor, `supabase db push`,
    or the Supabase MCP `apply_migration`). It creates the tables, the `cloud_files` list and the bucket.
 2. In `.env.local` (or the server's `.env`), set:
 
