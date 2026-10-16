@@ -65,6 +65,8 @@ beforeEach(() => {
   process.env.LLM_PROVIDER = "mock";
   process.env.TWIN_PUBLIC_URL = "https://futureme.example.com";
   process.env.ELEVENLABS_PHONE_NUMBER_ID = "phnum-1";
+  // Calling hours are tested in twin-guard.test.ts; here a contact can be called at any time.
+  process.env.TWIN_CALL_HOURS = "0-24";
   delete process.env.DOCKER_AGENT_URL;
   delete process.env.AGENTMAIL_INBOX_ID;
   requests.length = 0;
@@ -113,7 +115,7 @@ describe("calls to contacts", () => {
     await dialApprovedCall(db, voice, callId);
     const reply = await replyOnCall(db, [{ role: "system", content: `futureme-call:${opening(outbound()[0]).call_ref}` }, { role: "user", content: "Who is this?" }]);
     expect(reply.length).toBeGreaterThan(0);
-    expect(provider.seenTools.at(-1)).toEqual(["propose_commitment"]);
+    expect(provider.seenTools.at(-1)).toEqual(["propose_commitment", "stop_recording"]);
 
     conversations["conv-" + n] = {
       status: "done",
@@ -153,7 +155,7 @@ describe("calls to the twin's number", () => {
     const { dynamic_variables: v } = answerInbound(db, { caller_id: "+14155550123", conversation_id: "conv-in-2" });
     const reply = await replyOnCall(db, [{ role: "system", content: `futureme-call:${v.call_ref}` }, { role: "user", content: "Hi, it's about your car warranty." }]);
     expect(reply).not.toMatch(/can't continue/);
-    expect(provider.seenTools.at(-1)).toEqual(["propose_commitment"]);
+    expect(provider.seenTools.at(-1)).toEqual(["propose_commitment", "stop_recording"]);
     const snap = callsSnapshot(db);
     expect(snap.calls[0]).toMatchObject({ direction: "inbound", label: "Call from +14155550123", fromNumber: "+14155550123" });
   });

@@ -295,6 +295,8 @@ async function executeTool(db: Db, name: string, rawArgs: string): Promise<ToolR
       if (isTwinTool(name)) return runTwinTool(db, name, json);
       // Promise Keeper, used only on a live call. Loaded lazily: twin-calls.ts imports this module.
       if (name === "confirm_task_done") return (await import("./twin-calls")).confirmTaskDone(db, json);
+      // On a call with someone else who asked not to be recorded.
+      if (name === "stop_recording") return (await import("./twin-calls")).stopRecording(db, json);
       return { output: `Error: unknown tool ${name}.`, citations: [] };
   }
 }

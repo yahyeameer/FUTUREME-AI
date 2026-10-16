@@ -16,12 +16,14 @@ import {
   webCallConnected,
   webCallEnded,
 } from "@/lib/twin-calls";
+import { deleteTwinData } from "@/lib/twin-data";
+import { dismissFlag } from "@/lib/twin-guard";
 import { getVoiceApi, professionalCaptcha, refreshProfessional, revokeVoice, startConsent, startProfessionalClone } from "@/lib/voice";
 import { errorResponse, twinState } from "./state";
 
 // The Twin page's endpoint. GET returns the twin's state; POST runs one action and returns the new state.
 // Recordings go through POST /api/twin/audio, the voice preview through POST /api/twin/preview, and ElevenLabs reaches
-// the future self during a call through /api/twin/llm.
+// the future self during a call through /api/twin/llm. GET /api/twin/export downloads everything the twin holds.
 
 export async function GET() {
   await connection();
@@ -52,6 +54,8 @@ const Action = z.discriminatedUnion("action", [
   z.object({ action: z.literal("setBlocked"), number: z.string().max(40), blocked: z.boolean() }),
   z.object({ action: z.literal("setOwnerEmail"), email: z.string().max(200) }),
   z.object({ action: z.literal("setupInbox") }),
+  z.object({ action: z.literal("dismissFlag"), id: z.number().int() }),
+  z.object({ action: z.literal("deleteAll"), confirm: z.literal("DELETE") }),
 ]);
 
 const needsMail = () => {
@@ -154,6 +158,12 @@ export async function POST(request: Request) {
         break;
       case "cancelCall":
         cancelCall(d, a.id);
+        break;
+      case "dismissFlag":
+        dismissFlag(d, a.id);
+        break;
+      case "deleteAll":
+        extra = { deleted: await deleteTwinData(d, getVoiceApi(), getMailApi()) };
         break;
     }
     return Response.json({ ...twinState(d), ...extra });

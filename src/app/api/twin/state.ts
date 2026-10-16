@@ -3,9 +3,10 @@ import type { Db } from "@/lib/db";
 import { twinSnapshot } from "@/lib/twin";
 import { mailSnapshot } from "@/lib/mail";
 import { callsSnapshot } from "@/lib/twin-calls";
+import { guardSnapshot } from "@/lib/twin-guard";
 import { voiceSnapshot } from "@/lib/voice";
 
-export const twinState = (db: Db) => ({ twin: twinSnapshot(db), voice: voiceSnapshot(db), calls: callsSnapshot(db), mail: mailSnapshot(db) });
+export const twinState = (db: Db) => ({ twin: twinSnapshot(db), voice: voiceSnapshot(db), calls: callsSnapshot(db), mail: mailSnapshot(db), guard: guardSnapshot(db) });
 export type TwinState = ReturnType<typeof twinState>;
 
 export function errorResponse(err: unknown) {

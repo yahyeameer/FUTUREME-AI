@@ -2,6 +2,7 @@ import crypto from "node:crypto";
 import type { ChatMessage } from "@/lib/llm";
 import { db } from "@/lib/server-db";
 import { checkLlmSecret, replyOnCall, SECRET_HEADER } from "@/lib/twin-calls";
+import { raiseFlag } from "@/lib/twin-guard";
 
 // The future self as ElevenLabs' custom LLM. ElevenLabs posts an OpenAI chat completions request here for every turn
 // of a call (to /api/twin/llm/v1/chat/completions) and speaks the streamed reply in the user's cloned voice.
@@ -11,7 +12,10 @@ const FALLBACK = "Sorry, I lost my train of thought. Could you say that again?";
 
 export async function POST(request: Request) {
   const d = db();
-  if (!checkLlmSecret(d, request.headers.get(SECRET_HEADER))) return Response.json({ error: "Unauthorized." }, { status: 401 });
+  if (!checkLlmSecret(d, request.headers.get(SECRET_HEADER))) {
+    raiseFlag(d, "bad_secret", "Someone called your twin's voice endpoint without its secret. They were refused.", "voice endpoint");
+    return Response.json({ error: "Unauthorized." }, { status: 401 });
+  }
   const body = (await request.json().catch(() => null)) as { messages?: unknown; stream?: boolean } | null;
   if (!body || !Array.isArray(body.messages)) return Response.json({ error: "Send OpenAI chat completion messages." }, { status: 400 });
   const messages = body.messages as ChatMessage[];

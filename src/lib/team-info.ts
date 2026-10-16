@@ -116,7 +116,7 @@ export const TEAM: AgentInfo[] = [
     label: "Twin on a call",
     role: "twin",
     description: "The user's AI twin on a call with someone else. Says it's an AI, takes messages, never agrees to anything itself.",
-    tools: ["propose_commitment"],
+    tools: ["propose_commitment", "stop_recording"],
     subAgents: [],
   },
 ];

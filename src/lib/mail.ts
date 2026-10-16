@@ -3,6 +3,7 @@ import { z } from "zod";
 import { runAgent } from "./agents";
 import type { Db } from "./db";
 import { getTwinSetting, isTwinPaused, ownerName, setTwinSetting, type EmailProposal } from "./twin";
+import { checkBudget, looksLikeInjection, raiseFlag } from "./twin-guard";
 import { writeNote } from "./vault";
 
 // The twin's email (Phase 3), through its own AgentMail inbox. The twin never writes from the user's own address:
@@ -37,7 +38,8 @@ export class AgentMail {
       body: init.body ? JSON.stringify(init.body) : undefined,
     });
     if (!res.ok) throw new AgentMailError(res.status, (await res.text().catch(() => "")).slice(0, 300) || res.statusText);
-    return (await res.json()) as T;
+    const text = await res.text();
+    return (text ? JSON.parse(text) : {}) as T;
   }
 
   createInbox(input: { username?: string; display_name: string }) {
@@ -50,6 +52,15 @@ export class AgentMail {
 
   send(inboxId: string, m: { to: string; cc?: string; subject: string; text: string }) {
     return this.call<{ message_id: string; thread_id: string }>(`/inboxes/${encodeURIComponent(inboxId)}/messages/send`, { body: { ...m, labels: ["futureme-twin"] } });
+  }
+
+  /** Permanently deletes one message from the inbox. Already gone is fine. */
+  async deleteMessage(inboxId: string, messageId: string) {
+    try {
+      await this.call(`/inboxes/${encodeURIComponent(inboxId)}/messages/${encodeURIComponent(messageId)}`, { method: "DELETE" });
+    } catch (err) {
+      if (!(err instanceof AgentMailError && err.status === 404)) throw err;
+    }
   }
 
   reply(inboxId: string, messageId: string, m: { cc?: string; text: string }) {
@@ -116,6 +127,7 @@ export async function sendApprovedEmail(db: Db, api: AgentMail, emailId: number)
   const row = getEmail(db, emailId);
   if (row?.direction !== "outbound" || row.approval_id === null) throw new Error("That isn't an approved email.");
   if (isTwinPaused(db)) throw new Error("The twin is paused. Resume it to send this email.");
+  checkBudget(db);
   if (!db.prepare("UPDATE email_threads SET status = 'sending', error = NULL WHERE id = ? AND status IN ('approved', 'failed')").run(emailId).changes) {
     throw new Error("This email was already sent.");
   }
@@ -227,7 +239,11 @@ export function receiveEmail(db: Db, event: unknown): { emailId: number; draft: 
     )
     .run(contact?.id ?? null, from, getTwinSetting(db, "inbox_email"), subject, body, m.message_id, m.thread_id ?? null, note.path);
   const emailId = Number(info.lastInsertRowid);
-  return { emailId, draft: !!contact && !isTwinPaused(db) };
+  // Mail that reads like orders to an AI goes to the review queue, and the twin doesn't draft a reply to it.
+  const suspicious = looksLikeInjection(`${subject}\n${body}`);
+  if (suspicious) db.prepare("UPDATE email_threads SET status = 'flagged' WHERE id = ?").run(emailId);
+  if (suspicious) raiseFlag(db, "injection", `"${subject}" from ${from} reads like instructions to an AI. Your twin didn't draft a reply; read it in Inbox/.`, from);
+  return { emailId, draft: !!contact && !suspicious && !isTwinPaused(db) };
 }
 
 /**

@@ -362,6 +362,8 @@ function CallLog({ calls, act }: { calls: CallItem[]; act: Act }) {
                   {call.outcome === "kept" && <Badge tone="success">Promise kept</Badge>}
                   {call.blocked && <Badge tone="neutral">Blocked</Badge>}
                   {call.mode === "capsule" && call.status === "scheduled" && <Badge tone="copper">Sealed</Badge>}
+                  {call.noRecord && <Badge tone="neutral">Not recorded</Badge>}
+                  {call.purged && <Badge tone="neutral">Transcript deleted</Badge>}
                 </div>
                 {(call.topic || call.task) && <p className="text-[12.5px]">{call.topic ?? call.task}</p>}
                 <p className="text-[12px] text-muted-foreground">

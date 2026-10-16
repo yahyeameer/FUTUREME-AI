@@ -9,6 +9,7 @@ export const TOOL_LABELS: Record<string, string> = {
   propose_email: "Drafted an email",
   propose_commitment: "Asked you to confirm a promise",
   confirm_task_done: "Marked a promise kept",
+  stop_recording: "Stopped recording the call",
 };
 
 export const toolLabel = (name: string) => TOOL_LABELS[name] ?? name.replace(/_/g, " ");
