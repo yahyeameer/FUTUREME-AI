@@ -26,6 +26,10 @@ elif [ -n "$NEBIUS_MODEL" ]; then
 fi
 
 mkdir -p "$(dirname "$DATABASE_PATH")" "$VAULT_DIR"
+# Cloud copy (Supabase): a fresh volume first pulls the saved data down, then changes are pushed every 30 seconds.
+if [ -n "$SUPABASE_URL" ] && [ "$CLOUD_PROVIDER" != "off" ]; then
+  node_modules/.bin/tsx scripts/cloud-sync.ts restore
+fi
 [ "$SEED_DEMO" = "1" ] && node_modules/.bin/tsx scripts/seed-demo.ts --if-empty
 
 docker-agent serve chat "$AGENT_FILE" --safety autonomous --listen 127.0.0.1:8083 --working-dir "$(pwd)" $FLAVOR &
@@ -40,6 +44,10 @@ fi
 # The voice twin's scheduler places scheduled calls to the user's own phone and files call transcripts.
 if [ -n "$ELEVENLABS_API_KEY" ] && [ "$TWIN_SCHEDULER" != "off" ]; then
   node_modules/.bin/tsx scripts/twin-scheduler.ts --loop &
+fi
+
+if [ -n "$SUPABASE_URL" ] && [ "$CLOUD_PROVIDER" != "off" ]; then
+  node_modules/.bin/tsx scripts/cloud-sync.ts --loop &
 fi
 
 exec node_modules/.bin/next start -H 0.0.0.0 -p "${PORT:-3000}"
