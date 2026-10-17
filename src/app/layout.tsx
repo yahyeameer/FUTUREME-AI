@@ -35,6 +35,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       </head>
       <body className="min-h-dvh">
         <div className="ambient" aria-hidden />
+        <div className="dot-field" aria-hidden />
         <div className="relative z-[1] min-h-dvh">
           <Providers>{children}</Providers>
         </div>

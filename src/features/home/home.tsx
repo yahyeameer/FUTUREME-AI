@@ -45,6 +45,7 @@ export function Home() {
       <Reveal className="grid grid-cols-[minmax(0,1fr)] gap-4 lg:grid-cols-12 lg:gap-5">
         {/* Hero */}
         <RevealItem as="section" aria-labelledby="hero-heading" className="card ring-gradient paper relative overflow-hidden lg:col-span-8">
+          <div aria-hidden className="aurora" />
           <div aria-hidden className="pointer-events-none absolute -top-24 -right-16 size-[28rem] rounded-full bg-[radial-gradient(circle,var(--accent-wash),transparent_65%)]" />
           <div className="relative grid grid-cols-[minmax(0,1fr)] items-center gap-6 p-6 sm:p-8 md:grid-cols-[minmax(0,1fr)_auto]">
             <div className="min-w-0">
@@ -56,7 +57,7 @@ export function Home() {
                 {formatDate(today.toISOString(), { weekday: "long", day: "numeric", month: "long" })}
               </span>
               <h1 id="hero-heading" className="mt-5 font-display text-[2.4rem] leading-[1] tracking-[-0.02em] text-balance sm:text-[3rem] xl:text-[3.25rem]">
-                {greeting(today)}, <span className="text-copper italic">{profile.name}</span>.{" "}
+                {greeting(today)}, <span className="text-gradient italic">{profile.name}.</span>{" "}
                 <span className="block text-muted-foreground">Your future is taking shape.</span>
               </h1>
               <p className="mt-4 max-w-xl text-[14.5px] leading-relaxed text-muted-foreground">{summary}</p>
@@ -82,15 +83,15 @@ export function Home() {
                   <Link
                     key={s}
                     href={`/future-self?prompt=${encodeURIComponent(s)}`}
-                    className="group inline-flex max-w-full items-center gap-1.5 rounded-full border border-border bg-surface/70 px-3 py-1.5 text-[12.5px] text-muted-foreground backdrop-blur transition-all hover:-translate-y-px hover:border-accent/60 hover:bg-accent-wash hover:text-foreground"
+                    className="group inline-flex max-w-full items-center gap-1.5 rounded-full border border-border bg-surface/70 px-3 py-1.5 text-[12.5px] text-muted-foreground backdrop-blur transition-all hover:-translate-y-0.5 hover:border-accent/60 hover:bg-accent-wash hover:text-foreground hover:shadow-[0_8px_18px_-10px_var(--accent)]"
                   >
-                    <Sparkles className="size-3 shrink-0 text-accent-ink" aria-hidden />
+                    <Sparkles className="size-3 shrink-0 text-accent-ink transition-transform duration-300 group-hover:scale-125 group-hover:rotate-12" aria-hidden />
                     <span className="truncate">{s}</span>
                   </Link>
                 ))}
               </div>
             </div>
-            <div className="hidden flex-col items-center md:flex">
+            <div className="hidden animate-float flex-col items-center md:flex">
               <Orb size={230}>
                 <Presence convergence={conv} size={156} className="text-foreground" />
               </Orb>
@@ -104,7 +105,8 @@ export function Home() {
         {/* Future self + next step */}
         <RevealItem as="section" aria-labelledby="fs-heading" className="card flex flex-col overflow-hidden lg:col-span-4">
           <div className="flex items-center gap-3 border-b border-border bg-gradient-to-br from-accent-wash to-transparent px-5 py-4">
-            <span aria-hidden className="flex size-10 items-center justify-center rounded-full bg-gradient-to-br from-accent to-copper font-display text-lg text-accent-foreground italic shadow-[inset_0_1px_0_rgb(255_255_255/0.45)]">
+            <span aria-hidden className="relative flex size-10 items-center justify-center rounded-full bg-gradient-to-br from-accent to-copper font-display text-lg text-accent-foreground italic shadow-[inset_0_1px_0_rgb(255_255_255/0.45),0_6px_18px_-6px_var(--copper)]">
+              <span className="absolute inset-[-3px] rounded-full border border-accent/40 pulse-ring" />
               {profile.name.charAt(0)}
             </span>
             <div className="min-w-0">
@@ -210,7 +212,7 @@ function QuickAsk({ name }: { name: string }) {
       <label htmlFor="quick-ask" className="t-label">
         Ask Future {name}
       </label>
-      <div className="mt-2 flex items-center gap-2 rounded-xl border border-border bg-surface p-1.5 pl-3 shadow-[inset_0_1px_2px_rgb(40_30_10/0.05)] transition-colors focus-within:border-accent">
+      <div className="focus-glow mt-2 flex items-center gap-2 rounded-xl border border-border bg-surface p-1.5 pl-3 shadow-[inset_0_1px_2px_rgb(40_30_10/0.05)] focus-within:border-accent">
         <input
           id="quick-ask"
           value={text}
@@ -231,7 +233,7 @@ function Stat({ icon: Icon, label, children, foot, href }: { icon: typeof Check;
     <>
       <div className="flex items-center justify-between">
         <p className="t-label">{label}</p>
-        <span className="flex size-7 items-center justify-center rounded-full bg-surface-3/80 text-muted-foreground transition-colors group-hover:bg-accent group-hover:text-accent-foreground">
+        <span className="flex size-7 items-center justify-center rounded-full bg-surface-3/80 text-muted-foreground transition-[color,background-color,transform] duration-300 group-hover:rotate-[-8deg] group-hover:scale-110 group-hover:bg-accent group-hover:text-accent-foreground group-hover:shadow-[0_0_14px_-2px_var(--accent)]">
           <Icon className="size-3.5" aria-hidden />
         </span>
       </div>
@@ -264,7 +266,7 @@ function StatSteps() {
             initial={{ scaleY: 0 }}
             animate={{ scaleY: 1 }}
             transition={{ delay: 0.3 + i * 0.03 }}
-            className={cn("flex-1 origin-bottom rounded-full", t.status === "done" ? "bg-accent" : t.status === "blocked" ? "bg-warning/50" : t.status === "in_progress" ? "bg-accent/40" : "bg-surface-3")}
+            className={cn("flex-1 origin-bottom rounded-full", t.status === "done" ? "bg-gradient-to-r from-accent to-[color-mix(in_oklab,var(--accent),var(--copper)_35%)] shadow-[0_0_8px_-1px_var(--accent)]" : t.status === "blocked" ? "bg-warning/50" : t.status === "in_progress" ? "bg-accent/40" : "bg-surface-3")}
           />
         ))}
       </div>

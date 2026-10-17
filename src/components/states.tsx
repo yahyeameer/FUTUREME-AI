@@ -16,8 +16,17 @@ export function EmptyState({
   className?: string;
 }) {
   return (
-    <div className={cn("flex flex-col items-start gap-2 rounded-lg border border-dashed border-border-strong px-5 py-6", className)}>
-      {Icon && <Icon className="size-4 text-subtle" aria-hidden />}
+    <div
+      className={cn(
+        "relative flex flex-col items-start gap-2 overflow-hidden rounded-xl border border-dashed border-border-strong bg-[radial-gradient(120%_90%_at_0%_0%,var(--accent-wash),transparent_60%)] px-5 py-6",
+        className,
+      )}
+    >
+      {Icon && (
+        <span aria-hidden className="mb-1 flex size-9 animate-float items-center justify-center rounded-xl border border-border bg-surface text-accent-ink shadow-card">
+          <Icon className="size-4" />
+        </span>
+      )}
       <p className="t-section">{title}</p>
       {children && <p className="max-w-md text-[13px] text-muted-foreground">{children}</p>}
       {action && <div className="mt-1">{action}</div>}

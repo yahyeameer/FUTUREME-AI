@@ -9,7 +9,7 @@ export const buttonVariants = cva(
     variants: {
       variant: {
         // Citron is reserved for the one meaningful action on a surface.
-        primary: "bg-primary text-primary-foreground shadow-[inset_0_1px_0_rgb(255_255_255/0.18),0_1px_2px_rgb(0_0_0/0.12)] hover:-translate-y-px hover:shadow-[inset_0_1px_0_rgb(255_255_255/0.18),0_10px_24px_-8px_var(--primary-glow)]",
+        primary: "sheen bg-primary text-primary-foreground shadow-[inset_0_1px_0_rgb(255_255_255/0.18),0_1px_2px_rgb(0_0_0/0.12)] hover:-translate-y-px hover:shadow-[inset_0_1px_0_rgb(255_255_255/0.18),0_10px_24px_-8px_var(--primary-glow)]",
         default: "bg-foreground text-background hover:bg-foreground/90",
         secondary: "border border-border bg-surface text-foreground shadow-[0_1px_2px_rgb(40_30_10/0.06)] hover:border-border-strong hover:bg-surface-2",
         outline: "border border-border-strong bg-transparent text-foreground hover:bg-surface-2",

@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronsLeft, ChevronsRight, Menu, Monitor, Moon, Search, Settings, Sun } from "lucide-react";
+import { ChevronsLeft, ChevronsRight, Menu, Monitor, Moon, MoreHorizontal, Search, Settings, Sun } from "lucide-react";
 import Link from "next/link";
 import { motion } from "motion/react";
 import { usePathname } from "next/navigation";
@@ -53,7 +53,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <React.Suspense fallback={<div className="h-12 border-b border-border lg:hidden" />}>
           <MobileBar />
         </React.Suspense>
-        <main id="main" tabIndex={-1} className="flex min-w-0 flex-1 flex-col outline-none">
+        <main id="main" tabIndex={-1} className="flex min-w-0 flex-1 flex-col pb-[var(--tabbar)] outline-none">
           {children}
         </main>
       </div>
@@ -86,15 +86,15 @@ function SidebarContents({ collapsed, onNavigate }: { collapsed: boolean; onNavi
           <motion.span
             layoutId={onNavigate ? "nav-pill-mobile" : "nav-pill"}
             aria-hidden
-            className="absolute inset-0 rounded-lg bg-primary shadow-[0_8px_20px_-10px_rgb(0_0_0/0.45)]"
+            className="absolute inset-0 rounded-lg bg-primary shadow-[inset_0_1px_0_rgb(255_255_255/0.14),0_8px_22px_-10px_var(--primary-glow)]"
             transition={{ type: "spring", stiffness: 420, damping: 36 }}
           />
         )}
-        <n.icon className={cn("relative size-4 shrink-0 transition-colors", active ? "text-accent dark:text-primary-foreground" : "text-subtle group-hover:text-muted-foreground")} aria-hidden />
+        <n.icon className={cn("relative size-4 shrink-0 transition-[color,transform] duration-200", active ? "text-accent dark:text-primary-foreground" : "text-subtle group-hover:scale-110 group-hover:-rotate-6 group-hover:text-accent-ink")} aria-hidden />
         {!collapsed && <span className="relative truncate">{n.label}</span>}
         {!!badge && (
           <span
-            className={cn("relative ml-auto rounded-full bg-accent px-1.5 font-mono text-[10px] leading-4 font-semibold text-accent-foreground", collapsed && "absolute top-0.5 right-1 ml-0 px-1")}
+            className={cn("pulse-ring relative ml-auto rounded-full bg-accent px-1.5 font-mono text-[10px] leading-4 font-semibold text-accent-foreground", collapsed && "absolute top-0.5 right-1 ml-0 px-1")}
             aria-label={`${badge} waiting for approval`}
           >
             {badge}
@@ -144,7 +144,10 @@ function SidebarContents({ collapsed, onNavigate }: { collapsed: boolean; onNavi
       </div>
 
       <nav className={cn("flex flex-1 flex-col gap-0.5 overflow-y-auto px-3 py-2 scrollbar-none", collapsed && "px-2")}>
-        {NAV.map((n) => item(n, n.href === "/future-self" ? waiting : undefined))}
+        {!collapsed && <p className="px-2.5 pt-1 pb-1.5 text-[10px] font-semibold tracking-[0.12em] text-subtle uppercase">Companion</p>}
+        {NAV.slice(0, 6).map((n) => item(n, n.href === "/future-self" ? waiting : undefined))}
+        {collapsed ? <div className="my-2 hairline" /> : <p className="px-2.5 pt-4 pb-1.5 text-[10px] font-semibold tracking-[0.12em] text-subtle uppercase">Your plan</p>}
+        {NAV.slice(6).map((n) => item(n))}
         <div className="my-3 hairline" />
         {item(SECONDARY_NAV[0])}
       </nav>
@@ -205,31 +208,76 @@ function ProfileMenu({ collapsed, onNavigate }: { collapsed: boolean; onNavigate
   );
 }
 
+const TABS = [NAV[0], NAV[1], NAV[6], NAV[7]] as const;
+
 function MobileBar() {
   const [open, setOpen] = React.useState(false);
   const palette = useCommandPalette();
+  const pathname = usePathname();
+  const { workspace } = useWorkspaceContext();
+  const waiting = workspace ? pendingApprovals(workspace).length : 0;
+  // The conversation has its own composer at the bottom, so the tab bar steps aside there.
+  const showTabs = pathname !== "/future-self" && pathname !== "/onboarding";
+  const inMore = !TABS.some((t) => isActive(pathname, t.href));
   return (
-    <div className="sticky top-0 z-40 flex h-12 items-center gap-2 border-b border-border bg-surface/80 px-3 backdrop-blur-xl lg:hidden" data-print-hide>
-      <Sheet open={open} onOpenChange={setOpen}>
-        <SheetTrigger asChild>
-          <Button variant="ghost" size="icon" aria-label="Open navigation">
-            <Menu />
-          </Button>
-        </SheetTrigger>
-        <SheetContent side="left" className="w-[17rem] p-0" aria-describedby={undefined}>
-          <SheetTitle className="sr-only">Navigation</SheetTitle>
-          <div className="flex h-full flex-col">
-            <SidebarContents collapsed={false} onNavigate={() => setOpen(false)} />
-          </div>
-        </SheetContent>
-      </Sheet>
-      <Link href="/" className="flex items-center gap-2" aria-label="FutureMe home">
-        <Mark />
-        <Wordmark />
-      </Link>
-      <Button variant="ghost" size="icon" className="ml-auto" onClick={palette.open} aria-label="Search and commands">
-        <Search />
-      </Button>
-    </div>
+    <>
+      <div className="sticky top-0 z-40 flex h-12 items-center gap-2 border-b border-border bg-surface/80 px-3 backdrop-blur-xl lg:hidden" data-print-hide>
+        <Sheet open={open} onOpenChange={setOpen}>
+          <SheetTrigger asChild>
+            <Button variant="ghost" size="icon" aria-label="Open navigation">
+              <Menu />
+            </Button>
+          </SheetTrigger>
+          <SheetContent side="left" className="w-[17rem] p-0" aria-describedby={undefined}>
+            <SheetTitle className="sr-only">Navigation</SheetTitle>
+            <div className="flex h-full flex-col">
+              <SidebarContents collapsed={false} onNavigate={() => setOpen(false)} />
+            </div>
+          </SheetContent>
+        </Sheet>
+        <Link href="/" className="flex items-center gap-2" aria-label="FutureMe home">
+          <Mark />
+          <Wordmark />
+        </Link>
+        <Button variant="ghost" size="icon" className="ml-auto" onClick={palette.open} aria-label="Search and commands">
+          <Search />
+        </Button>
+      </div>
+      {showTabs && (
+        <nav
+          aria-label="Quick navigation"
+          data-tabbar
+          data-print-hide
+          className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-surface/85 px-2 pb-[env(safe-area-inset-bottom)] shadow-[0_-12px_30px_-20px_rgb(0_0_0/0.35)] backdrop-blur-xl lg:hidden"
+        >
+          <ul className="mx-auto grid h-[3.75rem] max-w-md grid-cols-5">
+            {TABS.map((t) => {
+              const active = isActive(pathname, t.href);
+              const badge = t.href === "/future-self" ? waiting : 0;
+              return (
+                <li key={t.href}>
+                  <Link href={t.href} aria-current={active ? "page" : undefined} className="relative flex h-full flex-col items-center justify-center gap-1 text-[10.5px] font-medium text-muted-foreground transition-colors active:scale-95">
+                    {active && <motion.span layoutId="tab-dot" aria-hidden className="absolute top-0 h-[3px] w-8 rounded-b-full bg-gradient-to-r from-accent to-copper" transition={{ type: "spring", stiffness: 420, damping: 36 }} />}
+                    <span className={cn("relative flex h-7 w-11 items-center justify-center rounded-full transition-colors", active && "bg-accent-wash text-accent-ink")}>
+                      <t.icon className="size-[18px]" aria-hidden />
+                      {!!badge && <span className="absolute -top-0.5 right-1 size-2 rounded-full bg-accent ring-2 ring-surface" aria-label={`${badge} waiting for approval`} />}
+                    </span>
+                    <span className={cn(active && "text-foreground")}>{t.label.replace("Life ", "").replace("Memory Vault", "Memory")}</span>
+                  </Link>
+                </li>
+              );
+            })}
+            <li>
+              <button type="button" onClick={() => setOpen(true)} className="flex h-full w-full flex-col items-center justify-center gap-1 text-[10.5px] font-medium text-muted-foreground transition-colors active:scale-95">
+                <span className={cn("flex h-7 w-11 items-center justify-center rounded-full", inMore && "bg-accent-wash text-accent-ink")}>
+                  <MoreHorizontal className="size-[18px]" aria-hidden />
+                </span>
+                <span className={cn(inMore && "text-foreground")}>More</span>
+              </button>
+            </li>
+          </ul>
+        </nav>
+      )}
+    </>
   );
 }

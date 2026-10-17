@@ -3,6 +3,8 @@
 import { Check, Link2, MoreHorizontal, Pencil } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import * as React from "react";
+import { toast } from "sonner";
+import { celebrate } from "@/components/motion/celebrate";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -43,16 +45,30 @@ export function TaskRow({ task, showMilestone, compact = false }: { task: Task; 
   const deps = (task.dependsOn ?? []).map((id) => workspace.tasks.find((t) => t.id === id)).filter((t): t is Task => !!t && t.status !== "done");
   const canReopen = caps.taskStatuses.includes("todo") && caps.editTasks;
 
+  const box = React.useRef<HTMLButtonElement>(null);
+
   const setStatus = async (status: TaskStatus) => {
     setBusy(true);
-    await run((s) => s.updateTask(task.id, { status }), status === "done" ? "Task completed" : undefined);
+    // Finishing the last open task of a milestone finishes the milestone: that gets the bigger moment.
+    const finishesMilestone = status === "done" && workspace.tasks.filter((t) => t.milestoneId === task.milestoneId && t.id !== task.id).every((t) => t.status === "done");
+    const ok = await run((s) => s.updateTask(task.id, { status }));
     setBusy(false);
+    if (!ok || status !== "done") return;
+    const milestone = workspace.milestones.find((m) => m.id === task.milestoneId);
+    if (finishesMilestone && milestone) {
+      celebrate(box.current, { count: 34, spread: 120 });
+      toast.success("Milestone complete", { description: `“${milestone.title}” is done. That's real progress toward ${workspace.profile?.horizonYear ?? "your future"}.` });
+    } else {
+      celebrate(box.current);
+      toast.success("Step done", { description: "One step closer to the future you described." });
+    }
   };
 
   return (
     <div className={cn("group flex items-start gap-3 py-[var(--row-y)]", compact && "py-1.5")}>
       <Tooltip content={done ? (canReopen ? "Mark as not done" : "Completed") : "Mark as done"}>
         <button
+          ref={box}
           type="button"
           role="checkbox"
           aria-checked={done}
@@ -60,8 +76,8 @@ export function TaskRow({ task, showMilestone, compact = false }: { task: Task; 
           disabled={busy || (done && !canReopen)}
           onClick={() => setStatus(done ? "todo" : "done")}
           className={cn(
-            "relative mt-px flex size-[18px] shrink-0 items-center justify-center rounded-[5px] border transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-default",
-            done ? "border-accent bg-accent text-accent-foreground" : "border-border-strong bg-surface-2 hover:border-accent/70",
+            "relative mt-px flex size-[18px] shrink-0 items-center justify-center rounded-[5px] border transition-[color,background-color,border-color,transform,box-shadow] outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-default",
+            done ? "border-accent bg-accent text-accent-foreground shadow-[0_0_10px_-2px_var(--accent)]" : "border-border-strong bg-surface-2 hover:scale-110 hover:border-accent hover:bg-accent-wash",
             busy && "animate-pulse",
           )}
         >

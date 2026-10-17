@@ -1,6 +1,6 @@
 "use client";
 
-import { AlertCircle, CheckCircle2, CircleDashed, Clock, Loader2, Lock, Play, ShieldCheck } from "lucide-react";
+import { AlertCircle, CalendarCheck, CheckCircle2, CircleDashed, Clock, Globe, ListTree, Loader2, Lock, Play, Route, ShieldCheck, Sparkles, TrendingUp } from "lucide-react";
 import * as React from "react";
 import { PageFrame, RailSection } from "@/components/layout/page-frame";
 import { PageHeader } from "@/components/layout/page-header";
@@ -69,6 +69,15 @@ export function Skills() {
   );
 }
 
+// Each skill gets its own mark, so the catalogue scans at a glance.
+const SKILL_ICON: Record<string, React.ElementType> = {
+  "plan-day": CalendarCheck,
+  "break-down": ListTree,
+  research: Globe,
+  "weekly-review": TrendingUp,
+  "action-plan": Route,
+};
+
 function SkillCard({ skill, run, onRun }: { skill: Skill; run?: SkillRun; onRun: () => void }) {
   const { workspace } = useWorkspace();
   const status = effectiveStatus(run, workspace);
@@ -78,8 +87,9 @@ function SkillCard({ skill, run, onRun }: { skill: Skill; run?: SkillRun; onRun:
   const label = run?.simulated ? "Demo result" : workspace.runtime.simulated ? "Stand-in model" : null;
 
   return (
-    <section className={cn("card card-hover", status === "awaiting_approval" && "!border-warning/40", !skill.available && "opacity-80")} aria-labelledby={`skill-${skill.id}`}>
+    <section className={cn("group card card-hover", status === "awaiting_approval" && "!border-warning/40", !skill.available && "opacity-80")} aria-labelledby={`skill-${skill.id}`}>
       <div className="flex flex-col gap-4 px-5 py-4 sm:flex-row sm:items-start">
+        <SkillMark icon={SKILL_ICON[skill.id] ?? Sparkles} available={skill.available} />
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
             <h2 id={`skill-${skill.id}`} className="t-section">
@@ -105,7 +115,7 @@ function SkillCard({ skill, run, onRun }: { skill: Skill; run?: SkillRun; onRun:
           </ul>
           {!skill.available && skill.unavailableReason && <p className="mt-2 text-[12.5px] text-warning">{skill.unavailableReason}</p>}
         </div>
-        <Button variant={skill.available ? "secondary" : "ghost"} size="sm" onClick={onRun} disabled={!skill.available || status === "running"} className="self-start">
+        <Button variant={skill.available ? "secondary" : "ghost"} size="sm" onClick={onRun} disabled={!skill.available || status === "running"} className="self-start group-hover:border-accent/70 group-hover:bg-accent group-hover:text-accent-foreground">
           {status === "running" ? <Loader2 className="animate-spin" /> : <Play />} {status === "running" ? "Running…" : run ? "Run again" : "Run"}
         </Button>
       </div>
@@ -273,5 +283,21 @@ function RunHistory() {
         <p className="text-[12px] text-subtle">Skills can read your records freely. Creating goals, tasks or memories always goes through an approval card, and the result is checked against your data before it&apos;s reported as done.</p>
       </RailSection>
     </div>
+  );
+}
+
+function SkillMark({ icon: Icon, available }: { icon: React.ElementType; available: boolean }) {
+  return (
+    <span
+      aria-hidden
+      className={cn(
+        "hidden size-11 shrink-0 items-center justify-center rounded-xl border sm:flex",
+        available
+          ? "border-accent/30 bg-[linear-gradient(140deg,var(--accent-wash),var(--copper-wash))] text-accent-ink shadow-[inset_0_1px_0_rgb(255_255_255/0.35)] transition-transform duration-300 group-hover:scale-105 group-hover:-rotate-3"
+          : "border-dashed border-border-strong text-subtle",
+      )}
+    >
+      <Icon className="size-5" />
+    </span>
   );
 }
