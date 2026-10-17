@@ -1,4 +1,5 @@
 import type {
+  Mission,
   CoachingStyle,
   CouncilSession,
   NightShift,
@@ -66,6 +67,8 @@ export interface AgentTeamService {
   setPack(packId: string | null): Promise<Workspace>;
   /** Live only: run (or decline) a Docker MCP tool call the agent asked to make. */
   decideDockerTool?(requestId: string, decision: "approve" | "reject"): Promise<Workspace>;
+  /** Starts a mission and returns once it is recorded; on the server it keeps running, so poll `load` while it does. */
+  startMission(goal: string): Promise<{ workspace: Workspace; mission: Mission }>;
 }
 
 export interface FutureMeService

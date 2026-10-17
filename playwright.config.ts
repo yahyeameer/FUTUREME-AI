@@ -18,7 +18,8 @@ export default defineConfig({
     : {
         command: "rm -rf .e2e-data && next start -p 3100",
         url: "http://127.0.0.1:3100",
-        env: { LLM_PROVIDER: "mock", DATABASE_PATH: ".e2e-data/futureme.db", VAULT_DIR: ".e2e-data/vault" },
+        // No web in the browser test: missions use helpers only, so results don't depend on a search engine.
+        env: { LLM_PROVIDER: "mock", WEB_SEARCH: "off", DATABASE_PATH: ".e2e-data/futureme.db", VAULT_DIR: ".e2e-data/vault" },
         reuseExistingServer: false,
       },
 });

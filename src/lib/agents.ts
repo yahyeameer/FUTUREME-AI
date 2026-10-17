@@ -3,7 +3,7 @@ import path from "node:path";
 import yaml from "js-yaml";
 import type { Db } from "./db";
 import { DOCKER_TOOLSET, dockerToolDefs } from "./docker-mcp";
-import { dockerAgentBackend, inProcessBackend, lastToolEventId, toolDefs, toolEventsSince, type OnDelta } from "./futureme";
+import { dockerAgentBackend, inProcessBackend, lastToolEventId, runContext, toolDefs, toolEventsForRun, toolEventsSince, type OnDelta, type ToolEvent } from "./futureme";
 import { getProvider, type ChatMessage, type LlmProvider } from "./llm";
 
 // FutureMe's agent team. agents/futureme.yaml is the single source of truth: with DOCKER_AGENT_URL set, each agent runs in
@@ -20,6 +20,10 @@ export type AgentName =
   | "verifier"
   | "researcher"
   | "night_shift"
+  | "helper_memory"
+  | "helper_web"
+  | "supervisor"
+  | "mission_lead"
   | "twin"
   | "twin_voice"
   | "twin_proxy";
@@ -70,7 +74,9 @@ export interface AgentRun {
   reply: string;
   backend: string;
   /** Tool calls logged while the agent ran (by the MCP server for Docker Agent, or in-process). */
-  events: ReturnType<typeof toolEventsSince>;
+  events: ToolEvent[];
+  /** True when events belong to this run alone. Docker Agent runs share one tool log, so parallel runs can overlap. */
+  exactEvents: boolean;
 }
 
 /** Runs one agent from the team on a conversation and returns its final text. */
@@ -78,20 +84,30 @@ export async function runAgent(
   db: Db,
   name: AgentName,
   messages: ChatMessage[],
-  opts: { onDelta?: OnDelta; provider?: LlmProvider } = {},
+  opts: {
+    onDelta?: OnDelta;
+    provider?: LlmProvider;
+    /** In-process only: a narrower tool list than the agent's own (Docker Agent enforces the YAML's list). */
+    tools?: string[];
+    /** Tags this run's in-process tool calls so they can be told apart from parallel runs. */
+    runId?: number;
+  } = {},
 ): Promise<AgentRun> {
   const spec = agentSpec(name);
   const url = process.env.DOCKER_AGENT_URL;
+  const tools = opts.tools ? spec.tools.filter((t) => opts.tools!.includes(t)) : spec.tools;
   const backend = url
     ? dockerAgentBackend(url, name)
     : inProcessBackend(opts.provider ?? getProvider(), {
-        tools: toolDefs(spec.tools),
+        tools: toolDefs(tools),
         instruction: spec.instruction,
-        extraTools: spec.tools.includes(DOCKER_TOOLSET) ? dockerToolDefs : undefined,
+        extraTools: tools.includes(DOCKER_TOOLSET) ? dockerToolDefs : undefined,
       });
   const before = lastToolEventId(db);
-  const reply = await backend.run(db, messages, opts.onDelta);
-  return { reply, backend: backend.name, events: toolEventsSince(db, before) };
+  const go = () => backend.run(db, messages, opts.onDelta);
+  const reply = opts.runId && !url ? await runContext.run({ runId: opts.runId }, go) : await go();
+  const exactEvents = !!opts.runId && !url;
+  return { reply, backend: backend.name, events: exactEvents ? toolEventsForRun(db, opts.runId!) : toolEventsSince(db, before), exactEvents };
 }
 
 /** Pulls the first JSON object out of a model reply, which may wrap it in prose or a code fence. */

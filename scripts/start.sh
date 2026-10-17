@@ -32,8 +32,9 @@ if [ -n "$SUPABASE_URL" ] && [ "$CLOUD_PROVIDER" != "off" ]; then
 fi
 [ "$SEED_DEMO" = "1" ] && node_modules/.bin/tsx scripts/seed-demo.ts --if-empty
 
-docker-agent serve chat "$AGENT_FILE" --safety autonomous --listen 127.0.0.1:8083 --working-dir "$(pwd)" $FLAVOR &
+# Exported first so the MCP server Docker Agent starts can run handoffs (delegate_task, spawn_agent) through it too.
 export DOCKER_AGENT_URL=http://127.0.0.1:8083
+docker-agent serve chat "$AGENT_FILE" --safety autonomous --listen 127.0.0.1:8083 --working-dir "$(pwd)" $FLAVOR &
 
 # The night shift publishes the Daily and a morning brief at NIGHT_SHIFT_AT (default 05:30). NIGHT_SHIFT_AT=off disables it.
 if [ "$NIGHT_SHIFT_AT" != "off" ]; then

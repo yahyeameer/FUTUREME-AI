@@ -65,3 +65,27 @@ test("fact check -> council -> night shift", async ({ page }) => {
   await page.goto("/");
   await expect(page.getByRole("heading", { name: "While you slept" })).toBeVisible();
 });
+
+// Handoffs, the supervisor and a mission, on the same server.
+test("handoff to a helper -> supervisor -> mission", async ({ page }) => {
+  await page.goto("/future-self");
+  await page.getByPlaceholder("Tell your future self what's on your mind…").fill("Compare a part-time master's with a bootcamp for me");
+  await page.getByRole("button", { name: "Send" }).click();
+  const handoffs = page.getByLabel("Handed off");
+  await expect(handoffs).toBeVisible({ timeout: 60_000 });
+  await expect(handoffs.getByRole("button", { name: /Analyst helper/ })).toBeVisible();
+  await expect(handoffs.getByText("Supervisor: OK")).toBeVisible();
+
+  await page.goto("/missions");
+  await page.getByLabel("Mission goal").fill("Get my first paper accepted at a workshop");
+  await page.getByRole("button", { name: "Start the mission" }).click();
+  await expect(page.getByRole("heading", { name: "Report" })).toBeVisible({ timeout: 90_000 });
+  await expect(page.getByText(/3 of 3 tasks came back/)).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByRole("button", { name: "Approve and create" })).toBeVisible();
+  await page.screenshot({ path: "e2e/screenshots/missions.png", fullPage: true });
+
+  await page.goto("/agent");
+  const log = page.getByRole("region", { name: "Supervisor" });
+  await expect(log.getByRole("button", { name: /Created: Analyst helper/ })).toBeVisible();
+  await expect(log.getByRole("button", { name: /Mission task/ })).toHaveCount(3);
+});

@@ -8,7 +8,7 @@ export const TEAM: AgentInfo[] = [
     label: "Future self",
     role: "chat",
     description: "FutureMe, the user's future self ten years from now.",
-    tools: ["search_memory", "propose_memory", "propose_plan", "docker_mcp"],
+    tools: ["search_memory", "propose_memory", "propose_plan", "delegate_task", "spawn_agent", "docker_mcp"],
     subAgents: [],
   },
   {
@@ -83,6 +83,39 @@ export const TEAM: AgentInfo[] = [
     description:
       "Researches a topic on the web and summarises it with real links.",
     tools: ["web_search", "fetch_url"],
+    subAgents: [],
+  },
+  {
+    name: "helper_memory",
+    label: "Helper (notes)",
+    role: "helper",
+    description: "A temporary helper that works from the user's notes only.",
+    tools: ["search_memory"],
+    subAgents: [],
+  },
+  {
+    name: "helper_web",
+    label: "Helper (web)",
+    role: "helper",
+    description: "A temporary helper that can also search and read the web.",
+    tools: ["search_memory", "web_search", "fetch_url"],
+    subAgents: [],
+  },
+  {
+    name: "mission_lead",
+    label: "Mission lead",
+    role: "lead",
+    description:
+      "Splits a mission into tasks for the researcher and helpers it defines, then writes the report.",
+    tools: [],
+    subAgents: [],
+  },
+  {
+    name: "supervisor",
+    label: "Supervisor",
+    role: "supervise",
+    description: "Reviews what other agents return before anyone relies on it.",
+    tools: [],
     subAgents: [],
   },
   {

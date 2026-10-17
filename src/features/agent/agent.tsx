@@ -17,7 +17,7 @@ import { pendingApprovals } from "@/lib/derive";
 import { cn, pluralize, relativeDay } from "@/lib/utils";
 import { useWorkspace } from "@/lib/workspace-store";
 import { agentLog, agentTools, logKind, toolUsage, vaultFiles, type LogEntry, type ToolInfo, type VaultFile } from "./agent-data";
-import { NightShiftPanel, Packs, Privacy, Research, Team } from "./agent-team";
+import { NightShiftPanel, Packs, Privacy, Research, SupervisorLog, Team } from "./agent-team";
 import { DockerTools } from "./docker-tools";
 
 export function Agent() {
@@ -113,6 +113,21 @@ export function Agent() {
             }
           />
           <Team />
+        </RevealItem>
+
+        {/* Supervisor */}
+        <RevealItem as="section" aria-labelledby="supervisor-heading">
+          <SectionHead
+            id="supervisor-heading"
+            title="Supervisor"
+            note="One agent watching the others. Every handoff and mission task is checked before its result is used."
+            action={
+              <Link href="/missions" className="flex items-center gap-1 text-[12px] font-medium text-muted-foreground hover:text-foreground">
+                Start a mission <ArrowRight className="size-3" />
+              </Link>
+            }
+          />
+          <SupervisorLog />
         </RevealItem>
 
         {/* Tools */}

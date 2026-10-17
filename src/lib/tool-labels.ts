@@ -6,6 +6,8 @@ export const TOOL_LABELS: Record<string, string> = {
   propose_memory: "Proposed a memory",
   web_search: "Searched the web",
   fetch_url: "Read a web page",
+  delegate_task: "Handed off a task",
+  spawn_agent: "Created a helper",
   propose_call: "Proposed a call",
   propose_email: "Drafted an email",
   propose_commitment: "Asked you to confirm a promise",
