@@ -17,6 +17,10 @@ import {
 } from "./futureme";
 import { agentFilePath, agentTeam } from "./agents";
 import { listCouncils } from "./council";
+import { dockerMcpState } from "./docker-mcp";
+import { listDockerRequests } from "./docker-tools";
+import { listRuns, type RunRecord } from "./delegation";
+import { listMissions } from "./missions";
 import { getProvider, LOCAL_LLM_URL } from "./llm";
 import { listNightShifts, nextRunAt, nightShiftSchedule } from "./night-shift";
 import { activePack, listPacks } from "./packs";
@@ -27,6 +31,7 @@ import { toolLabel } from "./tool-labels";
 import { searchProvider } from "./web";
 import { listNotes, readNote, resolveInVault, slugify, VAULT_FOLDERS, writeNote, type Note, type VaultFolder } from "./vault";
 import type {
+  AgentRunInfo,
   ActivityItem,
   AgentInfo,
   AgentPlatform,
@@ -181,7 +186,7 @@ function runtime(): Workspace["runtime"] {
   return {
     mode: "live",
     agent: process.env.DOCKER_AGENT_URL
-      ? `Docker Agent team (agents/futureme.yaml, ${agentTeam().length} agents) with FutureMe's MCP tools`
+      ? `Docker Agent team (agents/futureme.yaml, ${agentTeam().length} agents) with FutureMe's MCP tools${dockerMcpState().status === "connected" ? " and the Docker MCP Gateway" : ""}`
       : "FutureMe's agent team, running in the app server",
     model: standIn
       ? "Built-in stand-in model (no Nebius key configured)"
@@ -303,19 +308,23 @@ export function buildWorkspace(db: Db): Workspace {
         }
       : null;
 
+  // The approval ids each reply recorded (null for replies saved before replies kept them).
+  const proposedBy = new Map<string, string[] | null>();
   const conversation: Message[] = (
-    db.prepare("SELECT id, role, content, citations, tools, verification, created_at FROM messages ORDER BY id DESC LIMIT 60").all() as {
+    db.prepare("SELECT id, role, content, citations, tools, approvals, verification, created_at FROM messages ORDER BY id DESC LIMIT 60").all() as {
       id: number;
       role: "user" | "assistant";
       content: string;
       citations: string | null;
       tools: string | null;
+      approvals: string | null;
       verification: string | null;
       created_at: string;
     }[]
   )
     .reverse()
     .map((m): Message => {
+      proposedBy.set(`msg-${m.id}`, m.approvals ? (JSON.parse(m.approvals) as number[]).map(String) : null);
       const citations = m.citations ? (JSON.parse(m.citations) as string[]) : [];
       const tools = m.tools ? (JSON.parse(m.tools) as string[]) : [];
       const counts = new Map<string, number>();
@@ -338,15 +347,38 @@ export function buildWorkspace(db: Db): Workspace {
       };
     });
 
+  // Handoffs belong to the reply that was being written when they ran.
+  const runs = listRuns(db, 60);
+  conversation.forEach((m, i) => {
+    if (m.role !== "assistant" || !m.tools?.some((t) => t.name === "delegate_task" || t.name === "spawn_agent")) return;
+    const from = conversation[i - 1]?.createdAt ?? "";
+    const mine = runs.filter((r) => (r.kind === "delegate" || r.kind === "spawn") && sqlTime(r.started_at)! >= from && sqlTime(r.started_at)! <= m.createdAt).reverse();
+    m.runIds = mine.map((r) => String(r.id));
+    for (const t of m.tools) {
+      const kind = t.name === "delegate_task" ? "delegate" : t.name === "spawn_agent" ? "spawn" : null;
+      if (!kind) continue;
+      const who = mine.filter((r) => r.kind === kind).map((r) => runLabel(r));
+      if (who.length) t.detail = who.join(", ");
+    }
+  });
+
   const researchRuns = listResearch(db);
   const nightShifts = listNightShifts(db);
-  // Proposals from research and the night shift belong to those runs, not to a conversation reply.
-  const ownedElsewhere = new Set([...researchRuns.flatMap((r) => (r.approval_id ? [String(r.approval_id)] : [])), ...nightShifts.flatMap((n) => n.approvals.map(String))]);
+  const missions = listMissions(db);
+  // Proposals from research, the night shift and missions belong to those runs, not to a conversation reply.
+  const ownedElsewhere = new Set([
+    ...researchRuns.flatMap((r) => (r.approval_id ? [String(r.approval_id)] : [])),
+    ...nightShifts.flatMap((n) => n.approvals.map(String)),
+    ...missions.flatMap((m) => (m.approval_id ? [String(m.approval_id)] : [])),
+  ]);
 
-  // Approvals aren't stored with a message id; a proposal belongs to the first reply saved at or after it.
+  // Each reply records the approvals it proposed. Older replies didn't, so their proposals go to the first such reply
+  // saved at or after them (timestamps are only to the second, so this can pick the wrong one of two quick turns).
   for (const a of approvals) {
     if (ownedElsewhere.has(a.id)) continue;
-    const reply = conversation.find((m) => m.role === "assistant" && m.createdAt >= a.createdAt);
+    const reply =
+      conversation.find((m) => proposedBy.get(m.id)?.includes(a.id)) ??
+      conversation.find((m) => m.role === "assistant" && proposedBy.get(m.id) === null && m.createdAt >= a.createdAt);
     if (reply) (reply.approvalIds ??= []).push(a.id);
   }
 
@@ -368,6 +400,8 @@ export function buildWorkspace(db: Db): Workspace {
       research: searchProvider() !== "off",
       nightShift: true,
       packs: true,
+      delegation: true,
+      missions: true,
     },
     profile,
     milestones,
@@ -415,6 +449,72 @@ export function buildWorkspace(db: Db): Workspace {
       sources: r.sources,
       approvalId: r.approval_id ? String(r.approval_id) : undefined,
       error: r.error ?? undefined,
+    })),
+    dockerMcp: dockerMcp(db),
+    missions: missions.map((m) => ({
+      id: String(m.id),
+      goal: m.goal,
+      status: m.status,
+      plan: m.plan.map((t) => ({ title: t.title, agent: t.agent, role: t.role ?? undefined, tools: t.tools })),
+      runs: m.runs.map(toRunInfo),
+      lead: m.lead ? toRunInfo(m.lead) : undefined,
+      report: m.report ?? undefined,
+      nextStep: m.next_step ?? undefined,
+      approvalId: m.approval_id ? String(m.approval_id) : undefined,
+      error: m.error ?? undefined,
+      createdAt: sqlTime(m.created_at)!,
+      finishedAt: sqlTime(m.finished_at),
+      simulated: false,
+    })),
+    runs: runs.map(toRunInfo),
+  };
+}
+
+function runLabel(r: RunRecord) {
+  return r.role ? `${r.role} helper` : (TEAM.find((t) => t.name === r.agent)?.label ?? r.agent);
+}
+
+function toRunInfo(r: RunRecord): AgentRunInfo {
+  return {
+    id: String(r.id),
+    kind: r.kind,
+    agent: r.agent,
+    agentLabel: runLabel(r),
+    role: r.role ?? undefined,
+    task: r.task,
+    tools: r.tools,
+    usedTools: r.used_tools,
+    status: r.status,
+    output: r.output ?? undefined,
+    sources: r.citations.filter((c) => /^https?:\/\//.test(c)),
+    supervision: r.supervision
+      ? { verdict: r.supervision.verdict, issues: r.supervision.issues, summary: r.supervision.summary, byAgent: !!r.supervision.backend, checkedAt: r.supervision.checkedAt }
+      : undefined,
+    error: r.error ?? undefined,
+    missionId: r.mission_id ? String(r.mission_id) : undefined,
+    startedAt: sqlTime(r.started_at)!,
+    finishedAt: sqlTime(r.finished_at),
+    simulated: false,
+  };
+}
+
+function dockerMcp(db: Db): Workspace["dockerMcp"] {
+  const state = dockerMcpState();
+  return {
+    status: state.status,
+    via: state.via,
+    detail: state.detail,
+    tools: state.tools.map((t) => ({ name: t.name, title: t.title, description: t.description, gate: t.gate })),
+    requests: listDockerRequests(db).map((r) => ({
+      id: String(r.id),
+      tool: r.tool,
+      title: r.title,
+      arguments: r.arguments,
+      status: r.status,
+      createdAt: sqlTime(r.created_at)!,
+      decidedAt: sqlTime(r.decided_at),
+      result: r.result,
+      isError: r.isError,
     })),
   };
 }

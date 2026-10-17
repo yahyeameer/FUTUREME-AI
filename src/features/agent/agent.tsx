@@ -17,7 +17,8 @@ import { pendingApprovals } from "@/lib/derive";
 import { cn, pluralize, relativeDay } from "@/lib/utils";
 import { useWorkspace } from "@/lib/workspace-store";
 import { agentLog, agentTools, logKind, toolUsage, vaultFiles, type LogEntry, type ToolInfo, type VaultFile } from "./agent-data";
-import { NightShiftPanel, Packs, Privacy, Research, Team } from "./agent-team";
+import { NightShiftPanel, Packs, Privacy, Research, SupervisorLog, Team } from "./agent-team";
+import { DockerTools } from "./docker-tools";
 
 export function Agent() {
   const { workspace } = useWorkspace();
@@ -114,6 +115,21 @@ export function Agent() {
           <Team />
         </RevealItem>
 
+        {/* Supervisor */}
+        <RevealItem as="section" aria-labelledby="supervisor-heading">
+          <SectionHead
+            id="supervisor-heading"
+            title="Supervisor"
+            note="One agent watching the others. Every handoff and mission task is checked before its result is used."
+            action={
+              <Link href="/missions" className="flex items-center gap-1 text-[12px] font-medium text-muted-foreground hover:text-foreground">
+                Start a mission <ArrowRight className="size-3" />
+              </Link>
+            }
+          />
+          <SupervisorLog />
+        </RevealItem>
+
         {/* Tools */}
         <RevealItem as="section" aria-labelledby="tools-heading">
           <SectionHead id="tools-heading" title="Tools" note="What the agent can call on its own, and what it has to ask for." />
@@ -122,6 +138,17 @@ export function Agent() {
               <ToolCard key={t.name} tool={t} usage={usage.get(t.name)} />
             ))}
           </div>
+        </RevealItem>
+
+        {/* Docker MCP */}
+        <RevealItem as="section" aria-labelledby="docker-heading" id="docker">
+          <SectionHead
+            id="docker-heading"
+            title="Docker MCP tools"
+            note="Tools from Docker's MCP Toolkit, each in its own container. Read-only ones run on their own; anything that changes something waits for you here."
+            dot={workspace.dockerMcp?.requests.some((r) => r.status === "pending") ? "warning" : undefined}
+          />
+          <DockerTools />
         </RevealItem>
 
         {waiting.length > 0 && (

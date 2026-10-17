@@ -1,4 +1,4 @@
-import type { ActivityItem, Approval, CouncilSession, Memory, Message, Milestone, NightShift, Profile, Reflection, SkillRun, Task } from "@/types";
+import type { ActivityItem, Approval, CouncilSession, Memory, Message, Milestone, Mission, NightShift, PlanProposal, Profile, Reflection, SkillRun, Task } from "@/types";
 
 // Deterministic demo data: one fictional person, Hodan, a developer in Hargeisa.
 // Dates are offsets from the moment the demo was first opened (the anchor), so the story always reads as recent.
@@ -20,6 +20,7 @@ export interface DemoState {
   /** Added after the first release, so older saved demos may not have them. */
   councils?: CouncilSession[];
   nightShifts?: NightShift[];
+  missions?: DemoMission[];
 }
 
 export function seedState(anchor: number): DemoState {
@@ -480,4 +481,9 @@ export function emptyState(anchor: number): DemoState {
     activity: [],
     skillRuns: [],
   };
+}
+
+/** A demo mission, stored complete and played back over time; its plan proposal is filed when playback ends. */
+export interface DemoMission extends Mission {
+  proposal?: PlanProposal;
 }

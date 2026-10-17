@@ -100,6 +100,37 @@ CREATE TABLE IF NOT EXISTS research_runs (
   started_at TEXT NOT NULL DEFAULT (datetime('now')),
   finished_at TEXT
 );
+CREATE TABLE IF NOT EXISTS agent_runs (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  kind TEXT NOT NULL,
+  agent TEXT NOT NULL,
+  role TEXT,
+  task TEXT NOT NULL,
+  tools TEXT NOT NULL DEFAULT '[]',
+  status TEXT NOT NULL DEFAULT 'running',
+  output TEXT,
+  citations TEXT,
+  used_tools TEXT,
+  supervision TEXT,
+  backend TEXT,
+  error TEXT,
+  mission_id INTEGER,
+  started_at TEXT NOT NULL DEFAULT (datetime('now')),
+  finished_at TEXT
+);
+CREATE TABLE IF NOT EXISTS missions (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  goal TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'planning',
+  plan TEXT,
+  report TEXT,
+  next_step TEXT,
+  approval_id INTEGER,
+  lead_run_id INTEGER,
+  error TEXT,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  finished_at TEXT
+);
 CREATE TABLE IF NOT EXISTS settings (
   key TEXT PRIMARY KEY,
   value TEXT NOT NULL
@@ -110,6 +141,9 @@ CREATE TABLE IF NOT EXISTS settings (
 const COLUMNS: [table: string, column: string, type: string][] = [
   ["messages", "verification", "TEXT"],
   ["messages", "tools", "TEXT"],
+  ["tool_events", "run_id", "INTEGER"],
+  // JSON array of the approval ids a reply proposed. Older replies have none and are matched by time.
+  ["messages", "approvals", "TEXT"],
 ];
 
 function migrate(db: Database.Database) {

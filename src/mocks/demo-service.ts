@@ -2,8 +2,11 @@ import type { FutureMeService } from "@/lib/services/types";
 import { skillDef, skillsFor } from "@/lib/skills";
 import { activeMilestone, liveMemories, nextStep } from "@/lib/derive";
 import { checkClaims, standInBrief, VOICES } from "@/lib/mock-llm";
+import { ruleChecks, verdictOf } from "@/lib/supervisor-rules";
 import { PACKS, TEAM } from "@/lib/team-info";
 import type {
+  AgentRunInfo,
+  Mission,
   ActivityItem,
   Approval,
   CouncilSession,
@@ -23,7 +26,7 @@ import type {
 } from "@/types";
 import { buildEdition } from "./daily";
 import { respond } from "./responder";
-import { emptyState, seedState, type DemoState } from "./seed";
+import { emptyState, seedState, type DemoMission, type DemoState } from "./seed";
 
 // Demo implementation of the service layer: deterministic, persisted in this browser's localStorage, never calls a model.
 
@@ -102,6 +105,8 @@ export function createDemoService(): FutureMeService {
       research: false,
       nightShift: true,
       packs: false,
+      delegation: false,
+      missions: true,
     },
     profile: state.profile,
     milestones: state.milestones,
@@ -127,9 +132,12 @@ export function createDemoService(): FutureMeService {
     councils: state.councils ?? [],
     nightShifts: state.nightShifts ?? [],
     research: [],
+    missions: (state.missions ?? []).map((m) => replay(m, Date.now())),
+    runs: (state.missions ?? []).flatMap((m) => replay(m, Date.now()).runs).reverse(),
   });
 
   const commit = () => {
+    settleMissions();
     save();
     return structuredClone(snapshot());
   };
@@ -170,6 +178,15 @@ export function createDemoService(): FutureMeService {
     note.relatedMilestoneIds = [msId];
     state.milestones.find((m) => m.id === msId)!.memoryIds.push(note.id);
     return msId;
+  }
+
+  // A demo mission is scripted up front and played back over a few seconds, so the page shows it working.
+  // Its plan proposal is only added once the playback reaches the end.
+  function settleMissions() {
+    for (const m of state.missions ?? []) {
+      if (m.approvalId || !m.proposal || replay(m, Date.now()).status !== "done") continue;
+      m.approvalId = propose({ plan: m.proposal }).id;
+    }
   }
 
   function propose(proposal: { plan: PlanProposal } | { memory: MemoryProposal }): Approval {
@@ -449,6 +466,17 @@ export function createDemoService(): FutureMeService {
       throw new Error("Persona packs need the FutureMe server.");
     },
 
+    async startMission(goal) {
+      if (!state.profile) throw new Error("Complete onboarding first.");
+      const g = goal.trim();
+      if (g.length < 5) throw new Error("Describe the mission in a few words.");
+      if ((state.missions ?? []).some((m) => replay(m, Date.now()).status !== "done")) throw new Error("A mission is already running. Wait for it to finish.");
+      const mission = scriptMission(state, g, id("mission"), now());
+      (state.missions ??= []).unshift(mission);
+      const workspace = commit();
+      return { workspace, mission: workspace.missions[0] };
+    },
+
     async runSkill(skillId, inputs, onUpdate) {
       const def = skillDef(skillId);
       if (!def) throw new Error("Unknown skill.");
@@ -515,6 +543,77 @@ export function createDemoService(): FutureMeService {
       return { workspace: commit(), run };
     },
   };
+}
+
+const PLAN_MS = 1400;
+const TASK_MS = 1100;
+const REPORT_MS = 900;
+
+/** Builds the whole demo mission at once from the demo's notes. No model is involved. */
+function scriptMission(state: DemoState, goal: string, missionId: string, at: string): DemoMission {
+  const hits = searchDemo(state, goal);
+  const quoted = hits.map((m) => `“${m.title}”`);
+  const steps = ["Write one paragraph on what done looks like", "Ask one person who has done it for 20 minutes of advice", "Block two focused hours this week for the first piece"];
+  const tasks = [
+    {
+      title: "What your notes already say",
+      role: "Context finder",
+      output: quoted.length ? `Your notes that matter here: ${quoted.join(", ")}. They point to the same thing: progress you can show someone.` : "Your notes don't mention this yet, so start by writing down why it matters to you.",
+    },
+    { title: "Risks to test first", role: "Skeptic", output: "The biggest risk is spending weeks before anyone sees the work. Test the riskiest assumption with one real person first, and decide in advance what would change your mind." },
+    { title: "First steps", role: "Planner", output: `Three first steps that fit the time you have:\n${steps.map((x, i) => `${i + 1}. ${x}`).join("\n")}` },
+  ];
+  const runs: AgentRunInfo[] = tasks.map((t, i) => {
+    const issues = ruleChecks({ agent: "helper_memory", role: t.role, task: `${t.title} for: ${goal}`, allowedTools: ["search_memory"], usedTools: ["search_memory"], citations: [], output: t.output, exactEvents: true }, null);
+    return {
+      id: `${missionId}-run-${i + 1}`,
+      kind: "mission_task",
+      agent: "helper_memory",
+      agentLabel: `${t.role} helper`,
+      role: t.role,
+      task: `${t.title} for: ${goal}`,
+      tools: ["search_memory"],
+      usedTools: ["search_memory"],
+      status: verdictOf(issues) === "block" ? "blocked" : "done",
+      output: t.output,
+      sources: [],
+      supervision: { verdict: verdictOf(issues), issues, summary: issues[0]?.text ?? "Passed the supervisor's rule checks.", byAgent: false, checkedAt: at },
+      missionId,
+      startedAt: at,
+      simulated: true,
+    };
+  });
+  return {
+    id: missionId,
+    goal,
+    status: "done",
+    plan: tasks.map((t) => ({ title: t.title, agent: "helper", role: t.role, tools: ["search_memory"] })),
+    runs,
+    report: [`3 of 3 tasks came back for “${goal}”.`, ...tasks.map((t) => `${t.title}: ${t.output.split("\n")[0]}`)].join("\n\n"),
+    nextStep: steps[0],
+    createdAt: at,
+    simulated: true,
+    proposal: { goal: goal.slice(0, 160), why: "From the mission team's findings (demo).", tasks: steps.map((title, i) => ({ title, dueInDays: 2 + i * 3 })) },
+  };
+}
+
+/** How a scripted mission looks `now`: planning, then each task finishing in turn, then the report. */
+function replay(m: DemoMission, now: number): Mission {
+  const { proposal: _proposal, ...mission } = m;
+  void _proposal;
+  const elapsed = now - new Date(m.createdAt).getTime();
+  const at = (ms: number) => new Date(new Date(m.createdAt).getTime() + ms).toISOString();
+  if (elapsed < PLAN_MS) return { ...mission, status: "planning", plan: [], runs: [], report: undefined, nextStep: undefined, approvalId: undefined };
+  const runs = m.runs.map((r, i) => {
+    const end = PLAN_MS + (i + 1) * TASK_MS;
+    return elapsed < end
+      ? { ...r, status: "running" as const, output: undefined, supervision: undefined, startedAt: at(PLAN_MS) }
+      : { ...r, startedAt: at(PLAN_MS), finishedAt: at(end) };
+  });
+  const tasksDone = PLAN_MS + m.runs.length * TASK_MS;
+  if (elapsed < tasksDone) return { ...mission, status: "running", runs, report: undefined, nextStep: undefined, approvalId: undefined };
+  if (elapsed < tasksDone + REPORT_MS) return { ...mission, status: "reporting", runs, report: undefined, nextStep: undefined, approvalId: undefined };
+  return { ...mission, runs, finishedAt: at(tasksDone + REPORT_MS) };
 }
 
 /** Keyword search over the demo's memories, standing in for the agent's search_memory tool. */

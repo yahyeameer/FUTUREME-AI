@@ -7,7 +7,7 @@ import { openDb } from "../src/lib/db";
 import { runTool } from "../src/lib/futureme";
 
 const db = openDb();
-const server = new McpServer({ name: "futureme", version: "0.3.0" });
+const server = new McpServer({ name: "futureme", version: "0.4.0" });
 
 const text = (output: string) => ({ content: [{ type: "text" as const, text: output }] });
 const readOnly = { readOnlyHint: true, openWorldHint: false };
@@ -73,6 +73,34 @@ server.registerTool(
     annotations: { readOnlyHint: true, openWorldHint: true },
   },
   async (args) => text((await runTool(db, "fetch_url", JSON.stringify(args))).output),
+);
+
+// Handoffs run the sub-agent through Docker Agent when DOCKER_AGENT_URL reaches this process, otherwise in-process with
+// the same instructions. Either way the supervisor reviews the result before it is returned here.
+server.registerTool(
+  "delegate_task",
+  {
+    description:
+      "Hand one task to a teammate and get their answer back: 'researcher' searches the web and returns sources; 'council' asks four future selves and returns a decision brief. A supervisor reviews the result first.",
+    inputSchema: { agent: z.enum(["researcher", "council"]), task: z.string().min(5).max(600) },
+    annotations: { readOnlyHint: true, openWorldHint: true },
+  },
+  async (args) => text((await runTool(db, "delegate_task", JSON.stringify(args))).output),
+);
+
+server.registerTool(
+  "spawn_agent",
+  {
+    description:
+      "Create a temporary helper agent for one task, with a role you choose and read-only tools. It returns text only and can't save anything. A supervisor reviews its result first.",
+    inputSchema: {
+      role: z.string().min(2).max(60),
+      task: z.string().min(5).max(600),
+      tools: z.array(z.enum(["search_memory", "web_search", "fetch_url"])).max(3).optional(),
+    },
+    annotations: { readOnlyHint: true, openWorldHint: true },
+  },
+  async (args) => text((await runTool(db, "spawn_agent", JSON.stringify(args))).output),
 );
 
 // ---------- The agent's own files, kept in the vault's Files folder ----------

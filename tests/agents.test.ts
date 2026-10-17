@@ -59,10 +59,12 @@ afterEach(() => {
 describe("agent team file", () => {
   it("defines every agent the app calls, with narrow tool lists", () => {
     const team = new Map(agentTeam().map((a) => [a.name, a]));
-    for (const name of ["root", "voice_horizon", "voice_next_year", "voice_skeptic", "voice_mentor", "council_chair", "verifier", "researcher", "night_shift"]) {
+    for (const name of ["root", "voice_horizon", "voice_next_year", "voice_skeptic", "voice_mentor", "council_chair", "verifier", "researcher", "night_shift", "helper_memory", "helper_web", "mission_lead", "supervisor"]) {
       expect(team.has(name), name).toBe(true);
     }
-    expect(team.get("root")!.tools).toEqual(["search_memory", "propose_memory", "propose_plan", "save_file", "read_file", "list_files"]);
+    expect(team.get("root")!.tools).toEqual(["search_memory", "propose_memory", "propose_plan", "delegate_task", "spawn_agent", "save_file", "read_file", "list_files", "docker_mcp"]);
+    expect(team.get("helper_memory")!.tools).toEqual(["search_memory"]);
+    expect(team.get("supervisor")!.tools).toEqual([]);
     expect(team.get("voice_skeptic")!.tools).toEqual(["search_memory"]);
     expect(team.get("council_chair")!.tools).toEqual([]);
     expect(team.get("researcher")!.tools).toEqual(["web_search", "fetch_url"]);

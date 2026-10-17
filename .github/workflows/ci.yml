@@ -30,6 +30,7 @@ jobs:
       TELEMETRY_ENABLED: "false"
       NEBIUS_API_KEY: unused-with-mock-flavor
       LLM_PROVIDER: mock
+      WEB_SEARCH: "off"
       DATABASE_PATH: ${{ github.workspace }}/.e2e-agent/futureme.db
       VAULT_DIR: ${{ github.workspace }}/.e2e-agent/vault
       DOCKER_AGENT_URL: http://127.0.0.1:8083

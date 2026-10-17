@@ -148,6 +148,8 @@ export interface Message {
   simulated?: boolean;
   /** The fact checker's reading of this reply against the vault, once it has run. */
   verification?: Verification;
+  /** Handoffs the future self made while writing this reply (ids into Workspace.runs). */
+  runIds?: string[];
 }
 
 export type ClaimStatus = "supported" | "unverified" | "opinion";
@@ -278,7 +280,7 @@ export interface SkillRun {
 
 // ---------- Agent team (Docker Agent) ----------
 
-export type AgentRole = "chat" | "council" | "voice" | "check" | "research" | "schedule" | "twin";
+export type AgentRole = "chat" | "council" | "voice" | "check" | "research" | "schedule" | "helper" | "lead" | "supervise" | "twin";
 
 export interface AgentInfo {
   name: string;
@@ -335,6 +337,63 @@ export interface ResearchRun {
   error?: string;
 }
 
+export type Verdict = "ok" | "flag" | "block";
+
+export interface SupervisionInfo {
+  verdict: Verdict;
+  issues: { source: "rule" | "supervisor"; severity: "flag" | "block"; text: string }[];
+  summary: string;
+  /** False when only the rule checks ran (the supervisor agent wasn't asked, or couldn't run). */
+  byAgent: boolean;
+  checkedAt: string;
+}
+
+export interface AgentRunInfo {
+  id: string;
+  kind: "delegate" | "spawn" | "mission_task" | "mission_lead";
+  agent: string;
+  agentLabel: string;
+  /** The role a created helper was given. */
+  role?: string;
+  task: string;
+  tools: string[];
+  usedTools: string[];
+  status: "running" | "done" | "blocked" | "failed";
+  output?: string;
+  /** Web links its tools returned. */
+  sources: string[];
+  supervision?: SupervisionInfo;
+  error?: string;
+  missionId?: string;
+  startedAt: string;
+  finishedAt?: string;
+  simulated: boolean;
+}
+
+export interface MissionTask {
+  title: string;
+  agent: "researcher" | "helper";
+  role?: string;
+  tools: string[];
+}
+
+export interface Mission {
+  id: string;
+  goal: string;
+  status: "planning" | "running" | "reporting" | "done" | "failed";
+  plan: MissionTask[];
+  /** One run per plan task, in plan order, once the tasks have started. */
+  runs: AgentRunInfo[];
+  lead?: AgentRunInfo;
+  report?: string;
+  nextStep?: string;
+  approvalId?: string;
+  error?: string;
+  createdAt: string;
+  finishedAt?: string;
+  simulated: boolean;
+}
+
 export interface Pack {
   id: string;
   name: string;
@@ -357,6 +416,38 @@ export interface AgentPlatform {
   nextNightShift?: string;
   packs: Pack[];
   activePack: string | null;
+}
+
+// ---------- Docker MCP tools ----------
+
+export interface DockerMcpTool {
+  /** The name the agent calls: docker_<tool>. */
+  name: string;
+  title: string;
+  description: string;
+  /** "auto" for read-only tools; "approval" for anything that may change something. */
+  gate: "auto" | "approval";
+}
+
+export interface DockerToolRequest {
+  id: string;
+  tool: string;
+  title: string;
+  arguments: Record<string, unknown>;
+  status: ApprovalStatus;
+  createdAt: string;
+  decidedAt?: string;
+  result?: string;
+  isError?: boolean;
+}
+
+/** The agent's tools from the Docker MCP Gateway, and the calls that wait for (or got) the user's approval. */
+export interface DockerMcpInfo {
+  status: "off" | "connecting" | "connected" | "unavailable";
+  via: string;
+  detail?: string;
+  tools: DockerMcpTool[];
+  requests: DockerToolRequest[];
 }
 
 // ---------- Activity ----------
@@ -387,6 +478,9 @@ export interface Capabilities {
   research: boolean;
   nightShift: boolean;
   packs: boolean;
+  /** The future self can hand tasks to teammates and helpers mid-conversation. */
+  delegation: boolean;
+  missions: boolean;
 }
 
 export interface Runtime {
@@ -418,4 +512,9 @@ export interface Workspace {
   councils: CouncilSession[];
   nightShifts: NightShift[];
   research: ResearchRun[];
+  /** Live only: the Docker MCP Gateway's tools. Absent in demo mode. */
+  dockerMcp?: DockerMcpInfo;
+  missions: Mission[];
+  /** Recent handoffs and mission runs, newest first, each with the supervisor's review. */
+  runs: AgentRunInfo[];
 }

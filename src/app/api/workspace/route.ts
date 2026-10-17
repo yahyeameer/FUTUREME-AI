@@ -1,6 +1,9 @@
-import { connection } from "next/server";
+import { after, connection } from "next/server";
 import { z } from "zod";
 import { runCouncil, saveCouncilBrief } from "@/lib/council";
+import { warmDockerMcp } from "@/lib/docker-mcp";
+import { decideDockerRequest } from "@/lib/docker-tools";
+import { startMission } from "@/lib/missions";
 import { runNightShift } from "@/lib/night-shift";
 import { setActivePack } from "@/lib/packs";
 import { runResearch } from "@/lib/research";
@@ -24,6 +27,8 @@ import {
 
 export async function GET() {
   await connection();
+  // Lists the Docker MCP Gateway's tools for the Agent page; gives up quickly when Docker isn't running.
+  await warmDockerMcp();
   return Response.json(buildWorkspace(db()), { headers: { "Cache-Control": "no-store" } });
 }
 
@@ -43,6 +48,8 @@ const Action = z.discriminatedUnion("action", [
   z.object({ action: z.literal("runResearch"), topic: z.string().min(3).max(300) }),
   z.object({ action: z.literal("runNightShift") }),
   z.object({ action: z.literal("setPack"), id: z.string().max(80).nullable() }),
+  z.object({ action: z.literal("decideDockerTool"), id: z.coerce.number().int(), decision: z.enum(["approve", "reject"]) }),
+  z.object({ action: z.literal("startMission"), goal: z.string().min(5).max(400) }),
 ]);
 
 export async function POST(request: Request) {
@@ -97,6 +104,15 @@ export async function POST(request: Request) {
       case "setPack":
         setActivePack(d, a.id);
         break;
+      case "decideDockerTool":
+        await decideDockerRequest(d, a.id, a.decision === "approve");
+        break;
+      case "startMission": {
+        // The mission keeps working after this response; the app polls the workspace until it finishes.
+        const { done } = startMission(d, a.goal);
+        after(() => done);
+        break;
+      }
     }
   } catch (err) {
     const message = err instanceof z.ZodError ? "Some fields are missing or too long." : err instanceof Error ? err.message : "Something went wrong.";

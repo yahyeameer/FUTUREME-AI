@@ -1,7 +1,10 @@
+import { AsyncLocalStorage } from "node:async_hooks";
 import { z } from "zod";
 import type { Db } from "./db";
 import { getProvider, type ChatMessage, type LlmProvider, type ToolDefinition } from "./llm";
 import { STORY_MARKER } from "./mock-llm";
+import { dockerMcpConfigured, dockerToolDefs } from "./docker-mcp";
+import { isDockerTool, runDockerTool } from "./docker-tools";
 import { activePack } from "./packs";
 import { isTwinTool, runTwinTool, TWIN_TOOL_DEFS } from "./twin";
 import { listFiles, readFile, rememberConversation, saveFile, searchMemory } from "./memory";
@@ -109,6 +112,14 @@ const MemoryArgs = z.object({
 });
 const WebSearchArgs = z.object({ query: z.string().min(2).max(300), limit: z.number().int().min(1).max(8).optional() });
 const FetchArgs = z.object({ url: z.string().url().max(2000) });
+const DelegateArgs = z.object({ agent: z.enum(["researcher", "council"]), task: z.string().min(5).max(600) });
+const SpawnArgs = z.object({
+  role: z.string().min(2).max(60),
+  task: z.string().min(5).max(600),
+  tools: z.array(z.enum(["search_memory", "web_search", "fetch_url"])).max(3).optional(),
+});
+export type DelegateRequest = z.infer<typeof DelegateArgs>;
+export type SpawnRequest = z.infer<typeof SpawnArgs>;
 const SaveFileArgs = z.object({ name: z.string().min(1).max(120), content: z.string().min(1) });
 const ReadFileArgs = z.object({ path: z.string().min(1).max(300) });
 const ListFilesArgs = z.object({ folder: z.string().max(120).optional() });
@@ -197,6 +208,19 @@ export const ALL_TOOLS: ToolDefinition[] = [
   {
     type: "function",
     function: {
+      name: "delegate_task",
+      description:
+        "Hand one task to a teammate and get their answer back: 'researcher' searches the web and returns sources; 'council' asks four future selves and returns a decision brief. A supervisor reviews the result before you see it.",
+      parameters: {
+        type: "object",
+        properties: { agent: { type: "string", enum: ["researcher", "council"] }, task: { type: "string" } },
+        required: ["agent", "task"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
       name: "save_file",
       description:
         "Save a text file in the user's vault (Files folder), such as a draft, a list or a plan they asked you to keep. " +
@@ -205,6 +229,23 @@ export const ALL_TOOLS: ToolDefinition[] = [
         type: "object",
         properties: { name: { type: "string", description: "File name, such as reading-list.md" }, content: { type: "string" } },
         required: ["name", "content"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "spawn_agent",
+      description:
+        "Create a temporary helper agent for one task, with a role you choose (for example 'Analyst' or 'Devil's advocate') and read-only tools. It returns text only and can't save anything. A supervisor reviews its result before you see it.",
+      parameters: {
+        type: "object",
+        properties: {
+          role: { type: "string" },
+          task: { type: "string" },
+          tools: { type: "array", items: { type: "string", enum: ["search_memory", "web_search", "fetch_url"] } },
+        },
+        required: ["role", "task"],
       },
     },
   },
@@ -230,7 +271,7 @@ export const ALL_TOOLS: ToolDefinition[] = [
 export const toolDefs = (names: readonly string[]) => ALL_TOOLS.filter((t) => names.includes(t.function.name));
 
 /** The future self's own tools. Other agents get narrower sets (see agents.ts). */
-export const TOOLS = toolDefs(["search_memory", "propose_memory", "propose_plan", "save_file", "read_file", "list_files"]);
+export const TOOLS = toolDefs(["search_memory", "propose_memory", "propose_plan", "delegate_task", "spawn_agent", "save_file", "read_file", "list_files"]);
 
 export interface ToolResult {
   output: string;
@@ -238,28 +279,42 @@ export interface ToolResult {
   approvalId?: number;
 }
 
+/** Which sub-agent run a tool call belongs to, when it runs in this process. Lets parallel runs keep their tool logs apart. */
+export const runContext = new AsyncLocalStorage<{ runId: number }>();
+
 // Every tool call is logged, so the app can show what the agent did even when Docker Agent ran the loop.
 export async function runTool(db: Db, name: string, rawArgs: string): Promise<ToolResult> {
   const result = await executeTool(db, name, rawArgs);
-  db.prepare("INSERT INTO tool_events (tool, arguments, output, citations, approval_id) VALUES (?, ?, ?, ?, ?)").run(
+  db.prepare("INSERT INTO tool_events (tool, arguments, output, citations, approval_id, run_id) VALUES (?, ?, ?, ?, ?, ?)").run(
     name,
     rawArgs || "{}",
     result.output,
     JSON.stringify(result.citations),
     result.approvalId ?? null,
+    runContext.getStore()?.runId ?? null,
   );
   return result;
 }
 
-export function toolEventsSince(db: Db, afterId: number): { id: number; tool: string; citations: string[]; approval_id: number | null }[] {
-  const rows = db.prepare("SELECT id, tool, citations, approval_id FROM tool_events WHERE id > ? ORDER BY id").all(afterId) as {
-    id: number;
-    tool: string;
-    citations: string | null;
-    approval_id: number | null;
-  }[];
-  return rows.map((r) => ({ ...r, citations: r.citations ? JSON.parse(r.citations) : [] }));
+export interface ToolEvent {
+  id: number;
+  tool: string;
+  citations: string[];
+  approval_id: number | null;
 }
+
+export function toolEventsSince(db: Db, afterId: number): ToolEvent[] {
+  const rows = db.prepare("SELECT id, tool, citations, approval_id FROM tool_events WHERE id > ? ORDER BY id").all(afterId) as RawEvent[];
+  return rows.map(parseEvent);
+}
+
+/** Tool calls made by one in-process sub-agent run, even while other runs work in parallel. */
+export function toolEventsForRun(db: Db, runId: number): ToolEvent[] {
+  return (db.prepare("SELECT id, tool, citations, approval_id FROM tool_events WHERE run_id = ? ORDER BY id").all(runId) as RawEvent[]).map(parseEvent);
+}
+
+type RawEvent = Omit<ToolEvent, "citations"> & { citations: string | null };
+const parseEvent = (r: RawEvent): ToolEvent => ({ ...r, citations: r.citations ? JSON.parse(r.citations) : [] });
 
 export function lastToolEventId(db: Db): number {
   return (db.prepare("SELECT COALESCE(MAX(id), 0) AS id FROM tool_events").get() as { id: number }).id;
@@ -326,6 +381,16 @@ async function executeTool(db: Db, name: string, rawArgs: string): Promise<ToolR
         return { output: `Error: could not read ${args.data.url}: ${err instanceof Error ? err.message : "unknown error"}`, citations: [] };
       }
     }
+    case "delegate_task":
+    case "spawn_agent": {
+      // Helpers never get these tools, and this guard stops a handoff from inside a handoff in-process too.
+      if (runContext.getStore()) return { output: "Error: sub-agents can't hand off tasks.", citations: [] };
+      const args = name === "delegate_task" ? DelegateArgs.safeParse(json) : SpawnArgs.safeParse(json);
+      if (!args.success) return invalid(args.error);
+      const { handOff } = await import("./delegation");
+      const run = await handOff(db, name === "delegate_task" ? { kind: "delegate", ...(args.data as DelegateRequest) } : { kind: "spawn", ...(args.data as SpawnRequest) });
+      return { output: run.forParent, citations: run.citations };
+    }
     case "save_file": {
       const args = SaveFileArgs.safeParse(json);
       if (!args.success) return invalid(args.error);
@@ -360,6 +425,8 @@ async function executeTool(db: Db, name: string, rawArgs: string): Promise<ToolR
       if (name === "confirm_task_done") return (await import("./twin-calls")).confirmTaskDone(db, json);
       // On a call with someone else who asked not to be recorded.
       if (name === "stop_recording") return (await import("./twin-calls")).stopRecording(db, json);
+      // Tools from the Docker MCP Gateway: read-only ones run, the rest wait for approval (docker-tools.ts).
+      if (isDockerTool(name)) return runDockerTool(db, name, json);
       return { output: `Error: unknown tool ${name}.`, citations: [] };
   }
 }
@@ -382,6 +449,8 @@ function systemPrompt(profile: Profile, persona?: string): string {
     "When they share an important new fact about themselves, call propose_memory.",
     "When they ask you to keep a draft, list or plan, save it with save_file; use list_files and read_file to open what's saved.",
     "Never claim a memory or plan was saved; those proposals wait for their approval.",
+    dockerMcpConfigured() &&
+      "When they ask you to do something a docker_* tool can do, use it. Tools that change something wait for their approval on the Agent page; say so and never claim they ran.",
     "Keep replies under 150 words and end with one reflective question.",
   ]
     .filter(Boolean)
@@ -475,12 +544,14 @@ async function* sseData(body: ReadableStream<Uint8Array>): AsyncGenerator<string
 
 export function inProcessBackend(
   provider: LlmProvider = getProvider(),
-  opts: { tools?: ToolDefinition[]; instruction?: string } = {},
+  opts: { tools?: ToolDefinition[]; instruction?: string; extraTools?: () => Promise<ToolDefinition[]> } = {},
 ): AgentBackend {
-  const tools = opts.tools ?? TOOLS;
+  const base = opts.tools ?? TOOLS;
   return {
     name: `in-process:${provider.name}`,
     async run(db, initial, onDelta) {
+      // Tools discovered at run time (the Docker MCP Gateway's) join the fixed ones; none if the gateway is down.
+      const tools = opts.extraTools ? [...base, ...(await opts.extraTools().catch(() => []))] : base;
       // The agent's own instruction comes first, as Docker Agent does with the YAML instruction.
       const messages: ChatMessage[] = opts.instruction ? [{ role: "system", content: opts.instruction }, ...initial] : [...initial];
       for (let step = 0; step < MAX_STEPS; step++) {
@@ -496,7 +567,10 @@ export function inProcessBackend(
           tool_calls: res.toolCalls.map((c) => ({ id: c.id, type: "function", function: { name: c.name, arguments: c.arguments } })),
         });
         for (const c of res.toolCalls) {
-          messages.push({ role: "tool", tool_call_id: c.id, content: (await runTool(db, c.name, c.arguments)).output });
+          // A model can name any tool; only the ones this agent was given run.
+          const allowed = tools.some((t) => t.function.name === c.name);
+          const content = allowed ? (await runTool(db, c.name, c.arguments)).output : `Error: the tool ${c.name} isn't available to you.`;
+          messages.push({ role: "tool", tool_call_id: c.id, content });
         }
       }
       return "";
@@ -506,7 +580,7 @@ export function inProcessBackend(
 
 export function getAgentBackend(): AgentBackend {
   const url = process.env.DOCKER_AGENT_URL;
-  return url ? dockerAgentBackend(url) : inProcessBackend();
+  return url ? dockerAgentBackend(url) : inProcessBackend(getProvider(), { extraTools: dockerMcpConfigured() ? dockerToolDefs : undefined });
 }
 
 export async function chat(db: Db, userText: string, backend: AgentBackend = getAgentBackend(), onDelta?: OnDelta): Promise<ChatTurn> {
@@ -526,7 +600,9 @@ export async function chat(db: Db, userText: string, backend: AgentBackend = get
   const approvals = events.flatMap((e) => (e.approval_id ? [e.approval_id] : []));
 
   const tools = events.map((e) => e.tool);
-  const info = db.prepare("INSERT INTO messages (role, content, citations, tools) VALUES ('assistant', ?, ?, ?)").run(reply, JSON.stringify(citations), JSON.stringify(tools));
+  const info = db
+    .prepare("INSERT INTO messages (role, content, citations, tools, approvals) VALUES ('assistant', ?, ?, ?, ?)")
+    .run(reply, JSON.stringify(citations), JSON.stringify(tools), JSON.stringify(approvals));
   // Every exchange also goes into the vault's Conversations folder, so search_memory can find it later.
   try {
     rememberConversation(text, reply);

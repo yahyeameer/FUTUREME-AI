@@ -1,0 +1,18 @@
+# Adds the Docker MCP Gateway, so the future self can use tools from Docker's MCP catalog (docs/docker-mcp.md).
+#   docker compose -f docker-compose.yml -f docker-compose.mcp.yml up --build
+# Pick the catalog servers with DOCKER_MCP_SERVERS (default: duckduckgo,fetch). The gateway starts each one in its own
+# container through the Docker socket.
+services:
+  mcp-gateway:
+    image: docker/mcp-gateway
+    command: ["--transport=streaming", "--port=8811", "--servers=${DOCKER_MCP_SERVERS:-duckduckgo,fetch}"]
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    restart: unless-stopped
+
+  futureme:
+    environment:
+      DOCKER_MCP_GATEWAY_URL: http://mcp-gateway:8811/mcp
+      DOCKER_MCP_AUTO_APPROVE: ${DOCKER_MCP_AUTO_APPROVE:-}
+    depends_on:
+      - mcp-gateway
