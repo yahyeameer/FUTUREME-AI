@@ -320,7 +320,7 @@ function Chapters({ reflection, onRegenerate, generating }: { reflection: Reflec
         </AnimatePresence>
       </div>
 
-      <div className="sticky bottom-0 flex items-center justify-between gap-3 border-t border-border bg-background/80 px-4 py-3 backdrop-blur-md sm:px-8" data-print-hide>
+      <div className="sticky bottom-[var(--tabbar)] flex items-center justify-between gap-3 border-t border-border bg-background/80 px-4 py-3 backdrop-blur-md sm:px-8" data-print-hide>
         <Button variant="ghost" onClick={() => go(index - 1)} disabled={index === 0}>
           <ArrowLeft /> Back
         </Button>

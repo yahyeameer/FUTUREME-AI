@@ -2,6 +2,7 @@
 
 import { Toaster } from "sonner";
 import { CommandPaletteProvider } from "@/components/layout/command-palette";
+import { SpotlightTracker } from "@/components/motion/spotlight";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { PreferencesProvider, usePreferences } from "@/lib/preferences";
 import { WorkspaceProvider } from "@/lib/workspace-store";
@@ -13,6 +14,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
         <TooltipProvider delayDuration={350}>
           <CommandPaletteProvider>{children}</CommandPaletteProvider>
           <ThemedToaster />
+          <SpotlightTracker />
         </TooltipProvider>
       </WorkspaceProvider>
     </PreferencesProvider>
@@ -25,6 +27,7 @@ function ThemedToaster() {
     <Toaster
       theme={resolvedTheme}
       position="bottom-right"
+      mobileOffset={{ bottom: "calc(var(--tabbar) + 12px)" }}
       toastOptions={{
         classNames: {
           toast: "!rounded-md !border !border-border-strong !bg-surface-2 !text-foreground !shadow-float !text-[13px] !font-sans",

@@ -54,6 +54,11 @@
   --ambient-b: rgb(187 128 92 / 0.2);
   --ambient-c: rgb(235 231 222 / 0.9);
   --paper-grain: 0.045;
+  /* Cursor-following light on cards, and the dotted field behind the app. */
+  --spot: rgb(196 214 106 / 0.16);
+  --spot-edge: rgb(150 172 40 / 0.35);
+  --dots: rgb(23 25 27 / 0.07);
+  --glow-accent: 0 0 0 1px rgb(150 172 40 / 0.25), 0 18px 40px -18px rgb(150 172 40 / 0.55);
 }
 
 [data-theme="dark"] {
@@ -96,10 +101,14 @@
   --shadow-card: 0 1px 0 rgb(255 255 255 / 0.035) inset, 0 12px 32px -18px rgb(0 0 0 / 0.7);
   --shadow-lift: 0 1px 0 rgb(255 255 255 / 0.05) inset, 0 24px 50px -20px rgb(0 0 0 / 0.85);
   --shadow-float: 0 1px 0 rgb(255 255 255 / 0.04) inset, 0 18px 50px -20px rgb(0 0 0 / 0.7);
-  --ambient-a: rgb(196 214 106 / 0.1);
-  --ambient-b: rgb(187 128 92 / 0.09);
+  --ambient-a: rgb(196 214 106 / 0.15);
+  --ambient-b: rgb(187 128 92 / 0.13);
   --ambient-c: rgb(16 17 18 / 0);
   --paper-grain: 0.035;
+  --spot: rgb(196 214 106 / 0.09);
+  --spot-edge: rgb(196 214 106 / 0.32);
+  --dots: rgb(255 255 255 / 0.05);
+  --glow-accent: 0 0 0 1px rgb(196 214 106 / 0.22), 0 18px 44px -16px rgb(196 214 106 / 0.35);
 }
 
 :root {
@@ -109,6 +118,14 @@
   /* Density scales row padding in lists, tables and the sidebar. */
   --row-y: 0.625rem;
   --gap-section: 2.5rem;
+  /* Height of the phone tab bar; 0 wherever it isn't shown. */
+  --tabbar: 0px;
+}
+
+@media (max-width: 1023px) {
+  :root:has([data-tabbar]) {
+    --tabbar: calc(3.75rem + env(safe-area-inset-bottom));
+  }
 }
 
 [data-density="compact"] {
@@ -168,6 +185,8 @@
   --animate-breathe: breathe 6s ease-in-out infinite;
   --animate-orbit: orbit 24s linear infinite;
   --animate-orbit-slow: orbit 60s linear infinite;
+  --animate-shimmer: shimmer 1.8s ease-in-out infinite;
+  --animate-float: float 7s ease-in-out infinite;
 }
 
 @keyframes sweep {
@@ -194,6 +213,37 @@
 @keyframes shimmer {
   from { background-position: 200% 0; }
   to { background-position: -200% 0; }
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-6px); }
+}
+
+@keyframes sheen {
+  from { transform: translateX(-120%) skewX(-18deg); }
+  to { transform: translateX(260%) skewX(-18deg); }
+}
+
+@keyframes gradient-pan {
+  0%, 100% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+}
+
+@keyframes aurora {
+  0% { transform: translate3d(0, 0, 0) rotate(0deg) scale(1); }
+  50% { transform: translate3d(3%, -4%, 0) rotate(8deg) scale(1.08); }
+  100% { transform: translate3d(0, 0, 0) rotate(0deg) scale(1); }
+}
+
+@keyframes grow-x {
+  from { transform: scaleX(0); }
+  to { transform: scaleX(1); }
+}
+
+@keyframes soft-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 var(--spot-edge); }
+  50% { box-shadow: 0 0 0 5px transparent; }
 }
 
 @keyframes caret {
@@ -311,19 +361,101 @@
   }
 
   /* Raised surfaces: the default container for content. */
+  /* --mx/--my are set by the pointer (see SpotlightTracker), so the light follows the cursor. */
   .card {
-    background: var(--surface);
+    background:
+      radial-gradient(420px circle at var(--mx, -100%) var(--my, -100%), var(--spot), transparent 45%),
+      var(--surface);
     border: 1px solid var(--border);
     border-radius: calc(var(--radius) + 8px);
     box-shadow: var(--shadow-card);
+    transition: border-color 0.3s;
   }
   .card-hover {
     transition: transform 0.25s cubic-bezier(0.2, 0.7, 0.2, 1), box-shadow 0.25s, border-color 0.25s;
   }
   .card-hover:hover {
-    transform: translateY(-2px);
-    box-shadow: var(--shadow-lift);
+    transform: translateY(-3px);
+    box-shadow: var(--shadow-lift), var(--glow-accent);
     border-color: var(--border-strong);
+  }
+
+  /* A light sweep across the one strong action on a surface. */
+  .sheen {
+    position: relative;
+    overflow: hidden;
+    isolation: isolate;
+  }
+  .sheen::after {
+    content: "";
+    position: absolute;
+    inset: 0 auto 0 0;
+    width: 40%;
+    z-index: -1;
+    background: linear-gradient(90deg, transparent, rgb(255 255 255 / 0.28), transparent);
+    transform: translateX(-120%) skewX(-18deg);
+    pointer-events: none;
+  }
+  .sheen:hover::after {
+    animation: sheen 0.9s cubic-bezier(0.2, 0.7, 0.2, 1);
+  }
+
+  /* Citron to copper ink, slowly panning: names and the words that matter. */
+  .text-gradient {
+    background: linear-gradient(100deg, var(--copper) 0%, var(--accent-ink) 45%, var(--copper) 90%);
+    background-size: 220% 100%;
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    animation: gradient-pan 9s ease-in-out infinite;
+  }
+
+  /* Slow coloured light inside hero cards. */
+  .aurora {
+    position: absolute;
+    inset: -30%;
+    pointer-events: none;
+    background:
+      radial-gradient(38% 42% at 72% 30%, var(--ambient-a), transparent 70%),
+      radial-gradient(30% 36% at 85% 78%, var(--ambient-b), transparent 70%),
+      radial-gradient(26% 30% at 20% 90%, var(--accent-wash), transparent 70%);
+    filter: blur(20px);
+    animation: aurora 26s ease-in-out infinite;
+  }
+
+  /* Faint dotted field, fading out toward the edges. */
+  .dot-field {
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    background-image: radial-gradient(var(--dots) 1px, transparent 1.2px);
+    background-size: 22px 22px;
+    -webkit-mask-image: radial-gradient(ellipse 80% 70% at 60% 20%, #000 20%, transparent 75%);
+    mask-image: radial-gradient(ellipse 80% 70% at 60% 20%, #000 20%, transparent 75%);
+  }
+
+  /* Short citron-to-copper rule under page titles. */
+  .title-rule {
+    display: block;
+    height: 3px;
+    width: 3.5rem;
+    border-radius: 9999px;
+    background: linear-gradient(90deg, var(--accent), var(--copper));
+    transform-origin: left;
+    animation: grow-x 0.8s cubic-bezier(0.2, 0.7, 0.2, 1) 0.15s both;
+  }
+
+  /* Glowing edge for an input area that has focus. */
+  .focus-glow {
+    transition: box-shadow 0.25s, border-color 0.25s;
+  }
+  .focus-glow:focus-within {
+    box-shadow: var(--shadow-lift), var(--glow-accent);
+  }
+
+  .pulse-ring {
+    animation: soft-pulse 2.4s ease-in-out infinite;
   }
 
   /* Warm ambient light behind the whole app. Slow drift; still under reduced motion. */
