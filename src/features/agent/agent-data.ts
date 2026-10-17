@@ -1,4 +1,4 @@
-import { BookmarkPlus, FileSearch, Forward, Globe, ListPlus, Search, UserPlus, type LucideIcon } from "lucide-react";
+import { BookmarkPlus, FilePlus, FileSearch, FolderOpen, Forward, Globe, ListPlus, Search, UserPlus, type LucideIcon } from "lucide-react";
 import type { Memory, Workspace } from "@/types";
 
 export type ToolAccess = "read" | "write" | "none";
@@ -18,7 +18,7 @@ export interface ToolInfo {
 }
 
 /**
- * The real toolset: the FutureMe MCP server (mcp/futureme-server.ts) exposes exactly these seven.
+ * The real toolset: the FutureMe MCP server (mcp/futureme-server.ts) exposes these, plus the voice twin's own tools.
  * Each agent in agents/futureme.yaml gets only the ones it needs, so the future self itself never browses.
  */
 export function agentTools(ws: Workspace): ToolInfo[] {
@@ -31,10 +31,29 @@ export function agentTools(ws: Workspace): ToolInfo[] {
       name: "search_memory",
       label: "Search memory",
       icon: Search,
-      description: "Looks through the notes in your vault by keyword before it answers, and cites what it used.",
+      description:
+        "Searches everything it remembers before it answers: your vault notes (including ones you write in Obsidian), every past conversation and saved files. Cites what it used.",
       access: "read",
       gate: "auto",
-      touches: "Vault notes",
+      touches: "Vault notes and conversations",
+    },
+    {
+      name: "save_file",
+      label: "Save a file",
+      icon: FilePlus,
+      description: "Keeps a draft, list or plan you asked for as a file in your vault's Files folder.",
+      access: "write",
+      gate: "auto",
+      touches: "Vault Files folder",
+    },
+    {
+      name: "read_file",
+      label: "Read files",
+      icon: FolderOpen,
+      description: "Lists and opens the notes and files in your vault when it needs the whole text.",
+      access: "read",
+      gate: "auto",
+      touches: "Vault notes and files",
     },
     {
       name: "propose_plan",

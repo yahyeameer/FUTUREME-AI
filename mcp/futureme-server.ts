@@ -15,7 +15,8 @@ const readOnly = { readOnlyHint: true, openWorldHint: false };
 server.registerTool(
   "search_memory",
   {
-    description: "Search the user's memory vault (profile, dream, values, goals, reflections, tasks) by keyword.",
+    description:
+      "Search everything remembered about the user: their memory vault (profile, dream, values, goals, reflections, tasks), every past conversation, and saved files. Keyword search.",
     inputSchema: { query: z.string().min(1), limit: z.number().int().min(1).max(10).optional() },
     annotations: readOnly,
   },
@@ -100,6 +101,39 @@ server.registerTool(
     annotations: { readOnlyHint: true, openWorldHint: true },
   },
   async (args) => text((await runTool(db, "spawn_agent", JSON.stringify(args))).output),
+);
+
+// ---------- The agent's own files, kept in the vault's Files folder ----------
+
+server.registerTool(
+  "save_file",
+  {
+    description:
+      "Save a text file in the user's vault (Files folder), such as a draft, a list or a plan they asked you to keep. A file with the same name is replaced. Allowed types: .md (default), .txt, .csv, .json.",
+    inputSchema: { name: z.string().min(1).max(120), content: z.string().min(1) },
+    annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: false },
+  },
+  async (args) => text((await runTool(db, "save_file", JSON.stringify(args))).output),
+);
+
+server.registerTool(
+  "read_file",
+  {
+    description: "Read a note or file from the user's vault by its path, as given by list_files or search_memory.",
+    inputSchema: { path: z.string().min(1).max(300) },
+    annotations: readOnly,
+  },
+  async (args) => text((await runTool(db, "read_file", JSON.stringify(args))).output),
+);
+
+server.registerTool(
+  "list_files",
+  {
+    description: "List the notes and files in the user's vault, optionally in one folder (such as Files or Goals).",
+    inputSchema: { folder: z.string().max(120).optional() },
+    annotations: readOnly,
+  },
+  async (args) => text((await runTool(db, "list_files", JSON.stringify(args))).output),
 );
 
 // ---------- Voice twin (propose-only) ----------

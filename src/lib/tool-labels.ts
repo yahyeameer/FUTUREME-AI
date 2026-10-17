@@ -2,6 +2,9 @@
 export const TOOL_LABELS: Record<string, string> = {
   docker_mcp: "Docker MCP tools",
   search_memory: "Searched your memory",
+  save_file: "Saved a file",
+  read_file: "Read a file",
+  list_files: "Looked through your files",
   propose_plan: "Drafted a plan",
   propose_memory: "Proposed a memory",
   web_search: "Searched the web",

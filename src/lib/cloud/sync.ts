@@ -37,9 +37,12 @@ export interface SyncReport {
 
 /** Every SQLite table with a single-column primary key. */
 export function localTables(db: Db): TableInfo[] {
-  const names = db
-    .prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' ORDER BY name")
-    .all() as { name: string }[];
+  const all = db
+    .prepare("SELECT name, sql FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' ORDER BY name")
+    .all() as { name: string; sql: string | null }[];
+  // Full-text indexes (and their shadow tables) are rebuilt locally, not synced.
+  const virtual = all.filter((t) => /^CREATE VIRTUAL TABLE/i.test(t.sql ?? "")).map((t) => t.name);
+  const names = all.filter((t) => !virtual.some((v) => t.name === v || t.name.startsWith(`${v}_`)));
   return names.flatMap(({ name }) => {
     const cols = db.prepare(`PRAGMA table_info("${name}")`).all() as { name: string; type: string; pk: number }[];
     const keys = cols.filter((c) => c.pk > 0);

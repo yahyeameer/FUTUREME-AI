@@ -4,9 +4,19 @@ FutureMe keeps working on its local SQLite database and Markdown vault, and keep
 every table goes to a Postgres table with the same name and columns, and every vault note and voice recording goes to
 the private `futureme-files` Storage bucket. A new server or a lost disk gets everything back from that copy.
 
+## The agent's memory
+
+- **Obsidian vault, indexed in the database.** Every Markdown note in the vault, including ones you add or edit in
+  Obsidian, is copied into the `notes` table with a full-text index. `search_memory` reads from that table and catches
+  up with the vault before each search. In Supabase, `notes` has an `fts` column for searching memory with SQL.
+- **Every conversation.** Each exchange with the future self is appended to `Conversations/conversation-<date>.md`,
+  so later chats can find what was said.
+- **The agent's files.** `save_file`, `read_file` and `list_files` let the future self keep drafts, lists and plans in
+  the vault's `Files` folder (.md, .txt, .csv, .json, up to 200 KB). Files go to the Storage bucket with the vault.
+
 ## Set it up
 
-1. Apply `supabase/migrations/20261016063000_futureme_cloud_copy.sql` to the project (SQL editor, `supabase db push`,
+1. Apply the files in `supabase/migrations/` in order to the project (SQL editor, `supabase db push`,
    or the Supabase MCP `apply_migration`). It creates the tables, the `cloud_files` list and the bucket.
 2. In `.env.local` (or the server's `.env`), set:
 

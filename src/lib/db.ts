@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import Database from "better-sqlite3";
+import { MEMORY_SCHEMA } from "./memory";
 import { migrateTwin, TWIN_SCHEMA } from "./twin-schema";
 
 // Operational records (profile, goals, tasks, pending approvals). The vault holds the human-readable memory.
@@ -169,6 +170,7 @@ export function openDb(file = process.env.DATABASE_PATH ?? path.join(process.cwd
   db.pragma("busy_timeout = 5000");
   db.exec(SCHEMA);
   db.exec(TWIN_SCHEMA);
+  db.exec(MEMORY_SCHEMA);
   migrate(db);
   migrateTwin(db);
   return db;
