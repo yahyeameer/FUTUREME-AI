@@ -41,10 +41,11 @@ export function Roadmap() {
         }
       />
 
-      <section className="mt-7 card px-5 py-5 sm:px-6">
-        <p className="t-label">Long-term goal · by {profile.horizonYear}</p>
-        <p className="mt-2 font-display text-[clamp(1.4rem,1.1rem+1vw,1.9rem)] leading-snug text-balance">{profile.dream}</p>
-        <p className="mt-3 t-meta">
+      <section className="card ring-gradient paper relative mt-7 overflow-hidden px-5 py-5 sm:px-6">
+        <div aria-hidden className="aurora" />
+        <p className="relative t-label">Long-term goal · by {profile.horizonYear}</p>
+        <p className="relative mt-2 font-display text-[clamp(1.4rem,1.1rem+1vw,1.9rem)] leading-snug text-balance">{profile.dream}</p>
+        <p className="relative mt-3 t-meta">
           {pluralize(milestones.length, "milestone")} · {all.done} of {pluralize(all.total, "task")} done
         </p>
       </section>
@@ -112,14 +113,14 @@ function MilestoneItem({ milestone, status, last, focused }: { milestone: Milest
         className={cn(
           "absolute top-1 left-0 flex size-[23px] items-center justify-center rounded-full border bg-background",
           status === "done" && "border-accent bg-accent text-accent-foreground",
-          status === "active" && "border-accent",
+          status === "active" && "pulse-ring border-accent",
           status === "upcoming" && "border-border-strong",
         )}
       >
         {status === "done" ? <Check className="size-3" strokeWidth={3} /> : status === "active" ? <span className="size-2 rounded-full bg-accent" /> : null}
       </span>
 
-      <div className={cn("rounded-xl border transition-colors", status === "active" ? "border-accent/40 bg-surface shadow-card" : "border-transparent", focused && "ring-1 ring-accent/40")}>
+      <div className={cn("rounded-xl border transition-colors", status === "active" ? "border-accent/40 bg-[radial-gradient(120%_80%_at_0%_0%,var(--accent-wash),transparent_55%),var(--surface)] shadow-[var(--shadow-card),var(--glow-accent)]" : "border-transparent", focused && "ring-1 ring-accent/40")}>
         <button type="button" onClick={() => setOpen((o) => !o)} aria-expanded={open} className={cn("flex w-full items-start gap-3 text-left", status === "active" ? "px-4 py-3" : "px-1 py-1")}>
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-2">
@@ -131,7 +132,7 @@ function MilestoneItem({ milestone, status, last, focused }: { milestone: Milest
             <div className="mt-2.5 flex items-center gap-2.5">
               <div className="flex h-1.5 max-w-xs flex-1 gap-0.5" aria-hidden>
                 {tasks.map((t) => (
-                  <motion.span key={t.id} layout className={cn("flex-1 rounded-[2px] transition-colors duration-500", t.status === "done" ? "bg-accent" : t.status === "in_progress" ? "bg-accent/35" : t.status === "blocked" ? "bg-warning/55" : "bg-surface-3")} />
+                  <motion.span key={t.id} layout className={cn("flex-1 rounded-[2px] transition-colors duration-500", t.status === "done" ? "bg-accent shadow-[0_0_8px_-1px_var(--accent)]" : t.status === "in_progress" ? "bg-accent/35" : t.status === "blocked" ? "bg-warning/55" : "bg-surface-3")} />
                 ))}
               </div>
               <span className="t-meta">

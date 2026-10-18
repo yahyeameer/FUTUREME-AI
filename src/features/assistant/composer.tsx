@@ -49,7 +49,7 @@ export function Composer({
 
   return (
     <form
-      className={cn("glass rounded-2xl p-2 transition-shadow focus-within:shadow-[var(--shadow-lift)]", className)}
+      className={cn("glass focus-glow rounded-2xl p-2", className)}
       onSubmit={(e) => {
         e.preventDefault();
         submit();
