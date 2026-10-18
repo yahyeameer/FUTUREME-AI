@@ -7,7 +7,8 @@ import { dockerMcpConfigured, dockerToolDefs } from "./docker-mcp";
 import { isDockerTool, runDockerTool } from "./docker-tools";
 import { activePack } from "./packs";
 import { isTwinTool, runTwinTool, TWIN_TOOL_DEFS } from "./twin";
-import { searchNotes, writeNote } from "./vault";
+import { listFiles, readFile, rememberConversation, saveFile, searchMemory } from "./memory";
+import { writeNote } from "./vault";
 import { fetchPage, webSearch } from "./web";
 
 // Core FutureMe workflow: profile -> future story -> chat with memory -> approval-gated plans -> tasks.
@@ -119,6 +120,9 @@ const SpawnArgs = z.object({
 });
 export type DelegateRequest = z.infer<typeof DelegateArgs>;
 export type SpawnRequest = z.infer<typeof SpawnArgs>;
+const SaveFileArgs = z.object({ name: z.string().min(1).max(120), content: z.string().min(1) });
+const ReadFileArgs = z.object({ path: z.string().min(1).max(300) });
+const ListFilesArgs = z.object({ folder: z.string().max(120).optional() });
 const PlanArgs = z.object({
   goal: z.string().min(1).max(160),
   why: z.string().max(1000).optional(),
@@ -135,7 +139,9 @@ export const ALL_TOOLS: ToolDefinition[] = [
     type: "function",
     function: {
       name: "search_memory",
-      description: "Search the user's memory vault (profile, dream, values, goals, reflections) by keyword.",
+      description:
+        "Search everything you remember about the user: their memory vault (profile, dream, values, goals, reflections), " +
+        "every past conversation, and saved files. Keyword search.",
       parameters: {
         type: "object",
         properties: { query: { type: "string" }, limit: { type: "integer" } },
@@ -215,6 +221,20 @@ export const ALL_TOOLS: ToolDefinition[] = [
   {
     type: "function",
     function: {
+      name: "save_file",
+      description:
+        "Save a text file in the user's vault (Files folder), such as a draft, a list or a plan they asked you to keep. " +
+        "A file with the same name is replaced. Allowed types: .md (default), .txt, .csv, .json.",
+      parameters: {
+        type: "object",
+        properties: { name: { type: "string", description: "File name, such as reading-list.md" }, content: { type: "string" } },
+        required: ["name", "content"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
       name: "spawn_agent",
       description:
         "Create a temporary helper agent for one task, with a role you choose (for example 'Analyst' or 'Devil's advocate') and read-only tools. It returns text only and can't save anything. A supervisor reviews its result before you see it.",
@@ -229,13 +249,29 @@ export const ALL_TOOLS: ToolDefinition[] = [
       },
     },
   },
+  {
+    type: "function",
+    function: {
+      name: "read_file",
+      description: "Read a note or file from the user's vault by its path, as given by list_files or search_memory.",
+      parameters: { type: "object", properties: { path: { type: "string" } }, required: ["path"] },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "list_files",
+      description: "List the notes and files in the user's vault, optionally in one folder (such as Files or Goals).",
+      parameters: { type: "object", properties: { folder: { type: "string" } } },
+    },
+  },
   ...TWIN_TOOL_DEFS,
 ];
 
 export const toolDefs = (names: readonly string[]) => ALL_TOOLS.filter((t) => names.includes(t.function.name));
 
 /** The future self's own tools. Other agents get narrower sets (see agents.ts). */
-export const TOOLS = toolDefs(["search_memory", "propose_memory", "propose_plan", "delegate_task", "spawn_agent"]);
+export const TOOLS = toolDefs(["search_memory", "propose_memory", "propose_plan", "delegate_task", "spawn_agent", "save_file", "read_file", "list_files"]);
 
 export interface ToolResult {
   output: string;
@@ -297,9 +333,9 @@ async function executeTool(db: Db, name: string, rawArgs: string): Promise<ToolR
     case "search_memory": {
       const args = SearchArgs.safeParse(json);
       if (!args.success) return invalid(args.error);
-      let hits = searchNotes(args.data.query, args.data.limit ?? 4);
+      let hits = searchMemory(db, args.data.query, args.data.limit ?? 4);
       // Nothing matched: fall back to the core profile notes so the future self is always grounded.
-      if (!hits.length) hits = searchNotes("profile dream values", 3);
+      if (!hits.length) hits = searchMemory(db, "profile dream values", 3);
       if (!hits.length) return { output: "No matching notes.", citations: [] };
       return {
         output: hits.map((h) => `## ${h.note.title} (${h.note.path})\n${h.note.body.trim().slice(0, 1200)}`).join("\n\n"),
@@ -355,6 +391,33 @@ async function executeTool(db: Db, name: string, rawArgs: string): Promise<ToolR
       const run = await handOff(db, name === "delegate_task" ? { kind: "delegate", ...(args.data as DelegateRequest) } : { kind: "spawn", ...(args.data as SpawnRequest) });
       return { output: run.forParent, citations: run.citations };
     }
+    case "save_file": {
+      const args = SaveFileArgs.safeParse(json);
+      if (!args.success) return invalid(args.error);
+      try {
+        const saved = saveFile(args.data.name, args.data.content);
+        return { output: `Saved ${saved}.`, citations: [saved] };
+      } catch (err) {
+        return { output: `Error: ${err instanceof Error ? err.message : "could not save the file"}`, citations: [] };
+      }
+    }
+    case "read_file": {
+      const args = ReadFileArgs.safeParse(json);
+      if (!args.success) return invalid(args.error);
+      try {
+        const file = readFile(args.data.path);
+        return { output: `# ${file.path}\n\n${file.content}${file.truncated ? "\n\n[truncated]" : ""}`, citations: [file.path] };
+      } catch (err) {
+        return { output: `Error: ${err instanceof Error ? err.message : "could not read the file"}`, citations: [] };
+      }
+    }
+    case "list_files": {
+      const args = ListFilesArgs.safeParse(json);
+      if (!args.success) return invalid(args.error);
+      const files = listFiles(args.data.folder);
+      if (!files.length) return { output: args.data.folder ? `No files in ${args.data.folder}.` : "The vault is empty.", citations: [] };
+      return { output: files.slice(0, 200).join("\n") + (files.length > 200 ? `\n…and ${files.length - 200} more` : ""), citations: [] };
+    }
     default:
       // The voice twin's propose-only tools (calls, emails, commitments) live in twin.ts.
       if (isTwinTool(name)) return runTwinTool(db, name, json);
@@ -384,7 +447,8 @@ function systemPrompt(profile: Profile, persona?: string): string {
     "Always call search_memory before answering so you use what they've told you, and mention what you remembered.",
     "When they commit to something or describe a goal, call propose_plan with small, concrete tasks.",
     "When they share an important new fact about themselves, call propose_memory.",
-    "Never claim something was saved or created; proposals wait for their approval.",
+    "When they ask you to keep a draft, list or plan, save it with save_file; use list_files and read_file to open what's saved.",
+    "Never claim a memory or plan was saved; those proposals wait for their approval.",
     dockerMcpConfigured() &&
       "When they ask you to do something a docker_* tool can do, use it. Tools that change something wait for their approval on the Agent page; say so and never claim they ran.",
     "Keep replies under 150 words and end with one reflective question.",
@@ -539,6 +603,12 @@ export async function chat(db: Db, userText: string, backend: AgentBackend = get
   const info = db
     .prepare("INSERT INTO messages (role, content, citations, tools, approvals) VALUES ('assistant', ?, ?, ?, ?)")
     .run(reply, JSON.stringify(citations), JSON.stringify(tools), JSON.stringify(approvals));
+  // Every exchange also goes into the vault's Conversations folder, so search_memory can find it later.
+  try {
+    rememberConversation(text, reply);
+  } catch (err) {
+    console.error("Could not save the conversation to the vault:", err);
+  }
   return { id: Number(info.lastInsertRowid), reply, citations, approvals, tools, backend: backend.name };
 }
 

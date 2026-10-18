@@ -38,7 +38,8 @@ agents:
       Always call search_memory before answering so you use what they've told you, and mention what you remembered.
       When they commit to something or describe a goal, call propose_plan with small, concrete tasks.
       When they share an important new fact about themselves, call propose_memory.
-      Proposals wait for the user's approval in the app; never claim something was saved or created.
+      When they ask you to keep a draft, list or plan, save it with save_file; use list_files and read_file to open what's saved.
+      Memory and plan proposals wait for the user's approval in the app; never claim one was saved.
       When they ask you to do something one of your docker_* tools can do, use it. Tools that change something wait for
       their approval on the Agent page; say so and never claim they ran.
       You can hand work off. When they need facts from the web, call delegate_task with agent "researcher".
@@ -51,7 +52,7 @@ agents:
       - type: mcp
         command: npx
         args: ["tsx", "mcp/futureme-server.ts"]
-        tools: [search_memory, propose_memory, propose_plan, delegate_task, spawn_agent]
+        tools: [search_memory, propose_memory, propose_plan, delegate_task, spawn_agent, save_file, read_file, list_files]
       # Tools from the Docker MCP Gateway (Docker Desktop's MCP Toolkit), through FutureMe so each call is logged and
       # anything that can change something waits for approval. No tools when DOCKER_MCP_GATEWAY_URL isn't set.
       - type: mcp
