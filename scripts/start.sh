@@ -12,17 +12,18 @@ if [ "$LLM_PROVIDER" = "local" ]; then
   echo "Local mode: every agent uses $LOCAL_MODEL at $LOCAL_LLM_URL. Nothing is sent to a cloud model."
   # Point the team's provider at Docker Model Runner's OpenAI-compatible endpoint.
   AGENT_FILE=agents/futureme.runtime.yaml
-  sed -e "s|^    base_url: https://api.tokenfactory.nebius.com/v1/|    base_url: ${LOCAL_LLM_URL%/}/|" \
+  sed -e "s|^    base_url: https://api.tokenfactory\.[^ ]*|    base_url: ${LOCAL_LLM_URL%/}/|" \
       -e "s|^    model: .* \# NEBIUS_MODEL.*|    model: $LOCAL_MODEL|" agents/futureme.yaml > "$AGENT_FILE"
 elif [ "$LLM_PROVIDER" = "mock" ] || [ -z "$NEBIUS_API_KEY" ]; then
   echo "No NEBIUS_API_KEY: using the stand-in model."
   export LLM_PROVIDER=mock NEBIUS_API_KEY="${NEBIUS_API_KEY:-unused}"
   node_modules/.bin/tsx scripts/mock-model-server.ts &
   FLAVOR="--flavor mock"
-elif [ -n "$NEBIUS_MODEL" ]; then
-  # Use NEBIUS_MODEL for the agents too, so the app and the agents run the same Nemotron model.
+elif [ -n "$NEBIUS_MODEL" ] || [ -n "$NEBIUS_BASE_URL" ]; then
+  # Use NEBIUS_MODEL and NEBIUS_BASE_URL for the agents too, so the app and the agents call the same endpoint and model.
   AGENT_FILE=agents/futureme.runtime.yaml
-  sed "s|^    model: .* \# NEBIUS_MODEL.*|    model: $NEBIUS_MODEL|" agents/futureme.yaml > "$AGENT_FILE"
+  sed -e "${NEBIUS_MODEL:+s|^    model: .* \# NEBIUS_MODEL.*|    model: $NEBIUS_MODEL|}" \
+      -e "${NEBIUS_BASE_URL:+s|^    base_url: https://api.tokenfactory\.[^ ]*|    base_url: ${NEBIUS_BASE_URL%/}/|}" agents/futureme.yaml > "$AGENT_FILE"
 fi
 
 mkdir -p "$(dirname "$DATABASE_PATH")" "$VAULT_DIR"
