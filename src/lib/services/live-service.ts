@@ -49,7 +49,9 @@ async function request(body?: object): Promise<Workspace> {
 }
 
 /** True when the FutureMe app server answers. Used to choose between live and demo mode. */
-export async function probeLive(timeoutMs = 2500): Promise<boolean> {
+// Generous on purpose: in `next dev` the first request compiles the route, and on Windows that alone can take
+// several seconds. Timing out early silently drops people into demo mode while their server is fine.
+export async function probeLive(timeoutMs = 20_000): Promise<boolean> {
   try {
     const res = await fetch("/api/workspace", { cache: "no-store", signal: AbortSignal.timeout(timeoutMs) });
     return res.ok;

@@ -65,6 +65,19 @@ export function respond(state: DemoState, text: string, style: CoachingStyle): S
   const next = nextStep(state);
   const remembered = hits[0] ? `You wrote about “${hits[0].title}”. ` : "";
 
+  // Greetings and "who are you": answer as the future self before anything else.
+  if (/\b(who are you|what are you|who is this|who am i talking to|your name)\b/.test(lower) || /^\s*(hi|hey|hello|salaam|salam|asc)\b[\s!.?]*$/.test(lower)) {
+    const p = state.profile;
+    const name = p?.name ?? "friend";
+    const year = p?.horizonYear ?? new Date().getFullYear() + 10;
+    const dream = p?.dream ? ` ${p.dream.replace(/^i\b/i, "I").replace(/[.]+$/, "")}.` : "";
+    return {
+      tools: [],
+      citations: [],
+      text: `I'm you, ${name}. Future ${name}, writing from ${year}.${dream} I remember this stretch well, the part where it all still felt uncertain.\n\n${next ? `What's on your mind? I'd start with “${next.title}”, but tell me where you are first.` : "What's on your mind?"}`,
+    };
+  }
+
   if (/\b(plan|break (it )?down|steps|tasks|roadmap|how do i|how can i|start)\b/.test(lower)) {
     const plan = planFor(text, state);
     return {
