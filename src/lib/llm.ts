@@ -2,7 +2,7 @@ import OpenAI from "openai";
 import { mockProvider } from "./mock-llm";
 
 // Nebius Token Factory exposes an OpenAI-compatible API, so the standard client works with a different base URL.
-export const NEBIUS_BASE_URL = process.env.NEBIUS_BASE_URL ?? "https://api.tokenfactory.nebius.com/v1/";
+export const NEBIUS_BASE_URL = process.env.NEBIUS_BASE_URL ?? "https://api.tokenfactory.us-north1.nebius.com/v1/";
 
 export type ChatMessage = OpenAI.Chat.ChatCompletionMessageParam;
 export type ToolDefinition = OpenAI.Chat.ChatCompletionFunctionTool;
