@@ -12,7 +12,7 @@ export function SpotlightTracker() {
       frame = 0;
       const e = last;
       if (!e || !(e.target instanceof Element)) return;
-      const card = e.target.closest<HTMLElement>(".card");
+      const card = e.target.closest<HTMLElement>(".card, [data-spotlight]");
       if (!card) return;
       const r = card.getBoundingClientRect();
       card.style.setProperty("--mx", `${e.clientX - r.left}px`);

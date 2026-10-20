@@ -31,6 +31,8 @@ export function Conversation() {
   const name = workspace.profile ? `Future ${workspace.profile.name}` : "Future you";
   const messages = workspace.conversation;
   const prompts = usePrompts();
+  // Replies already here when the page opened don't replay their arrival.
+  const [seen] = React.useState(() => new Set(messages.map((m) => m.id)));
 
   // A prompt handed over from another screen (Daily, Skills, Home) lands in the composer for review, not auto-sent.
   React.useEffect(() => {
@@ -81,7 +83,9 @@ export function Conversation() {
     <PageFrame rail={<FutureSelfContext />} railTitle="Context" toolbar={toolbar} className="pb-0 sm:pb-0">
       <div className="flex flex-1 flex-col">
         <section className={cn("flex flex-col items-center text-center", messages.length ? "pt-0 pb-8" : "pt-6 pb-10")}>
-          <Orb size={messages.length ? 150 : 220}><Presence convergence={convergence(workspace.tasks)} state={pending && !pending.error ? "thinking" : "idle"} size={messages.length ? 96 : 140} className="text-foreground" /></Orb>
+          <Orb size={messages.length ? 180 : 240} horizonYear={workspace.profile?.horizonYear} active={!!pending && !pending.error}>
+            <Presence convergence={convergence(workspace.tasks)} state={pending && !pending.error ? "thinking" : "idle"} size={messages.length ? 112 : 150} className="text-foreground" />
+          </Orb>
           <p className={cn("mt-5 max-w-md font-display leading-snug text-balance italic", messages.length ? "text-[19px]" : "text-[22px] sm:text-[24px]")}>{OPENING}</p>
           <p className="mt-3 max-w-sm text-[12px] text-subtle">
             FutureMe speaks as one possible future you, based on what you&apos;ve shared. It remembers what&apos;s in your vault and asks before changing anything.
@@ -89,7 +93,7 @@ export function Conversation() {
         </section>
 
         <div className="flex flex-col gap-7" role="log" aria-label="Conversation" aria-live="off">
-          {messages.map((m) => (m.role === "user" ? <UserMessage key={m.id} message={m} /> : <AssistantMessage key={m.id} message={m} name={name} />))}
+          {messages.map((m) => (m.role === "user" ? <UserMessage key={m.id} message={m} /> : <AssistantMessage key={m.id} message={m} name={name} fresh={!seen.has(m.id)} />))}
           {pending && <PendingReply tools={pending.tools} draft={pending.draft} error={pending.error} onRetry={retry} name={name} />}
         </div>
         <div ref={endRef} className="h-4" />

@@ -92,7 +92,7 @@ export function Home() {
               </div>
             </div>
             <div className="hidden animate-float flex-col items-center md:flex">
-              <Orb size={230}>
+              <Orb size={230} horizonYear={profile.horizonYear}>
                 <Presence convergence={conv} size={156} className="text-foreground" />
               </Orb>
               <p className="mt-2 text-center t-meta">
