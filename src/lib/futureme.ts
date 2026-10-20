@@ -1,7 +1,9 @@
 import { AsyncLocalStorage } from "node:async_hooks";
+import fs from "node:fs";
+import path from "node:path";
 import { z } from "zod";
 import type { Db } from "./db";
-import { getProvider, type ChatMessage, type LlmProvider, type ToolDefinition } from "./llm";
+import { getProvider, type ChatMessage, type JsonSchemaSpec, type LlmProvider, type ReasoningMode, type ToolDefinition } from "./llm";
 import { COMPARE_MARKER, STORY_MARKER } from "./mock-llm";
 import { dockerMcpConfigured, dockerToolDefs } from "./docker-mcp";
 import { isDockerTool, runDockerTool } from "./docker-tools";
@@ -11,8 +13,9 @@ import { listFiles, readFile, rememberConversation, saveFile, searchMemory } fro
 import { PLATFORMS } from "./social/parse";
 import { formatHits, getPersona, searchSocial, socialPromptBlock } from "./social/store";
 import { personaMarkdown } from "./social/persona";
-import { writeNote } from "./vault";
+import { resolveInVault, writeNote } from "./vault";
 import { fetchPage, webSearch } from "./web";
+import { AGENT_REASONING } from "./nemotron";
 
 // Core FutureMe workflow: profile -> future story -> chat with memory -> approval-gated plans -> tasks.
 
@@ -81,7 +84,7 @@ export async function generateStory(db: Db, provider: LlmProvider = getProvider(
         "challenges and values. Be honest that it took work. End with one concrete thing to start this week. No headings.",
     },
     { role: "user", content: `${STORY_MARKER} ${JSON.stringify(profile)}` },
-  ]);
+  ], undefined, { reasoning: "on" });
   const content = (res.content ?? "").trim();
   if (!content) throw new Error("The model returned an empty story. Try again.");
 
@@ -515,6 +518,14 @@ export interface ChatTurn {
   approvals: number[];
   tools: string[];
   backend: string;
+  /** Nemotron's reasoning while it wrote the reply, when reasoning was on. */
+  reasoning: string | null;
+}
+
+export interface ChatOptions {
+  /** A photo the user attached, as a data: URL. Nemotron-3.5-Super-VL sees it with the message. */
+  image?: string;
+  hooks?: AgentHooks;
 }
 
 export interface StoredMessage {
@@ -531,16 +542,27 @@ export function chatHistory(db: Db, limit = 50): StoredMessage[] {
   return rows.reverse().map((r) => ({ ...r, citations: r.citations ? JSON.parse(r.citations) : [] }));
 }
 
-const MAX_STEPS = 6;
+// Nemotron handles long tool chains well, so the future self gets room to search, hand off and save in one turn.
+const MAX_STEPS = 10;
+// Nemotron reads up to a million tokens, so the future self keeps far more of the conversation in view.
+const HISTORY_MESSAGES = 40;
 
 // The agent loop runs in Docker Agent when DOCKER_AGENT_URL points at `docker agent serve chat`.
 // Without it, the same loop runs in-process (used by tests and when Docker Agent isn't running).
 export type OnDelta = (text: string) => void;
 
+/** Live view of an in-process run: Nemotron's reasoning and each tool call as they happen. */
+export interface AgentHooks {
+  onReasoning?: (text: string) => void;
+  onTool?: (name: string, status: "running" | "done" | "failed") => void;
+  /** The text streamed so far led into tool calls; it wasn't the reply. */
+  onReset?: () => void;
+}
+
 export interface AgentBackend {
   name: string;
   // Returns the final reply; calls onDelta with text as it arrives when the backend can stream.
-  run(db: Db, messages: ChatMessage[], onDelta?: OnDelta): Promise<string>;
+  run(db: Db, messages: ChatMessage[], onDelta?: OnDelta, hooks?: AgentHooks): Promise<string>;
 }
 
 export function dockerAgentBackend(baseUrl: string, agent = process.env.DOCKER_AGENT_NAME ?? "root"): AgentBackend {
@@ -594,76 +616,179 @@ async function* sseData(body: ReadableStream<Uint8Array>): AsyncGenerator<string
 
 export function inProcessBackend(
   provider: LlmProvider = getProvider(),
-  opts: { tools?: ToolDefinition[]; instruction?: string; extraTools?: () => Promise<ToolDefinition[]> } = {},
+  opts: {
+    tools?: ToolDefinition[];
+    instruction?: string;
+    extraTools?: () => Promise<ToolDefinition[]>;
+    /** Nemotron reasoning for this agent (see nemotron.ts). */
+    reasoning?: ReasoningMode;
+    /** The JSON the agent must reply with (structured output). */
+    schema?: JsonSchemaSpec;
+  } = {},
 ): AgentBackend {
   const base = opts.tools ?? TOOLS;
   return {
     name: `in-process:${provider.name}`,
-    async run(db, initial, onDelta) {
+    async run(db, initial, onDelta, hooks = {}) {
       // Tools discovered at run time (the Docker MCP Gateway's) join the fixed ones; none if the gateway is down.
       const tools = opts.extraTools ? [...base, ...(await opts.extraTools().catch(() => []))] : base;
       // The agent's own instruction comes first, as Docker Agent does with the YAML instruction.
       const messages: ChatMessage[] = opts.instruction ? [{ role: "system", content: opts.instruction }, ...initial] : [...initial];
+      const live = !!(onDelta || hooks.onReasoning);
       for (let step = 0; step < MAX_STEPS; step++) {
-        const res = await provider.complete(messages, tools.length ? tools : undefined);
+        let streamed = false;
+        const res = await provider.complete(messages, tools.length ? tools : undefined, {
+          reasoning: opts.reasoning,
+          // An agent without tools is held to its schema on every call; one with tools gets a final formatting pass below.
+          schema: tools.length ? undefined : opts.schema,
+          ...(live
+            ? {
+                onText: (t: string) => {
+                  streamed = true;
+                  onDelta?.(t);
+                },
+                onReasoning: hooks.onReasoning,
+              }
+            : {}),
+        });
         if (!res.toolCalls.length) {
           const reply = (res.content ?? "").trim();
-          if (reply) onDelta?.(reply);
+          if (reply && !streamed) onDelta?.(reply);
+          if (opts.schema && tools.length && reply && !parseJson(reply)) return (await formatAsJson(provider, messages, reply, opts.schema)) ?? reply;
           return reply;
         }
+        if (streamed) hooks.onReset?.();
         messages.push({
           role: "assistant",
           content: res.content,
           tool_calls: res.toolCalls.map((c) => ({ id: c.id, type: "function", function: { name: c.name, arguments: c.arguments } })),
         });
-        for (const c of res.toolCalls) {
-          // A model can name any tool; only the ones this agent was given run.
-          const allowed = tools.some((t) => t.function.name === c.name);
-          const content = allowed ? (await runTool(db, c.name, c.arguments)).output : `Error: the tool ${c.name} isn't available to you.`;
-          messages.push({ role: "tool", tool_call_id: c.id, content });
-        }
+        // Nemotron asks for several tools at once when they don't depend on each other; they run in parallel.
+        const outputs = await Promise.all(
+          res.toolCalls.map(async (c) => {
+            // A model can name any tool; only the ones this agent was given run.
+            if (!tools.some((t) => t.function.name === c.name)) return `Error: the tool ${c.name} isn't available to you.`;
+            hooks.onTool?.(c.name, "running");
+            const out = (await runTool(db, c.name, c.arguments)).output;
+            hooks.onTool?.(c.name, out.startsWith("Error:") ? "failed" : "done");
+            return out;
+          }),
+        );
+        res.toolCalls.forEach((c, i) => messages.push({ role: "tool", tool_call_id: c.id, content: outputs[i] }));
       }
-      return "";
+      // Out of steps: rather than return nothing, the agent answers with what its tools found so far.
+      try {
+        const res = await provider.complete(
+          [...messages, { role: "user", content: "You've used all your tool steps. Answer now with what you found, and say what is missing." }],
+          undefined,
+          { reasoning: "off", schema: opts.schema },
+        );
+        const reply = (res.content ?? "").trim();
+        if (reply) onDelta?.(reply);
+        return reply;
+      } catch {
+        return "";
+      }
     },
   };
 }
 
-export function getAgentBackend(): AgentBackend {
-  const url = process.env.DOCKER_AGENT_URL;
-  return url ? dockerAgentBackend(url) : inProcessBackend(getProvider(), { extraTools: dockerMcpConfigured() ? dockerToolDefs : undefined });
+function parseJson(text: string): unknown {
+  try {
+    return JSON.parse(text.replace(/^```(?:json)?\s*|```\s*$/g, ""));
+  } catch {
+    return null;
+  }
 }
 
-export async function chat(db: Db, userText: string, backend: AgentBackend = getAgentBackend(), onDelta?: OnDelta): Promise<ChatTurn> {
+/** The agent answered in prose after using its tools: one more call, without tools, turns that answer into its schema. */
+async function formatAsJson(provider: LlmProvider, messages: ChatMessage[], reply: string, schema: JsonSchemaSpec): Promise<string | null> {
+  try {
+    const res = await provider.complete(
+      [...messages, { role: "assistant", content: reply }, { role: "user", content: "Return your answer above as JSON that matches the required schema. JSON only." }],
+      undefined,
+      { reasoning: "off", schema },
+    );
+    const json = (res.content ?? "").trim();
+    return parseJson(json) ? json : null;
+  } catch {
+    return null;
+  }
+}
+
+export function getAgentBackend(): AgentBackend {
+  const url = process.env.DOCKER_AGENT_URL;
+  return url ? dockerAgentBackend(url) : inProcessBackend(getProvider(), { extraTools: dockerMcpConfigured() ? dockerToolDefs : undefined, reasoning: AGENT_REASONING.root });
+}
+
+export async function chat(db: Db, userText: string, backend: AgentBackend = getAgentBackend(), onDelta?: OnDelta, opts: ChatOptions = {}): Promise<ChatTurn> {
   const profile = getProfile(db);
   if (!profile) throw new Error("Complete onboarding first.");
   const text = userText.trim();
   if (!text) throw new Error("Say something to your future self.");
 
-  const history = chatHistory(db, 12).map((m): ChatMessage => ({ role: m.role, content: m.content }));
-  const messages: ChatMessage[] = [
-    { role: "system", content: systemPrompt(profile, activePack(db)?.persona, socialPromptBlock(db)) },
-    ...history,
-    { role: "user", content: text },
-  ];
-  db.prepare("INSERT INTO messages (role, content) VALUES ('user', ?)").run(text);
+  const history = chatHistory(db, HISTORY_MESSAGES).map((m): ChatMessage => ({ role: m.role, content: m.content }));
+  const photo = opts.image ? savePhoto(opts.image) : null;
+  const userMessage: ChatMessage = opts.image
+    ? {
+        role: "user",
+        content: [
+          { type: "text", text: `${text}\n\n(They attached a photo, saved as ${photo}. Look at it closely and use what you see.)` },
+          { type: "image_url", image_url: { url: opts.image } },
+        ],
+      }
+    : { role: "user", content: text };
+  const messages: ChatMessage[] = [{ role: "system", content: systemPrompt(profile, activePack(db)?.persona, socialPromptBlock(db)) }, ...history, userMessage];
+  db.prepare("INSERT INTO messages (role, content, image) VALUES ('user', ?, ?)").run(text, photo);
 
+  // Keep the reasoning trace of every step, so the reply can show how it was thought through.
+  const thoughts: string[] = [""];
+  const hooks: AgentHooks = {
+    ...opts.hooks,
+    onReasoning: (t) => {
+      thoughts[thoughts.length - 1] += t;
+      opts.hooks?.onReasoning?.(t);
+    },
+    onTool: (name, status) => {
+      if (status === "running" && thoughts[thoughts.length - 1]) thoughts.push("");
+      opts.hooks?.onTool?.(name, status);
+    },
+  };
   const before = lastToolEventId(db);
-  const reply = (await backend.run(db, messages, onDelta)) || "I lost my train of thought there. Could you say that again?";
+  const reply = (await backend.run(db, messages, onDelta, hooks)) || "I lost my train of thought there. Could you say that again?";
+  const reasoning = thoughts.map((t) => t.trim()).filter(Boolean).join("\n\n---\n\n") || null;
   const events = toolEventsSince(db, before);
   const citations = [...new Set(events.flatMap((e) => e.citations))];
   const approvals = events.flatMap((e) => (e.approval_id ? [e.approval_id] : []));
 
   const tools = events.map((e) => e.tool);
   const info = db
-    .prepare("INSERT INTO messages (role, content, citations, tools, approvals) VALUES ('assistant', ?, ?, ?, ?)")
-    .run(reply, JSON.stringify(citations), JSON.stringify(tools), JSON.stringify(approvals));
+    .prepare("INSERT INTO messages (role, content, citations, tools, approvals, reasoning) VALUES ('assistant', ?, ?, ?, ?, ?)")
+    .run(reply, JSON.stringify(citations), JSON.stringify(tools), JSON.stringify(approvals), reasoning);
   // Every exchange also goes into the vault's Conversations folder, so search_memory can find it later.
   try {
     rememberConversation(text, reply);
   } catch (err) {
     console.error("Could not save the conversation to the vault:", err);
   }
-  return { id: Number(info.lastInsertRowid), reply, citations, approvals, tools, backend: backend.name };
+  return { id: Number(info.lastInsertRowid), reply, citations, approvals, tools, backend: backend.name, reasoning };
+}
+
+const PHOTO = /^data:image\/(png|jpeg|webp|gif);base64,([A-Za-z0-9+/=]+)$/;
+
+/** Checks a photo sent with a message: a base64 image of at most 4 MB. */
+export function validPhoto(image: unknown): image is string {
+  return typeof image === "string" && image.length < 5_600_000 && PHOTO.test(image);
+}
+
+/** Keeps the photo in the vault's Photos folder, so the user owns it like every other note. */
+function savePhoto(image: string): string {
+  const [, ext, data] = image.match(PHOTO)!;
+  const rel = `Photos/${new Date().toISOString().replace(/[:.]/g, "-")}.${ext === "jpeg" ? "jpg" : ext}`;
+  const file = resolveInVault(rel);
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  fs.writeFileSync(file, Buffer.from(data, "base64"));
+  return rel;
 }
 
 // ---------- Before and after importing accounts ----------

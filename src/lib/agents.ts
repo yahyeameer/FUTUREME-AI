@@ -4,7 +4,8 @@ import yaml from "js-yaml";
 import type { Db } from "./db";
 import { DOCKER_TOOLSET, dockerToolDefs } from "./docker-mcp";
 import { dockerAgentBackend, inProcessBackend, lastToolEventId, runContext, toolDefs, toolEventsForRun, toolEventsSince, type OnDelta, type ToolEvent } from "./futureme";
-import { getProvider, type ChatMessage, type LlmProvider } from "./llm";
+import { getProvider, type ChatMessage, type JsonSchemaSpec, type LlmProvider, type ReasoningMode } from "./llm";
+import { AGENT_REASONING } from "./nemotron";
 
 // FutureMe's agent team. agents/futureme.yaml is the single source of truth: with DOCKER_AGENT_URL set, each agent runs in
 // Docker Agent (`serve chat`), called by name. Without it, the app reads the same instructions and tool lists and runs the
@@ -91,6 +92,10 @@ export async function runAgent(
     tools?: string[];
     /** Tags this run's in-process tool calls so they can be told apart from parallel runs. */
     runId?: number;
+    /** In-process only: the JSON schema the reply must follow (Nemotron structured output). */
+    schema?: JsonSchemaSpec;
+    /** In-process only: overrides the agent's reasoning mode from nemotron.ts. */
+    reasoning?: ReasoningMode;
   } = {},
 ): Promise<AgentRun> {
   const spec = agentSpec(name);
@@ -102,6 +107,8 @@ export async function runAgent(
         tools: toolDefs(tools),
         instruction: spec.instruction,
         extraTools: tools.includes(DOCKER_TOOLSET) ? dockerToolDefs : undefined,
+        reasoning: opts.reasoning ?? AGENT_REASONING[name],
+        schema: opts.schema,
       });
   const before = lastToolEventId(db);
   const go = () => backend.run(db, messages, opts.onDelta);
