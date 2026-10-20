@@ -2,7 +2,7 @@ import { connection } from "next/server";
 import { z } from "zod";
 import { compareWithSocial } from "@/lib/futureme";
 import { db } from "@/lib/server-db";
-import { apifyRunner } from "@/lib/social/apify";
+import { apifyRunner, removeApifyKey, saveApifyKey } from "@/lib/social/apify";
 import { checkClaim, dropClaims, importClaim, startClaim } from "@/lib/social/claims";
 import { disconnect, startOAuth, syncOAuth } from "@/lib/social/oauth";
 import { parseExport, PLATFORMS } from "@/lib/social/parse";
@@ -31,7 +31,9 @@ const Action = z.discriminatedUnion("action", [
   z.object({ action: z.literal("sync"), platform }),
   z.object({ action: z.literal("disconnect"), platform }),
   z.object({ action: z.literal("claimStart"), platform, account: z.string().trim().min(1).max(200), consent: z.literal(true) }),
-  z.object({ action: z.literal("claimCheck"), id: z.uuid() }),
+  z.object({ action: z.literal("claimCheck"), id: z.uuid(), autoImport: z.boolean().optional() }),
+  z.object({ action: z.literal("apifyKey"), token: z.string().trim().min(10).max(200) }),
+  z.object({ action: z.literal("apifyKeyRemove") }),
   z.object({ action: z.literal("claimImport"), id: z.uuid(), consent: z.literal(true) }),
   z.object({ action: z.literal("claimCancel"), platform }),
   z.object({ action: z.literal("compare"), question: z.string().trim().min(3).max(300) }),
@@ -71,14 +73,23 @@ export async function POST(request: Request) {
       case "disconnect":
         await disconnect(d, a.platform);
         break;
+      case "apifyKey":
+        extra = { apifyAccount: await saveApifyKey(d, a.token) };
+        break;
+      case "apifyKeyRemove":
+        removeApifyKey(d);
+        break;
       case "claimStart":
-        if (!apifyRunner()) throw new Error("Fetching public profiles isn't set up on this server (APIFY_TOKEN). Import your data export instead.");
+        if (!apifyRunner(d)) throw new Error("Add your Apify key first, so FutureMe can fetch public profiles.");
         extra = { claim: startClaim(d, a.platform, a.account, a.consent) };
         break;
       case "claimCheck": {
-        const runner = apifyRunner();
-        if (!runner) throw new Error("Fetching public profiles isn't set up on this server (APIFY_TOKEN).");
-        extra = { check: await checkClaim(d, a.id, runner) };
+        const runner = apifyRunner(d);
+        if (!runner) throw new Error("Add your Apify key first, so FutureMe can fetch public profiles.");
+        const check = await checkClaim(d, a.id, runner);
+        // The person agreed to learn from this account when they asked for the code, so a verified fetch can go straight in.
+        if (check.verified && a.autoImport) extra.imported = [await importClaim(d, a.id, true)];
+        extra.check = check;
         break;
       }
       case "claimImport":

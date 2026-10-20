@@ -21,7 +21,7 @@ import { browserInflate, fileSource } from "@/lib/social/zip";
 import { cn, formatDate, pluralize } from "@/lib/utils";
 import { useWorkspaceContext } from "@/lib/workspace-store";
 
-type State = ConnectionsState & { comparison?: Comparison; url?: string; claim?: Claim; check?: { verified: boolean; claim: Claim; reason?: string } };
+type State = ConnectionsState & { comparison?: Comparison; url?: string; claim?: Claim; check?: { verified: boolean; claim: Claim; reason?: string }; imported?: { posts: number }[] };
 type Claim = ConnectionsState["fetch"]["claims"][number];
 type ExportPlatform = (typeof EXPORT_PLATFORMS)[number];
 const oauthOf = (state: State, p: Platform) => (p in state.oauth ? state.oauth[p as keyof State["oauth"]] : null);
@@ -178,6 +178,7 @@ export function Connections() {
       <div className="mt-8 space-y-12">
         <section aria-labelledby="accounts-h">
           <SectionHeading id="accounts-h">Your accounts</SectionHeading>
+          <ApifyKey state={state} act={act} />
           <div className="grid gap-3 md:grid-cols-3">
             {PLATFORMS.map((p) => (
               <PlatformCard
@@ -300,7 +301,7 @@ function PlatformCard(props: {
             ? HOW_TO[platform].steps
             : state.fetch.configured
               ? `Fetch your public profile once you've shown it's yours. ${state.fetch.reads[platform]}`
-              : `${PLATFORM_NAMES[platform]} has no data export FutureMe can read. Fetching your public profile needs APIFY_TOKEN on this server.`}
+              : `${PLATFORM_NAMES[platform]} has no data export FutureMe can read. Add your Apify key above to fetch your public profile.`}
         </p>
       )}
       {source && (
@@ -491,6 +492,91 @@ function Rule({ ok, children }: { ok: boolean; children: React.ReactNode }) {
   );
 }
 
+// ---------- The Apify key, pasted here instead of set on the server ----------
+
+function ApifyKey({ state, act }: { state: State; act: (fn: () => Promise<State>, success?: string) => Promise<State | null> }) {
+  const f = state.fetch;
+  const [open, setOpen] = React.useState(false);
+  const [token, setToken] = React.useState("");
+  const [busy, setBusy] = React.useState(false);
+  const save = async () => {
+    setBusy(true);
+    const next = await act(() => post({ action: "apifyKey", token }));
+    setBusy(false);
+    if (next) {
+      toast.success(`Apify connected as ${next.fetch.account ?? "your account"}. Fetch public profile is on.`);
+      setToken("");
+      setOpen(false);
+    }
+  };
+  return (
+    <div className="mb-3 flex flex-wrap items-center gap-x-3 gap-y-2 rounded-xl border border-border bg-surface px-4 py-3 text-[12.5px]">
+      <Globe className="size-4 shrink-0 text-muted-foreground" />
+      {f.configured ? (
+        <p className="min-w-0 flex-1">
+          Fetching public profiles is on{f.source === "saved" ? `, with the Apify key for ${f.account}` : ", with the server's Apify key"}. The key is encrypted on this server.
+        </p>
+      ) : (
+        <p className="min-w-0 flex-1 text-muted-foreground">
+          Add an Apify key to fetch Instagram, TikTok, YouTube and other public profiles you own. A free Apify account is enough to try it.
+        </p>
+      )}
+      {f.source === "saved" ? (
+        <Button size="sm" variant="ghost" onClick={() => act(() => post({ action: "apifyKeyRemove" }), "Apify key removed.")}>
+          <Trash2 /> Remove key
+        </Button>
+      ) : (
+        !f.configured && (
+          <Button size="sm" variant="secondary" onClick={() => setOpen(true)}>
+            <KeyRound /> Add Apify key
+          </Button>
+        )
+      )}
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Add your Apify key</DialogTitle>
+            <DialogDescription>
+              FutureMe uses it to fetch public profiles you&apos;ve shown are yours, through Apify&apos;s MCP server. Runs are billed to your Apify account, at most $0.25 each.
+            </DialogDescription>
+          </DialogHeader>
+          <ol className="list-decimal space-y-1.5 pl-5 text-[13px]">
+            <li>
+              Sign in at{" "}
+              <a href="https://console.apify.com/settings/integrations" target="_blank" rel="noreferrer" className="text-accent-ink underline underline-offset-2">
+                Apify Console → Settings → API &amp; Integrations
+              </a>{" "}
+              (sign up free if you need to).
+            </li>
+            <li>Copy your personal API token and paste it here.</li>
+          </ol>
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              void save();
+            }}
+            className="space-y-3"
+          >
+            <Input type="password" autoComplete="off" value={token} onChange={(e) => setToken(e.target.value)} placeholder="apify_api_…" aria-label="Apify API token" />
+            <p className="flex gap-2 text-[12px] text-muted-foreground">
+              <ShieldCheck className="mt-0.5 size-3.5 shrink-0 text-success" />
+              Checked with Apify, then stored encrypted (AES-256-GCM) on this server. It&apos;s never shown again or sent to the AI model.
+            </p>
+            <DialogFooter>
+              <Button type="button" variant="ghost" onClick={() => setOpen(false)}>
+                Cancel
+              </Button>
+              <Button type="submit" variant="primary" disabled={busy || token.trim().length < 20}>
+                {busy ? <Loader2 className="animate-spin" /> : <Check />} Save key
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
 function ConnectDialog({ platform, state, onClose, act }: { platform: Platform | null; state: State; onClose: () => void; act: (fn: () => Promise<State>) => Promise<State | null> }) {
   const [agreed, setAgreed] = React.useState(false);
   if (!platform) return null;
@@ -533,6 +619,9 @@ function ConnectDialog({ platform, state, onClose, act }: { platform: Platform |
 
 // ---------- Fetch a public profile: consent and account, a code on the account, check, preview, import ----------
 
+const AUTO_ROUNDS = 3;
+const AUTO_WAIT_S = 30;
+
 // Keyed by platform, so each opening starts from the server's claim (or a fresh consent).
 function FetchDialog({ platform, state, onState, onClose }: { platform: Platform | null; state: State; onState: (s: State) => void; onClose: () => void }) {
   const existing = platform ? state.fetch.claims.find((c) => c.platform === platform) : undefined;
@@ -541,6 +630,9 @@ function FetchDialog({ platform, state, onState, onClose }: { platform: Platform
   const [account, setAccount] = React.useState("");
   const [busy, setBusy] = React.useState(false);
   const [problem, setProblem] = React.useState<string | null>(null);
+  const [waiting, setWaiting] = React.useState<{ round: number; next: number } | null>(null);
+  const stopped = React.useRef(false);
+  React.useEffect(() => () => void (stopped.current = true), []);
   if (!platform) return null;
   const name = PLATFORM_NAMES[platform];
 
@@ -557,11 +649,46 @@ function FetchDialog({ platform, state, onState, onClose }: { platform: Platform
     setBusy(false);
   };
   const start = () => step({ action: "claimStart", platform, account, consent: true }, (next) => setClaim(next.claim));
-  const check = () =>
-    step({ action: "claimCheck", id: claim!.id }, (next) => {
-      setClaim(next.check?.claim);
-      if (next.check && !next.check.verified) setProblem(next.check.reason ?? "The code wasn't found.");
-    });
+  // "I've added it": fetch, and if the code isn't public yet, try again on its own a couple of times (platforms can take a
+  // minute to show a new bio). As soon as the code is found, what was fetched is imported; the consent was given above.
+  const autoCheck = async () => {
+    stopped.current = false;
+    setBusy(true);
+    setProblem(null);
+    let current = claim!;
+    for (let round = 1; round <= AUTO_ROUNDS && !stopped.current; round++) {
+      setWaiting(null);
+      let next: State;
+      try {
+        next = await post({ action: "claimCheck", id: current.id, autoImport: true });
+      } catch (err) {
+        setProblem(err instanceof Error ? err.message : "That didn't work.");
+        break;
+      }
+      onState(next);
+      if (!next.check) break;
+      current = next.check.claim;
+      setClaim(current);
+      if (next.check.verified) {
+        const posts = next.imported?.[0]?.posts;
+        toast.success(`Verified and imported your ${name} profile${posts != null ? ` (${pluralize(posts, "post")})` : ""}. You can take the code off now.`);
+        onClose();
+        return;
+      }
+      setProblem(next.check.reason ?? "The code wasn't found.");
+      if (round === AUTO_ROUNDS || current.checksLeft === 0) break;
+      for (let s = AUTO_WAIT_S; s > 0 && !stopped.current; s--) {
+        setWaiting({ round: round + 1, next: s });
+        await new Promise((r) => setTimeout(r, 1000));
+      }
+    }
+    setWaiting(null);
+    setBusy(false);
+  };
+  const stop = () => {
+    stopped.current = true;
+    setWaiting(null);
+  };
   const importIt = () =>
     step({ action: "claimImport", id: claim!.id, consent: true }, () => {
       toast.success(`Imported your public ${name} profile. Your future self knows you better now.`);
@@ -627,8 +754,14 @@ function FetchDialog({ platform, state, onState, onClose }: { platform: Platform
               </Button>
             </div>
             <ol start={2} className="list-decimal space-y-1.5 pl-5">
-              <li>Save it so it&apos;s public, then check. You can remove the code once you&apos;re verified.</li>
+              <li>Save it so it&apos;s public, then press the button below. FutureMe finds the code and imports your profile on its own. You can remove the code afterwards.</li>
             </ol>
+            {busy && (
+              <p className="flex items-center gap-2 rounded-lg bg-surface-2 px-3 py-2 text-[12.5px]" aria-live="polite">
+                <Loader2 className="size-3.5 animate-spin" />
+                {waiting ? `Not public yet. Trying again in ${waiting.next} s (try ${waiting.round} of ${AUTO_ROUNDS}).` : `Fetching ${claim.handle} and looking for the code… up to a minute.`}
+              </p>
+            )}
             <p className="text-[12px] text-muted-foreground">
               {pluralize(claim.checksLeft, "check")} left · code expires {formatDate(claim.expiresAt, { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" })}
             </p>
@@ -671,9 +804,13 @@ function FetchDialog({ platform, state, onState, onClose }: { platform: Platform
             <Button variant="primary" disabled={busy} onClick={importIt}>
               {busy ? <Loader2 className="animate-spin" /> : <Check />} Import
             </Button>
+          ) : waiting ? (
+            <Button variant="secondary" onClick={stop}>
+              Stop trying
+            </Button>
           ) : (
-            <Button variant="primary" disabled={busy || (!verified && claim.checksLeft === 0)} onClick={check}>
-              {busy ? <Loader2 className="animate-spin" /> : <RefreshCw />} {busy ? "Fetching… up to a minute" : verified ? "Fetch again" : "Check for the code"}
+            <Button variant="primary" disabled={busy || (!verified && claim.checksLeft === 0)} onClick={autoCheck}>
+              {busy ? <Loader2 className="animate-spin" /> : verified ? <RefreshCw /> : <Check />} {busy ? "Fetching…" : verified ? "Fetch again" : "I've added it, fetch my profile"}
             </Button>
           )}
         </DialogFooter>

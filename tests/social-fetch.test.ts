@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { openDb, type Db } from "../src/lib/db";
 import { ALL_TOOLS } from "../src/lib/futureme";
 import { mockProvider } from "../src/lib/mock-llm";
-import { FETCHERS, mcpRunner, parseTarget, restRunner, type ApifyRunner, type McpCaller } from "../src/lib/social/apify";
+import { apifyRunner, apifyStatus, FETCHERS, mcpRunner, parseTarget, removeApifyKey, restRunner, saveApifyKey, type ApifyRunner, type McpCaller } from "../src/lib/social/apify";
 import { checkClaim, claims, CODE_TTL_MS, importClaim, MAX_CHECKS, startClaim } from "../src/lib/social/claims";
 import { deleteSource, getPersona, sourceRows } from "../src/lib/social/store";
 
@@ -215,6 +215,27 @@ describe("Apify transport", () => {
       return Response.json([{ id: 1 }]);
     });
     expect(await restRunner("secret", http as typeof fetch).run("apidojo/tweet-scraper", {}, FETCHERS.x.profile.limits)).toEqual([{ id: 1 }]);
+  });
+
+  it("takes an Apify key pasted on the page, checks it with Apify and stores it encrypted", async () => {
+    const key = "apify_api_" + "a".repeat(36);
+    const refused = vi.fn(async () => new Response("{}", { status: 401 }));
+    await expect(saveApifyKey(db, key, refused as unknown as typeof fetch)).rejects.toThrow(/didn't accept/);
+    await expect(saveApifyKey(db, "nope", refused as unknown as typeof fetch)).rejects.toThrow(/doesn't look like/);
+    expect(apifyStatus(db).configured).toBe(false);
+    expect(apifyRunner(db)).toBeNull();
+
+    const ok = vi.fn(async (_url: string | URL | Request, init?: RequestInit) => {
+      expect((init?.headers as Record<string, string>).Authorization).toBe(`Bearer ${key}`);
+      return Response.json({ data: { username: "hodan" } });
+    });
+    expect(await saveApifyKey(db, key, ok as unknown as typeof fetch)).toBe("hodan");
+    expect(apifyStatus(db)).toEqual({ configured: true, source: "saved", account: "hodan" });
+    expect(apifyRunner(db)?.transport).toBe("mcp");
+    const stored = db.prepare("SELECT value FROM settings WHERE key = 'apify_token'").get() as { value: string };
+    expect(stored.value).not.toContain(key);
+    removeApifyKey(db);
+    expect(apifyStatus(db).configured).toBe(false);
   });
 
   it("gives the agent no way to fetch other people's profiles", () => {

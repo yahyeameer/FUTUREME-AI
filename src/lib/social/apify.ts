@@ -1,11 +1,14 @@
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
+import { getSetting, setSetting, type Db } from "../db";
 import { isoDate, monthOf, PLATFORM_NAMES, type Platform, type SocialImport } from "./parse";
+import { decryptSecret, encryptSecret } from "./secrets";
 
 // Fetching someone's public profile and recent posts with Apify actors, through Apify's hosted MCP server
 // (https://mcp.apify.com), with its REST API as the fallback. Only used after the person has proved the account is
 // theirs (claims.ts): this file never decides on its own whose data to fetch, and the agent has no tool that reaches it.
-// The token stays on the server (APIFY_TOKEN). Every run is capped in items, time and dollars.
+// The token stays on the server: APIFY_TOKEN, or a key pasted on the Connected accounts page, stored encrypted like the
+// sign-in tokens (secrets.ts). Every run is capped in items, time and dollars.
 
 export interface RunLimits {
   maxItems: number;
@@ -27,11 +30,45 @@ const REST_URL = "https://api.apify.com/v2";
 const TERMINAL = new Set(["SUCCEEDED", "FAILED", "ABORTED", "TIMED-OUT"]);
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-export const apifyConfigured = () => !!process.env.APIFY_TOKEN?.trim();
+const KEY_SETTING = "apify_token";
+const ACCOUNT_SETTING = "apify_account";
+
+function apifyToken(db: Db): { token: string; source: "env" | "saved" } | null {
+  const env = process.env.APIFY_TOKEN?.trim();
+  if (env) return { token: env, source: "env" };
+  const sealed = getSetting(db, KEY_SETTING);
+  const token = sealed ? decryptSecret(sealed) : null;
+  return token ? { token, source: "saved" } : null;
+}
+
+/** Whether profiles can be fetched, and where the key came from (never the key itself). */
+export function apifyStatus(db: Db) {
+  const t = apifyToken(db);
+  return { configured: !!t, source: t?.source ?? null, account: t?.source === "saved" ? getSetting(db, ACCOUNT_SETTING) : null };
+}
+
+/** Checks a pasted Apify key with Apify, then stores it encrypted. Returns the Apify username it belongs to. */
+export async function saveApifyKey(db: Db, token: string, http: typeof fetch = fetch): Promise<string> {
+  const key = token.trim();
+  if (!/^[A-Za-z0-9_]{20,120}$/.test(key)) throw new Error("That doesn't look like an Apify API token. Copy it from Apify Console → Settings → API & Integrations.");
+  const res = await http(`${REST_URL}/users/me`, { headers: { Authorization: `Bearer ${key}` }, signal: AbortSignal.timeout(15_000) });
+  if (res.status === 401 || res.status === 403) throw new Error("Apify didn't accept that token. Copy it again from Apify Console → Settings → API & Integrations.");
+  if (!res.ok) throw new Error(`Couldn't reach Apify to check the token (${res.status}).`);
+  const me = ((await res.json()) as { data?: { username?: string } }).data;
+  const account = me?.username ?? "your Apify account";
+  setSetting(db, KEY_SETTING, encryptSecret(key));
+  setSetting(db, ACCOUNT_SETTING, account);
+  return account;
+}
+
+export function removeApifyKey(db: Db) {
+  setSetting(db, KEY_SETTING, null);
+  setSetting(db, ACCOUNT_SETTING, null);
+}
 
 /** The runner this server uses: MCP first, REST when MCP can't be reached or APIFY_TRANSPORT=rest. */
-export function apifyRunner(): ApifyRunner | null {
-  const token = process.env.APIFY_TOKEN?.trim();
+export function apifyRunner(db: Db): ApifyRunner | null {
+  const token = apifyToken(db)?.token;
   if (!token) return null;
   const rest = restRunner(token);
   if (process.env.APIFY_TRANSPORT === "rest") return rest;

@@ -41,7 +41,7 @@ Register this redirect URL with each platform: `https://<your FutureMe address>/
 
 ## Fetching a public profile (Apify)
 
-Instagram, TikTok and YouTube have no export FutureMe can read, and exports take a day to arrive. So with `APIFY_TOKEN` set, every card also has **Fetch public profile**, which runs an [Apify](https://apify.com) actor through Apify's hosted MCP server (`https://mcp.apify.com`, tools `call-actor`, `get-actor-run`, `get-dataset-items`), falling back to Apify's REST API if MCP can't be reached (or always, with `APIFY_TRANSPORT=rest`).
+Instagram, TikTok and YouTube have no export FutureMe can read, and exports take a day to arrive. So once an Apify key is added, every card also has **Fetch public profile**. Add the key on the page (**Add Apify key**: it's checked with Apify, then stored encrypted like sign-in tokens, and can be removed there), or set `APIFY_TOKEN` on the server. Fetching runs an [Apify](https://apify.com) actor through Apify's hosted MCP server (`https://mcp.apify.com`, tools `call-actor`, `get-actor-run`, `get-dataset-items`), falling back to Apify's REST API if MCP can't be reached (or always, with `APIFY_TRANSPORT=rest`).
 
 | Platform | Actor | What's fetched |
 | --- | --- | --- |
@@ -60,8 +60,7 @@ Anyone can type someone else's username, so a fetch only counts once you've show
 
 1. You name the account and agree it's yours. FutureMe makes a one-time code like `FM-7KQ2MX`.
 2. You put the code where only the owner can: your bio (Instagram, TikTok, X, or a new post there), your headline or About (LinkedIn), your channel description (YouTube), or a new post on the Page (Facebook).
-3. **Check** fetches the account and looks for the code. Not there: everything fetched is thrown away, nothing is stored or shown, and you're told where to put it. There: the account is verified, and only then is anything else fetched (LinkedIn's posts).
-4. You see what was fetched (counts and a sample post) and choose **Import**. The code is removed from the imported text, so it doesn't end up in your persona, and you can take it off the account.
+3. **I've added it, fetch my profile** fetches the account and looks for the code. Not there: everything fetched is thrown away, nothing is stored or shown, and you're told where to put it. If it isn't public yet, FutureMe tries again by itself (3 tries, 30 seconds apart). Once it's there, the account is verified, only then is anything else fetched (LinkedIn's posts), and it's imported straight away: you agreed to learn from this account when you asked for the code. The code is removed from the imported text, so it doesn't end up in your persona, and you can take it off the account. Delete it from the card like anything else.
 
 Codes expire after 24 hours and allow 5 checks; at most 5 accounts per platform can be tried a day; one claim per platform. The scraper's answer has to be the named account too (a different username, a private account, or other people's posts in an X search are refused or dropped). A verified account can be fetched again for 30 days without a new code. Deleting a platform deletes its verification.
 

@@ -1,6 +1,6 @@
 import type { Db } from "@/lib/db";
 import { getProfile } from "@/lib/futureme";
-import { apifyConfigured, FETCHERS } from "@/lib/social/apify";
+import { apifyStatus, FETCHERS } from "@/lib/social/apify";
 import { claims } from "@/lib/social/claims";
 import { PLATFORMS } from "@/lib/social/parse";
 import { personaPrompt } from "@/lib/social/persona";
@@ -23,7 +23,7 @@ export function connectionsState(db: Db) {
     encryption: secretKey().source,
     /** Fetching public profiles with Apify, after an ownership check. */
     fetch: {
-      configured: apifyConfigured(),
+      ...apifyStatus(db),
       reads: Object.fromEntries(PLATFORMS.map((p) => [p, FETCHERS[p].reads])) as Record<(typeof PLATFORMS)[number], string>,
       claims: claims(db),
     },
