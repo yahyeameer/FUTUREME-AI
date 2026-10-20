@@ -15,6 +15,8 @@ export interface PendingTurn {
   text: string;
   tools: ToolCall[];
   draft: string;
+  /** Nemotron's reasoning so far, streamed live. */
+  reasoning: string;
   error?: string;
 }
 
@@ -29,7 +31,7 @@ interface WorkspaceContext {
   /** Runs a mutation and swaps in the snapshot it returns. Errors become toasts; resolves to false on failure. */
   run: (fn: (s: FutureMeService) => Promise<Workspace>, success?: string) => Promise<boolean>;
   apply: (ws: Workspace) => void;
-  send: (text: string, style: CoachingStyle) => Promise<void>;
+  send: (text: string, style: CoachingStyle, image?: string) => Promise<void>;
   /** Runs the fact checker on a reply. Replies are checked automatically after each turn when the backend supports it. */
   verify: (messageId: string) => Promise<void>;
   /** Replies being checked right now, and ones whose check failed. */
@@ -53,7 +55,7 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
   const [nonce, setNonce] = React.useState(0);
   const [checks, setChecks] = React.useState<Record<string, "checking" | "failed">>({});
   const abort = React.useRef<AbortController | null>(null);
-  const lastText = React.useRef<{ text: string; style: CoachingStyle } | null>(null);
+  const lastText = React.useRef<{ text: string; style: CoachingStyle; image?: string } | null>(null);
 
   React.useEffect(() => {
     if (!hydrated) return;
@@ -162,21 +164,23 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
   }, [status, workspace, pending, checks, verify]);
 
   const send = React.useCallback(
-    async (text: string, style: CoachingStyle) => {
+    async (text: string, style: CoachingStyle, image?: string) => {
       if (!service || pending) return;
-      lastText.current = { text, style };
+      lastText.current = { text, style, image };
       const controller = new AbortController();
       abort.current = controller;
-      setPending({ text, tools: [], draft: "" });
+      setPending({ text, tools: [], draft: "", reasoning: "" });
       // Show the user's message right away.
       setWorkspace((ws) =>
-        ws ? { ...ws, conversation: [...ws.conversation, { id: `local-${Date.now()}`, role: "user", content: text, createdAt: new Date().toISOString(), citations: [] } satisfies Message] } : ws,
+        ws ? { ...ws, conversation: [...ws.conversation, { id: `local-${Date.now()}`, role: "user", content: text, createdAt: new Date().toISOString(), citations: [], image } satisfies Message] } : ws,
       );
       try {
-        for await (const ev of service.sendMessage(text, { style, signal: controller.signal })) {
+        for await (const ev of service.sendMessage(text, { style, signal: controller.signal, image })) {
           if (ev.type === "tool")
             setPending((p) => (p ? { ...p, tools: [...p.tools.filter((t) => t.name !== ev.tool.name), ev.tool] } : p));
           else if (ev.type === "delta") setPending((p) => (p ? { ...p, draft: p.draft + ev.text } : p));
+          else if (ev.type === "reasoning") setPending((p) => (p ? { ...p, reasoning: p.reasoning + ev.text } : p));
+          else if (ev.type === "reset") setPending((p) => (p ? { ...p, draft: "", reasoning: p.reasoning ? `${p.reasoning}\n\n` : "" } : p));
           else if (ev.type === "error") {
             setPending((p) => (p ? { ...p, tools: p.tools.map((t) => ({ ...t, status: t.status === "running" ? "failed" : t.status })), error: ev.error } : p));
             return;
@@ -217,7 +221,7 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
     // Drop the optimistic user message; the retry adds it again.
     service.load().then((ws) => {
       setWorkspace(ws);
-      void send(last.text, last.style);
+      void send(last.text, last.style, last.image);
     });
   }, [service, send]);
 

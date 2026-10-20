@@ -1,6 +1,7 @@
 import { parseJsonReply, runAgent } from "./agents";
 import type { Db } from "./db";
 import { SUPERVISE_MARKER } from "./mock-llm";
+import { SCHEMAS } from "./nemotron";
 import { listNotes } from "./vault";
 import { ruleChecks as checkRules, verdictOf, worst, type Issue, type RunUnderReview, type Verdict } from "./supervisor-rules";
 
@@ -43,7 +44,7 @@ export async function supervise(db: Db, run: RunUnderReview, opts: { agentReview
           rule_findings: rules.map((r) => `${r.severity}: ${r.text}`),
         })}`,
       },
-    ]);
+    ], { schema: SCHEMAS.supervision });
     const parsed = parseJsonReply<{ verdict?: unknown; issues?: unknown; summary?: unknown }>(review.reply);
     const agentVerdict: Verdict = parsed?.verdict === "block" || parsed?.verdict === "flag" ? parsed.verdict : "ok";
     const agentIssues: Issue[] = (Array.isArray(parsed?.issues) ? parsed.issues : [])

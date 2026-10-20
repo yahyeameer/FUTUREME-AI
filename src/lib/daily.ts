@@ -2,6 +2,7 @@ import { z } from "zod";
 import type { Db } from "./db";
 import { getProfile } from "./futureme";
 import { getProvider, type LlmProvider } from "./llm";
+import { SCHEMAS } from "./nemotron";
 import { DAILY_MARKER } from "./mock-llm";
 import { writeNote } from "./vault";
 
@@ -98,7 +99,7 @@ export async function generateDaily(db: Db, provider: LlmProvider = getProvider(
         "Never invent achievements, numbers, people or events. If there are no wins yet, say the story is just beginning. Output JSON only.",
     },
     { role: "user", content: `${DAILY_MARKER} ${JSON.stringify({ date, name: profile.name, dream: profile.dream, ...facts })}` },
-  ]);
+  ], undefined, { reasoning: "off", schema: SCHEMAS.dailyEditorial });
   const editorial = parseEditorial(res.content, profile.name, facts.wins.length);
 
   const issue: DailyIssue = { date, headline: editorial.headline, lead: editorial.lead, editorNote: editorial.editor_note, ...facts };

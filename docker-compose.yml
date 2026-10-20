@@ -7,6 +7,8 @@ services:
     environment:
       NEBIUS_API_KEY: ${NEBIUS_API_KEY:-}
       NEBIUS_MODEL: ${NEBIUS_MODEL:-}
+      NEBIUS_REASONING: ${NEBIUS_REASONING:-auto}
+      AGENT_RUNTIME: ${AGENT_RUNTIME:-nemotron}
       SEED_DEMO: ${SEED_DEMO:-0}
     volumes:
       - futureme-data:/data

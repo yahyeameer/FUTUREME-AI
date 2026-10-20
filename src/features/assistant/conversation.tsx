@@ -52,12 +52,12 @@ export function Conversation() {
 
   React.useEffect(() => {
     if (pinned) window.scrollTo({ top: document.documentElement.scrollHeight });
-  }, [messages.length, pending?.draft, pending?.tools.length, pinned]);
+  }, [messages.length, pending?.draft, pending?.tools.length, pending?.reasoning, pinned]);
 
-  const submit = (t: string) => {
+  const submit = (t: string, image?: string) => {
     setText("");
     setPinned(true);
-    void send(t, style);
+    void send(t, style, image);
   };
 
   const toolbar = (
@@ -94,7 +94,7 @@ export function Conversation() {
 
         <div className="flex flex-col gap-7" role="log" aria-label="Conversation" aria-live="off">
           {messages.map((m) => (m.role === "user" ? <UserMessage key={m.id} message={m} /> : <AssistantMessage key={m.id} message={m} name={name} fresh={!seen.has(m.id)} />))}
-          {pending && <PendingReply tools={pending.tools} draft={pending.draft} error={pending.error} onRetry={retry} name={name} />}
+          {pending && <PendingReply tools={pending.tools} draft={pending.draft} reasoning={pending.reasoning} error={pending.error} onRetry={retry} name={name} />}
         </div>
         <div ref={endRef} className="h-4" />
 
@@ -119,7 +119,7 @@ export function Conversation() {
                 ))}
               </div>
             )}
-            <Composer value={text} onChange={setText} onSend={submit} onStop={stop} busy={!!pending && !pending.error} autoFocus />
+            <Composer value={text} onChange={setText} onSend={submit} allowPhotos={!!workspace.capabilities.vision} onStop={stop} busy={!!pending && !pending.error} autoFocus />
           </div>
         </div>
       </div>

@@ -3,6 +3,7 @@ import { z } from "zod";
 import { runAgent } from "./agents";
 import type { Db } from "./db";
 import { completeTask, getProfile, type OnDelta, type ToolResult } from "./futureme";
+import { socialPromptBlock } from "./social/store";
 import type { ChatMessage } from "./llm";
 import { DAILY_LIMITS, getTwinSetting, isTwinPaused, ownerName, setTwinSetting, type CallProposal } from "./twin";
 import { checkBudget, checkCallTime, MAX_CALL_SECONDS, raiseFlag, retentionDays, usage } from "./twin-guard";
@@ -282,6 +283,9 @@ function callPrompt(db: Db, call: CallRow): string {
       : `You are the user's future self, speaking from ${horizonYear()}.`,
     "You are an AI. If they ask, say so plainly.",
   ];
+  // On calls with the user themself, sound like them: the persona from the accounts they imported, if any.
+  const social = socialPromptBlock(db);
+  if (social && call.mode !== "verify_phone") lines.push(social);
   switch (call.mode) {
     case "verify_phone":
       lines.push(`This call only reads out a verification code: ${spokenCode(getTwinSetting(db, "phone_code") ?? "")}. Repeat it if asked, then say goodbye. Talk about nothing else.`);
