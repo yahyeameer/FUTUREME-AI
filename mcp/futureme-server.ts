@@ -1,13 +1,15 @@
-// MCP server giving FutureMe's Docker Agent team its tools: memory search, memory and plan proposals, and web research.
+// MCP server giving FutureMe's Docker Agent team its tools: memory search, the user's imported accounts, memory and plan
+// proposals, and web research.
 // Proposals land in SQLite as pending approvals; nothing is written to the vault until the user approves in the app.
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
 import { openDb } from "../src/lib/db";
 import { runTool } from "../src/lib/futureme";
+import { PLATFORMS } from "../src/lib/social/parse";
 
 const db = openDb();
-const server = new McpServer({ name: "futureme", version: "0.4.0" });
+const server = new McpServer({ name: "futureme", version: "0.5.0" });
 
 const text = (output: string) => ({ content: [{ type: "text" as const, text: output }] });
 const readOnly = { readOnlyHint: true, openWorldHint: false };
@@ -21,6 +23,29 @@ server.registerTool(
     annotations: readOnly,
   },
   async (args) => text((await runTool(db, "search_memory", JSON.stringify(args))).output),
+);
+
+// ---------- The user's own accounts (imported on the Connected accounts page) ----------
+
+server.registerTool(
+  "search_social",
+  {
+    description:
+      "Search what the user wrote on their own LinkedIn, X and Facebook accounts (imported by them): posts, roles and profile. Returns dated posts with links.",
+    inputSchema: { query: z.string().min(1).max(300), platform: z.enum(PLATFORMS).optional(), limit: z.number().int().min(1).max(12).optional() },
+    annotations: readOnly,
+  },
+  async (args) => text((await runTool(db, "search_social", JSON.stringify(args))).output),
+);
+
+server.registerTool(
+  "get_persona",
+  {
+    description: "Read the persona built from the user's imported accounts: career, skills, topics they post about, how they write, and examples in their words.",
+    inputSchema: {},
+    annotations: readOnly,
+  },
+  async () => text((await runTool(db, "get_persona", "{}")).output),
 );
 
 server.registerTool(

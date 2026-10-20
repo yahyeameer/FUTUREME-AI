@@ -75,6 +75,7 @@ const KIND_BY_FOLDER: Record<string, MemoryKind> = {
   Tasks: "task",
   Daily: "daily",
   Research: "note",
+  Social: "experience",
 };
 
 const FOLDER_BY_KIND: Record<MemoryKind, VaultFolder> = {
@@ -105,6 +106,10 @@ function sourceOf(note: Note, provenance: Provenance): string {
       return "FutureMe Daily";
     case "Research":
       return "Web research summary";
+    case "Social": {
+      const from = { linkedin: "LinkedIn", x: "X", facebook: "Facebook" }[String(note.data.source)];
+      return from ? `Imported from your ${from} data` : "Built from your imported accounts";
+    }
     case "Reflections":
       return provenance === "ai-inferred" ? "Generated reflection" : "Approved from a conversation";
     default:
