@@ -22,7 +22,8 @@ The app is a signed-in workspace (no landing page). Old links (`/chat`, `/plan`,
 10. **Agent** (`/agent`): the agent's control room. The team of agents from `agents/futureme.yaml` and the tools each may call; the supervisor log (every handoff and mission task with its verdict); the real tools (`search_memory`, `propose_plan`, `propose_memory`, `web_search`, `fetch_url`, `delegate_task`, `spawn_agent`) with what each can read or write, whether it runs on its own or needs approval, and how often it was used. The night shift (last brief, tomorrow's focus, schedule, Run now), research runs with their sources, the persona pack chooser, and where the model runs. File access lists the vault's Markdown files by folder and whether the agent can read each one. Also the approval queue, the actions it can run, and a log of every tool call, action run and decision, built only from recorded data.
 11. **Missions** (`/missions`): give the team one goal. A mission lead splits it into 2 to 4 tasks, a helper agent works on each at the same time with only the read-only tools it needs, the supervisor reviews every result, and the lead writes one report from the accepted results. Any plan it proposes waits for your approval. Each task shows its tools, output and the supervisor's notes; blocked results are left out of the report.
 12. **Voice Twin** (`/twin`, server only): your cloned voice, the twin's guardrails, and calls with your future self, and calls and email to your contacts once you approve. See [Voice twin](#voice-twin) below.
-13. **Settings** (`/settings`): profile, coaching style, theme (dark, light, system), motion, density, memory controls, data mode, and what runs where.
+13. **Connected Accounts** (`/connections`, server only): import your LinkedIn, X and Facebook data exports (read in your browser, so only your profile and your own posts are sent), sign in where the platform allows it, or fetch a public Instagram, TikTok, YouTube, X, LinkedIn or Facebook Page profile through Apify's MCP server once a one-time code on the account proves it's yours. They become notes in the vault's `Social/` folder and a persona your future self speaks from, with `search_social` and `get_persona` MCP tools to quote what you wrote. Consent every time, a preview before sending, a before/after comparison, encrypted tokens, and delete or disconnect at any time. See [docs/social-connectors.md](docs/social-connectors.md).
+14. **Settings** (`/settings`): profile, coaching style, theme (dark, light, system), motion, density, memory controls, data mode, and what runs where.
 
 Plus a command palette (`⌘K`, and `g` then `h/f/a/t/c/i/r/m/d/s` to jump), dark and light themes, reduced-motion support and layouts down to phone width.
 
@@ -109,7 +110,7 @@ Every agent runs on **Nemotron-3.5-Super-VL** on Nebius Token Factory (`us-north
 ```
 Browser ── Next.js app ──► docker agent serve chat (agents/futureme.yaml) ──► Nemotron on Nebius Token Factory
                 │                         │
-                │                         └─ MCP: mcp/futureme-server.ts (search_memory, propose_memory, propose_plan, web_search, fetch_url, delegate_task, spawn_agent)
+                │                         └─ MCP: mcp/futureme-server.ts (search_memory, search_social, get_persona, propose_memory, propose_plan, web_search, fetch_url, delegate_task, spawn_agent)
                 │                                         │
                 └──────── SQLite (goals, tasks, approvals, tool log) + Markdown vault ◄──┘
 ```

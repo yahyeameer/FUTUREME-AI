@@ -4,12 +4,15 @@ import path from "node:path";
 import { z } from "zod";
 import type { Db } from "./db";
 import { getProvider, type ChatMessage, type JsonSchemaSpec, type LlmProvider, type ReasoningMode, type ToolDefinition } from "./llm";
-import { STORY_MARKER } from "./mock-llm";
+import { COMPARE_MARKER, STORY_MARKER } from "./mock-llm";
 import { dockerMcpConfigured, dockerToolDefs } from "./docker-mcp";
 import { isDockerTool, runDockerTool } from "./docker-tools";
 import { activePack } from "./packs";
 import { isTwinTool, runTwinTool, TWIN_TOOL_DEFS } from "./twin";
 import { listFiles, readFile, rememberConversation, saveFile, searchMemory } from "./memory";
+import { PLATFORMS } from "./social/parse";
+import { formatHits, getPersona, searchSocial, socialPromptBlock } from "./social/store";
+import { personaMarkdown } from "./social/persona";
 import { resolveInVault, writeNote } from "./vault";
 import { fetchPage, webSearch } from "./web";
 import { AGENT_REASONING } from "./nemotron";
@@ -126,6 +129,7 @@ export type SpawnRequest = z.infer<typeof SpawnArgs>;
 const SaveFileArgs = z.object({ name: z.string().min(1).max(120), content: z.string().min(1) });
 const ReadFileArgs = z.object({ path: z.string().min(1).max(300) });
 const ListFilesArgs = z.object({ folder: z.string().max(120).optional() });
+const SearchSocialArgs = z.object({ query: z.string().min(1).max(300), platform: z.enum(PLATFORMS).optional(), limit: z.number().int().min(1).max(12).optional() });
 const PlanArgs = z.object({
   goal: z.string().min(1).max(160),
   why: z.string().max(1000).optional(),
@@ -268,13 +272,46 @@ export const ALL_TOOLS: ToolDefinition[] = [
       parameters: { type: "object", properties: { folder: { type: "string" } } },
     },
   },
+  {
+    type: "function",
+    function: {
+      name: "search_social",
+      description:
+        "Search what the user wrote on their own LinkedIn, X and Facebook accounts (imported by them): their posts, roles and profile. " +
+        "Returns dated posts with links. Use it for questions about their career, skills, opinions or what they've posted.",
+      parameters: {
+        type: "object",
+        properties: { query: { type: "string" }, platform: { type: "string", enum: [...PLATFORMS] }, limit: { type: "integer" } },
+        required: ["query"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "get_persona",
+      description: "Read the persona built from the user's imported accounts: career, skills, topics they post about, how they write, and examples in their words.",
+      parameters: { type: "object", properties: {} },
+    },
+  },
   ...TWIN_TOOL_DEFS,
 ];
 
 export const toolDefs = (names: readonly string[]) => ALL_TOOLS.filter((t) => names.includes(t.function.name));
 
 /** The future self's own tools. Other agents get narrower sets (see agents.ts). */
-export const TOOLS = toolDefs(["search_memory", "propose_memory", "propose_plan", "delegate_task", "spawn_agent", "save_file", "read_file", "list_files"]);
+export const TOOLS = toolDefs([
+  "search_memory",
+  "search_social",
+  "get_persona",
+  "propose_memory",
+  "propose_plan",
+  "delegate_task",
+  "spawn_agent",
+  "save_file",
+  "read_file",
+  "list_files",
+]);
 
 export interface ToolResult {
   output: string;
@@ -421,6 +458,18 @@ async function executeTool(db: Db, name: string, rawArgs: string): Promise<ToolR
       if (!files.length) return { output: args.data.folder ? `No files in ${args.data.folder}.` : "The vault is empty.", citations: [] };
       return { output: files.slice(0, 200).join("\n") + (files.length > 200 ? `\n…and ${files.length - 200} more` : ""), citations: [] };
     }
+    case "search_social": {
+      const args = SearchSocialArgs.safeParse(json);
+      if (!args.success) return invalid(args.error);
+      const hits = searchSocial(db, args.data.query, { platform: args.data.platform, limit: args.data.limit });
+      if (!hits.length) return { output: "Nothing imported yet. They can import their LinkedIn, X or Facebook data on the Connected accounts page.", citations: [] };
+      return { output: formatHits(hits), citations: [...new Set(hits.map((h) => h.note))] };
+    }
+    case "get_persona": {
+      const persona = getPersona(db);
+      if (!persona) return { output: "No accounts imported yet. They can import their LinkedIn, X or Facebook data on the Connected accounts page.", citations: [] };
+      return { output: personaMarkdown(persona), citations: ["Social/persona-from-your-accounts.md"] };
+    }
     default:
       // The voice twin's propose-only tools (calls, emails, commitments) live in twin.ts.
       if (isTwinTool(name)) return runTwinTool(db, name, json);
@@ -442,10 +491,11 @@ const STYLE_GUIDE: Record<Profile["style"], string> = {
   strategic: "Be analytical; focus on leverage, trade-offs and sequencing.",
 };
 
-function systemPrompt(profile: Profile, persona?: string): string {
+export function systemPrompt(profile: Profile, persona?: string, social?: string | null): string {
   return [
     `You are ${profile.name}'s future self, ten years from now, having reached this dream: ${profile.dream}`,
     persona && `Persona pack: ${persona}`,
+    social,
     `Speak in the first person as them, from experience. ${STYLE_GUIDE[profile.style]}`,
     "Always call search_memory before answering so you use what they've told you, and mention what you remembered.",
     "When they commit to something or describe a goal, call propose_plan with small, concrete tasks.",
@@ -688,7 +738,7 @@ export async function chat(db: Db, userText: string, backend: AgentBackend = get
         ],
       }
     : { role: "user", content: text };
-  const messages: ChatMessage[] = [{ role: "system", content: systemPrompt(profile, activePack(db)?.persona) }, ...history, userMessage];
+  const messages: ChatMessage[] = [{ role: "system", content: systemPrompt(profile, activePack(db)?.persona, socialPromptBlock(db)) }, ...history, userMessage];
   db.prepare("INSERT INTO messages (role, content, image) VALUES ('user', ?, ?)").run(text, photo);
 
   // Keep the reasoning trace of every step, so the reply can show how it was thought through.
@@ -739,6 +789,38 @@ function savePhoto(image: string): string {
   fs.mkdirSync(path.dirname(file), { recursive: true });
   fs.writeFileSync(file, Buffer.from(data, "base64"));
   return rel;
+}
+
+// ---------- Before and after importing accounts ----------
+
+export interface SocialComparison {
+  question: string;
+  without: string;
+  with: string;
+  backend: string;
+}
+
+/**
+ * Asks the same question twice, with the same model and profile: once as the future self knew them before any account
+ * was imported, once with the persona from their accounts. Tools are off on both sides so the only difference is the
+ * persona. Nothing is saved to the conversation.
+ */
+export async function compareWithSocial(db: Db, question: string, provider: LlmProvider = getProvider()): Promise<SocialComparison> {
+  const profile = getProfile(db);
+  if (!profile) throw new Error("Complete onboarding first.");
+  const social = socialPromptBlock(db);
+  if (!social) throw new Error("Import an account first, then compare.");
+  const q = question.trim();
+  const ask = async (block: string | null) => {
+    const system = `${systemPrompt(profile, activePack(db)?.persona, block)}\nYour tools are off for this answer: answer from what you know above, and don't mention tools.`;
+    const res = await provider.complete([
+      { role: "system", content: system },
+      { role: "user", content: `${COMPARE_MARKER} ${q}` },
+    ]);
+    return (res.content ?? "").replace(/<think>[\s\S]*?<\/think>/g, "").trim() || "(no answer)";
+  };
+  const [without, withSocial] = await Promise.all([ask(null), ask(social)]);
+  return { question: q, without, with: withSocial, backend: provider.name };
 }
 
 // ---------- Approvals, goals and tasks ----------

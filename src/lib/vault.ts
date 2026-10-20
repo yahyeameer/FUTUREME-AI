@@ -16,6 +16,7 @@ export const VAULT_FOLDERS = [
   "Inbox",
   "Conversations",
   "Files",
+  "Social",
 ] as const;
 
 export type VaultFolder = (typeof VAULT_FOLDERS)[number];
@@ -27,6 +28,8 @@ export interface NoteInput {
   tags?: string[];
   links?: string[];
   evidence?: "user-stated" | "ai-inferred" | "verified";
+  /** Where the note came from when it wasn't written in FutureMe, such as "linkedin" for an imported account. */
+  source?: string;
 }
 
 export interface Note {
@@ -77,6 +80,7 @@ export function writeNote(input: NoteInput, root = vaultRoot()): Note {
     title: input.title,
     tags: input.tags ?? [],
     evidence: input.evidence ?? "user-stated",
+    ...(input.source ? { source: input.source } : {}),
     updated: new Date().toISOString(),
   };
   const linkLine = links.length ? `\n\nRelated: ${links.map((l) => `[[${l}]]`).join(", ")}\n` : "\n";

@@ -1,4 +1,4 @@
-import { BookmarkPlus, FilePlus, FileSearch, FolderOpen, Forward, Globe, ListPlus, Search, UserPlus, type LucideIcon } from "lucide-react";
+import { AtSign, BookmarkPlus, FilePlus, FileSearch, FolderOpen, Forward, Globe, ListPlus, Search, UserPlus, type LucideIcon } from "lucide-react";
 import type { Memory, Workspace } from "@/types";
 
 export type ToolAccess = "read" | "write" | "none";
@@ -36,6 +36,17 @@ export function agentTools(ws: Workspace): ToolInfo[] {
       access: "read",
       gate: "auto",
       touches: "Vault notes and conversations",
+    },
+    {
+      name: "search_social",
+      label: "Search your accounts",
+      icon: AtSign,
+      description: ws.capabilities.delegation
+        ? "Searches what you wrote on the LinkedIn, X and Facebook accounts you imported (posts, roles, profile) and quotes it with dates and links. Also reads the persona built from them."
+        : "Searches the LinkedIn, X and Facebook data you import on Connected accounts. Needs the FutureMe server.",
+      access: ws.capabilities.delegation ? "read" : "none",
+      gate: ws.capabilities.delegation ? "auto" : "unavailable",
+      touches: "Imported accounts (vault Social folder)",
     },
     {
       name: "save_file",

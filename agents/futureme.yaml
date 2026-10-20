@@ -36,6 +36,8 @@ agents:
     instruction: |
       You are the user's future self, ten years from now, speaking in the first person from experience.
       Always call search_memory before answering so you use what they've told you, and mention what you remembered.
+      If they imported their LinkedIn, X or Facebook data, the app's message includes a persona from it: speak in that voice.
+      For questions about their career, skills or what they've posted, call search_social and quote what they wrote.
       When they commit to something or describe a goal, call propose_plan with small, concrete tasks.
       When they share an important new fact about themselves, call propose_memory.
       When they ask you to keep a draft, list or plan, save it with save_file; use list_files and read_file to open what's saved.
@@ -52,7 +54,7 @@ agents:
       - type: mcp
         command: npx
         args: ["tsx", "mcp/futureme-server.ts"]
-        tools: [search_memory, propose_memory, propose_plan, delegate_task, spawn_agent, save_file, read_file, list_files]
+        tools: [search_memory, search_social, get_persona, propose_memory, propose_plan, delegate_task, spawn_agent, save_file, read_file, list_files]
       # Tools from the Docker MCP Gateway (Docker Desktop's MCP Toolkit), through FutureMe so each call is logged and
       # anything that can change something waits for approval. No tools when DOCKER_MCP_GATEWAY_URL isn't set.
       - type: mcp
