@@ -1,4 +1,5 @@
 import { parseJsonReply, runAgent } from "./agents";
+import { SCHEMAS } from "./nemotron";
 import type { Db } from "./db";
 import { createApproval } from "./futureme";
 import { RESEARCH_MARKER } from "./mock-llm";
@@ -28,7 +29,7 @@ export async function runResearch(db: Db, rawTopic: string): Promise<ResearchRec
   const id = Number(db.prepare("INSERT INTO research_runs (topic) VALUES (?)").run(topic).lastInsertRowid);
 
   try {
-    const run = await runAgent(db, "researcher", [{ role: "user", content: `${RESEARCH_MARKER} Topic: ${topic}` }]);
+    const run = await runAgent(db, "researcher", [{ role: "user", content: `${RESEARCH_MARKER} Topic: ${topic}` }], { schema: SCHEMAS.research });
     const seen = new Set(run.events.filter((e) => e.tool === "web_search" || e.tool === "fetch_url").flatMap((e) => e.citations));
     const parsed = parseJsonReply<{ summary?: unknown; findings?: { point?: unknown; url?: unknown }[] }>(run.reply);
     const summary = typeof parsed?.summary === "string" ? parsed.summary.trim() : "";

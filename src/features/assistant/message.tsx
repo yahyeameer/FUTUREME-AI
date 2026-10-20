@@ -13,12 +13,17 @@ import { ApprovalCard } from "./approval-card";
 import { RunCard } from "@/features/missions/run-card";
 import { FactCheck } from "./fact-check";
 import { ProgressBlock } from "./progress-block";
+import { Reasoning } from "./reasoning";
 import { ToolStatus } from "./tool-status";
 
 export function UserMessage({ message }: { message: Message }) {
   return (
     <div className="flex justify-end">
       <div className="max-w-[85%] sm:max-w-[75%]">
+        {message.image && (
+          // eslint-disable-next-line @next/next/no-img-element -- a user photo from the vault, not a static asset
+          <img src={message.image} alt="Photo you sent" className="mb-1.5 ml-auto max-h-64 rounded-2xl border border-border object-cover" />
+        )}
         <div className="rounded-2xl rounded-br-md bg-primary px-4 py-3 text-[14px] leading-relaxed whitespace-pre-wrap text-primary-foreground shadow-[0_10px_24px_-14px_rgb(0_0_0/0.5)]">{message.content}</div>
         <p className="mt-1 text-right t-meta">{formatTime(message.createdAt)}</p>
       </div>
@@ -59,6 +64,7 @@ export function AssistantMessage({ message, name = "Future you" }: { message: Me
         )}
       </header>
       {message.tools && message.tools.length > 0 && <ToolStatus tools={message.tools} className="mb-2.5" />}
+      {message.reasoning && <Reasoning text={message.reasoning} className="mb-2.5" />}
       <Markdown source={message.content} className="max-w-[62ch] text-[14.5px] leading-[1.7]" />
 
       {handoffs.length > 0 && (
@@ -109,7 +115,7 @@ export function AssistantMessage({ message, name = "Future you" }: { message: Me
   );
 }
 
-export function PendingReply({ tools, draft, error, onRetry, name = "Future you" }: { tools: Message["tools"]; draft: string; error?: string; onRetry: () => void; name?: string }) {
+export function PendingReply({ tools, draft, reasoning = "", error, onRetry, name = "Future you" }: { tools: Message["tools"]; draft: string; reasoning?: string; error?: string; onRetry: () => void; name?: string }) {
   return (
     <article className="relative pl-11" aria-live="polite" aria-busy={!error}>
       <span aria-hidden className="absolute top-0 animate-pulse left-0 flex size-8 items-center justify-center rounded-full bg-gradient-to-br from-accent to-copper font-display text-[15px] text-accent-foreground italic shadow-[inset_0_1px_0_rgb(255_255_255/0.45),0_6px_14px_-8px_rgb(120_80_30/0.6)]">{name.replace(/^Future /, "").charAt(0)}</span>
@@ -118,6 +124,7 @@ export function PendingReply({ tools, draft, error, onRetry, name = "Future you"
         {!error && <span className="t-meta">{draft ? "writing…" : "thinking…"}</span>}
       </header>
       {tools && <ToolStatus tools={tools} className="mb-2.5" />}
+      {reasoning && <Reasoning text={reasoning} live={!draft && !error} className="mb-2.5" />}
       {draft && (
         <p className={cn("max-w-[62ch] text-[14.5px] leading-[1.7] whitespace-pre-wrap")}>
           {draft}

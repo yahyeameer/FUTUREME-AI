@@ -1,8 +1,12 @@
 #!/bin/sh
-# Container entrypoint: runs Docker Agent (FutureMe's agent team), the night-shift and twin schedulers and the web app side by side.
+# Container entrypoint: runs the web app with FutureMe's agent team, the night-shift and twin schedulers side by side.
+#   AGENT_RUNTIME=nemotron      (default) the app runs the team itself on Nemotron: per-agent reasoning, structured
+#                               outputs, parallel tool calls, live reasoning in the chat and photo input
+#   AGENT_RUNTIME=docker-agent  the team runs in Docker Agent from agents/futureme.yaml instead
 #   LLM_PROVIDER=local   every agent runs on Docker Model Runner on this machine (see docker-compose.local.yml)
 #   no NEBIUS_API_KEY    (or LLM_PROVIDER=mock) both use the built-in stand-in model, so the demo always runs
 set -e
+AGENT_RUNTIME="${AGENT_RUNTIME:-nemotron}"
 
 FLAVOR=""
 AGENT_FILE=agents/futureme.yaml
@@ -16,9 +20,12 @@ if [ "$LLM_PROVIDER" = "local" ]; then
       -e "s|^    model: .* \# NEBIUS_MODEL.*|    model: $LOCAL_MODEL|" agents/futureme.yaml > "$AGENT_FILE"
 elif [ "$LLM_PROVIDER" = "mock" ] || [ -z "$NEBIUS_API_KEY" ]; then
   echo "No NEBIUS_API_KEY: using the stand-in model."
-  export LLM_PROVIDER=mock NEBIUS_API_KEY="${NEBIUS_API_KEY:-unused}"
-  node_modules/.bin/tsx scripts/mock-model-server.ts &
-  FLAVOR="--flavor mock"
+  export LLM_PROVIDER=mock
+  if [ "$AGENT_RUNTIME" = "docker-agent" ]; then
+    export NEBIUS_API_KEY="${NEBIUS_API_KEY:-unused}"
+    node_modules/.bin/tsx scripts/mock-model-server.ts &
+    FLAVOR="--flavor mock"
+  fi
 elif [ -n "$NEBIUS_MODEL" ] || [ -n "$NEBIUS_BASE_URL" ]; then
   # Use NEBIUS_MODEL and NEBIUS_BASE_URL for the agents too, so the app and the agents call the same endpoint and model.
   AGENT_FILE=agents/futureme.runtime.yaml
@@ -33,9 +40,14 @@ if [ -n "$SUPABASE_URL" ] && [ "$CLOUD_PROVIDER" != "off" ]; then
 fi
 [ "$SEED_DEMO" = "1" ] && node_modules/.bin/tsx scripts/seed-demo.ts --if-empty
 
-# Exported first so the MCP server Docker Agent starts can run handoffs (delegate_task, spawn_agent) through it too.
-export DOCKER_AGENT_URL=http://127.0.0.1:8083
-docker-agent serve chat "$AGENT_FILE" --safety autonomous --listen 127.0.0.1:8083 --working-dir "$(pwd)" $FLAVOR &
+if [ "$AGENT_RUNTIME" = "docker-agent" ]; then
+  # Exported first so the MCP server Docker Agent starts can run handoffs (delegate_task, spawn_agent) through it too.
+  export DOCKER_AGENT_URL=http://127.0.0.1:8083
+  docker-agent serve chat "$AGENT_FILE" --safety autonomous --listen 127.0.0.1:8083 --working-dir "$(pwd)" $FLAVOR &
+else
+  unset DOCKER_AGENT_URL
+  echo "Agent runtime: Nemotron, in the app (set AGENT_RUNTIME=docker-agent to use Docker Agent instead)."
+fi
 
 # The night shift publishes the Daily and a morning brief at NIGHT_SHIFT_AT (default 05:30). NIGHT_SHIFT_AT=off disables it.
 if [ "$NIGHT_SHIFT_AT" != "off" ]; then

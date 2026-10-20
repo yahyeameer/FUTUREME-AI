@@ -28,7 +28,7 @@ export interface ProfileService {
 
 export interface ConversationService {
   /** Runs one turn with the future-self agent, yielding tool, text and completion events. */
-  sendMessage(text: string, opts: { style: CoachingStyle; signal?: AbortSignal }): AsyncIterable<TurnEvent>;
+  sendMessage(text: string, opts: { style: CoachingStyle; signal?: AbortSignal; image?: string }): AsyncIterable<TurnEvent>;
 }
 
 export interface ApprovalService {

@@ -1,6 +1,7 @@
 import { parseJsonReply, runAgent } from "./agents";
 import type { Db } from "./db";
 import { VERIFY_MARKER } from "./mock-llm";
+import { SCHEMAS } from "./nemotron";
 import { listNotes, readNote } from "./vault";
 
 // The fact checker: a second agent reads a future-self reply against the user's notes and marks each claim.
@@ -28,7 +29,7 @@ export async function verifyMessage(db: Db, messageId: number): Promise<Verifica
     return { path: n.path, title: n.title, excerpt: n.body.replace(/^\s*# .*\n+/, "").slice(0, 900) };
   });
 
-  const run = await runAgent(db, "verifier", [{ role: "user", content: `${VERIFY_MARKER} ${JSON.stringify({ reply: msg.content, notes })}` }]);
+  const run = await runAgent(db, "verifier", [{ role: "user", content: `${VERIFY_MARKER} ${JSON.stringify({ reply: msg.content, notes })}` }], { schema: SCHEMAS.verification });
   const parsed = parseJsonReply<{ claims?: { text?: unknown; status?: unknown; source?: unknown }[] }>(run.reply);
   if (!parsed?.claims) throw new Error("The fact checker didn't return a readable result.");
 

@@ -90,6 +90,20 @@ Settings → Data mode chooses Automatic (server if reachable, otherwise demo), 
 
 Design: "Editorial Futurism". A warm ivory and paper theme by default (obsidian and graphite in dark mode), obsidian ink for the main action, citron for progress and copper for AI interpretation, with ambient light, an animated dashboard and staggered motion that switches off under reduced motion. Geist for the interface, Instrument Serif for display and Newsreader for reading. Primitives are shadcn-style components on Radix (`src/components/ui`), icons from Lucide, motion from Motion, forms from React Hook Form with Zod.
 
+## How FutureMe uses NVIDIA Nemotron
+
+Every agent runs on **Nemotron-3.5-Super-VL** on Nebius Token Factory (`us-north1`), and the app uses what the model offers beyond plain chat. These run when the app runs the team itself, which is the default (`AGENT_RUNTIME=nemotron`, no `DOCKER_AGENT_URL`). See `src/lib/llm.ts` and `src/lib/nemotron.ts`.
+
+| Nemotron capability | Where FutureMe uses it |
+| --- | --- |
+| **Reasoning on/off per call** (`chat_template_kwargs.enable_thinking`) | Agents that plan or judge think first: the future self, mission lead, council chair, supervisor, night shift, voice twin. Quick ones answer straight away: the four council voices, verifier, researcher, helpers and the live-call agents. `NEBIUS_REASONING=on|off` overrides all of them. |
+| **Reasoning trace** (`reasoning_content`, streamed) | The chat shows "Nemotron is reasoning…" live while the future self thinks, and every reply keeps a folded "How I reasoned" section. |
+| **Structured outputs** (`response_format: json_schema`) | Council brief, fact check, supervisor verdict, mission plan and report, morning brief, research summary and FutureMe Daily are constrained to a JSON schema. Agents that also use tools answer freely, then get one formatting pass under the schema (tool calling and a forced JSON reply don't mix). |
+| **Native and parallel tool calling** | When Nemotron asks for several tools in one step (search memory and list files, two web pages, two hand-offs), they run in parallel. Up to 10 tool steps per turn. |
+| **Vision** (text + image input) | Attach a photo in the chat (a whiteboard plan, a workout log, a page of notes). Nemotron sees it, and the photo is kept in the vault's `Photos` folder. |
+| **1M-token context** | The future self keeps the last 40 messages in view instead of 12. |
+| **Multi-agent orchestration** | Council, missions with parallel sub-agents, supervisor review, night shift and hand-offs, all on Nemotron. |
+
 ## How it fits together
 
 ```
@@ -104,7 +118,7 @@ Browser ── Next.js app ──► docker agent serve chat (agents/futureme.ya
 - Docker Agent runs the agent loop and calls FutureMe's MCP tools. Every tool call is logged, so the app can show what the agent remembered and proposed.
 - `agents/futureme.yaml` is a team: `root` (the future self), `council` with four voice sub-agents, `council_chair`, `verifier`, `researcher`, `helper_memory`, `helper_web`, `mission_lead`, `supervisor` and `night_shift`. Docker Agent exposes each one as a model, and each gets only the MCP tools its job needs (the future self never browses; the researcher can't write plans).
 - The future-story letter is a single model call made by the app directly.
-- Without `DOCKER_AGENT_URL`, the same loop runs in-process (used by unit tests).
+- Without `DOCKER_AGENT_URL`, the same team runs in the app on Nemotron with the features above. This is the default in the Docker image; `AGENT_RUNTIME=docker-agent` switches the image back to Docker Agent.
 - Without a Nebius key, a built-in stand-in model keeps everything runnable (`LLM_PROVIDER=mock`, or `npm run mock-model` plus `--flavor mock` for Docker Agent).
 
 ## Limitations
