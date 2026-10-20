@@ -5,17 +5,17 @@ import * as React from "react";
 import { cn } from "@/lib/utils";
 
 // The plates are printed at dusk in both themes, like photographs in a magazine: they don't follow the page colours.
-const DUSK = { night: "#0c0d0e", deep: "#17191b", ember: "#3a2a24", copper: "#c98d67", rust: "#a15f39", citron: "#c4d66a", glow: "#e9f2b0", ivory: "#f5f2ea" };
-const EASE = [0.2, 0.7, 0.2, 1] as const;
+export const DUSK = { night: "#0c0d0e", deep: "#17191b", ember: "#3a2a24", copper: "#c98d67", rust: "#a15f39", citron: "#c4d66a", glow: "#e9f2b0", ivory: "#f5f2ea" };
+export const EASE = [0.2, 0.7, 0.2, 1] as const;
 
 /** Deterministic scatter, so the stars sit in the same place on every render. */
-function scatter(count: number, seed: number) {
+export function scatter(count: number, seed: number) {
   let s = seed;
   const rand = () => ((s = (s * 9301 + 49297) % 233280) / 233280);
   return Array.from({ length: count }, () => ({ x: rand(), y: rand(), r: 0.4 + rand() * 1.1, o: 0.25 + rand() * 0.6 }));
 }
 
-function Plate({ children, caption, className, ...props }: React.ComponentProps<"figure"> & { caption: React.ReactNode }) {
+export function Plate({ children, caption, className, ...props }: React.ComponentProps<"figure"> & { caption: React.ReactNode }) {
   return (
     <figure className={cn("relative", className)} {...props}>
       <div className="ring-gradient relative overflow-hidden rounded-[22px] shadow-[var(--shadow-lift)]">{children}</div>
@@ -24,8 +24,8 @@ function Plate({ children, caption, className, ...props }: React.ComponentProps<
   );
 }
 
-/** Plate I: the horizon you named. A sun rising over three ridges, a road running toward it, and the year in the sky. */
-export function HorizonPlate({ year, className }: { year: number; className?: string }) {
+/** The first cover: a sun rising over three ridges, a road running toward it, and the year in the sky. */
+export function HorizonScene({ year }: { year: number }) {
   const uid = React.useId().replace(/:/g, "");
   const reduce = useReducedMotionConfig();
   const px = useMotionValue(0);
@@ -46,84 +46,78 @@ export function HorizonPlate({ year, className }: { year: number; className?: st
   };
 
   return (
-    <Plate
-      className={className}
-      caption={
-        <>
-          <span className="text-copper">Plate I.</span> The horizon you named, {year}.
-        </>
-      }
+    <div
+      onPointerMove={onMove}
+      onPointerLeave={() => {
+        px.set(0);
+        py.set(0);
+      }}
     >
-      <div onPointerMove={onMove} onPointerLeave={() => {
-          px.set(0);
-          py.set(0);
-        }}>
-        <svg viewBox="0 0 400 480" className="block h-auto w-full" role="img" aria-label={`Illustration: a sun rising over the hills toward ${year}`}>
-          <defs>
-            <linearGradient id={`sky-${uid}`} x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0" stopColor={DUSK.night} />
-              <stop offset="0.5" stopColor="#241c19" />
-              <stop offset="0.78" stopColor={DUSK.rust} />
-              <stop offset="1" stopColor={DUSK.copper} />
-            </linearGradient>
-            <radialGradient id={`sun-${uid}`} cx="50%" cy="45%" r="55%">
-              <stop offset="0" stopColor={DUSK.glow} />
-              <stop offset="0.55" stopColor={DUSK.citron} />
-              <stop offset="1" stopColor={DUSK.copper} />
-            </radialGradient>
-            <radialGradient id={`halo-${uid}`} cx="50%" cy="50%" r="50%">
-              <stop offset="0" stopColor={DUSK.citron} stopOpacity="0.45" />
-              <stop offset="1" stopColor={DUSK.citron} stopOpacity="0" />
-            </radialGradient>
-            <linearGradient id={`road-${uid}`} x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0" stopColor={DUSK.citron} stopOpacity="0.05" />
-              <stop offset="1" stopColor={DUSK.citron} stopOpacity="0.32" />
-            </linearGradient>
-          </defs>
+      <svg viewBox="0 0 400 480" className="block h-auto w-full" role="img" aria-label={`Illustration: a sun rising over the hills toward ${year}`}>
+        <defs>
+          <linearGradient id={`sky-${uid}`} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stopColor={DUSK.night} />
+            <stop offset="0.5" stopColor="#241c19" />
+            <stop offset="0.78" stopColor={DUSK.rust} />
+            <stop offset="1" stopColor={DUSK.copper} />
+          </linearGradient>
+          <radialGradient id={`sun-${uid}`} cx="50%" cy="45%" r="55%">
+            <stop offset="0" stopColor={DUSK.glow} />
+            <stop offset="0.55" stopColor={DUSK.citron} />
+            <stop offset="1" stopColor={DUSK.copper} />
+          </radialGradient>
+          <radialGradient id={`halo-${uid}`} cx="50%" cy="50%" r="50%">
+            <stop offset="0" stopColor={DUSK.citron} stopOpacity="0.45" />
+            <stop offset="1" stopColor={DUSK.citron} stopOpacity="0" />
+          </radialGradient>
+          <linearGradient id={`road-${uid}`} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stopColor={DUSK.citron} stopOpacity="0.05" />
+            <stop offset="1" stopColor={DUSK.citron} stopOpacity="0.32" />
+          </linearGradient>
+        </defs>
 
-          <rect width="400" height="480" fill={`url(#sky-${uid})`} />
+        <rect width="400" height="480" fill={`url(#sky-${uid})`} />
 
-          <motion.g style={{ x: farX, y: farY }}>
-            {stars.map((s, i) => (
-              <circle key={i} cx={s.x * 400} cy={s.y * 230} r={s.r} fill={DUSK.ivory} opacity={s.o} className={cn(i % 5 === 0 && "animate-breathe")} style={{ transformOrigin: `${s.x * 400}px ${s.y * 230}px` }} />
-            ))}
-            <text x="200" y="168" textAnchor="middle" fill="none" stroke={DUSK.ivory} strokeOpacity="0.28" strokeWidth="1" style={{ fontFamily: "var(--font-display)", fontSize: 150, letterSpacing: "-0.02em" }}>
-              {year}
-            </text>
-          </motion.g>
-
-          <motion.g initial={{ y: 70, opacity: 0.4 }} animate={{ y: 0, opacity: 1 }} transition={{ duration: 2.2, ease: EASE, delay: 0.2 }}>
-            <circle cx="200" cy="318" r="150" fill={`url(#halo-${uid})`} />
-            <circle cx="200" cy="318" r="118" fill="none" stroke={DUSK.citron} strokeOpacity="0.18" />
-            <circle cx="200" cy="318" r="96" fill="none" stroke={DUSK.citron} strokeOpacity="0.3" strokeDasharray="2 6" />
-            <circle cx="200" cy="318" r="74" fill={`url(#sun-${uid})`} />
-          </motion.g>
-
-          <motion.path style={{ x: farX }} d="M-20 330 C 40 300 80 296 130 312 S 220 290 270 300 S 360 286 420 304 L 420 480 L -20 480 Z" fill={DUSK.ember} />
-          <motion.path style={{ x: midX }} d="M-20 356 C 50 330 110 342 160 352 S 260 326 320 338 S 390 346 420 336 L 420 480 L -20 480 Z" fill="#241b18" />
-          <motion.g style={{ x: nearX }}>
-            <path d="M-30 392 C 60 372 120 384 175 380 C 230 376 300 360 430 384 L 430 480 L -30 480 Z" fill={DUSK.night} />
-            <path d="M150 480 C 176 440 196 410 197 381 L 203 381 C 206 410 232 444 262 480 Z" fill={`url(#road-${uid})`} />
-            <motion.path
-              d="M206 480 C 204 446 201 412 200 382"
-              fill="none"
-              stroke={DUSK.citron}
-              strokeWidth="1.6"
-              strokeDasharray="6 7"
-              initial={{ pathLength: 0 }}
-              animate={{ pathLength: 1 }}
-              transition={{ duration: 1.6, ease: EASE, delay: 0.9 }}
-            />
-          </motion.g>
-          <text x="20" y="462" fill={DUSK.ivory} fillOpacity="0.55" style={{ fontFamily: "var(--font-mono)", fontSize: 10, letterSpacing: "0.12em" }}>
-            TODAY
-          </text>
-          <text x="380" y="462" textAnchor="end" fill={DUSK.citron} fillOpacity="0.85" style={{ fontFamily: "var(--font-mono)", fontSize: 10, letterSpacing: "0.12em" }}>
+        <motion.g style={{ x: farX, y: farY }}>
+          {stars.map((s, i) => (
+            <circle key={i} cx={s.x * 400} cy={s.y * 230} r={s.r} fill={DUSK.ivory} opacity={s.o} className={cn(i % 5 === 0 && "animate-breathe")} style={{ transformOrigin: `${s.x * 400}px ${s.y * 230}px` }} />
+          ))}
+          <text x="200" y="168" textAnchor="middle" fill="none" stroke={DUSK.ivory} strokeOpacity="0.28" strokeWidth="1" style={{ fontFamily: "var(--font-display)", fontSize: 150, letterSpacing: "-0.02em" }}>
             {year}
           </text>
-        </svg>
-      </div>
-    </Plate>
+        </motion.g>
+
+        <motion.g initial={{ y: 70, opacity: 0.4 }} animate={{ y: 0, opacity: 1 }} transition={{ duration: 2.2, ease: EASE, delay: 0.2 }}>
+          <circle cx="200" cy="318" r="150" fill={`url(#halo-${uid})`} />
+          <circle cx="200" cy="318" r="118" fill="none" stroke={DUSK.citron} strokeOpacity="0.18" />
+          <circle cx="200" cy="318" r="96" fill="none" stroke={DUSK.citron} strokeOpacity="0.3" strokeDasharray="2 6" />
+          <circle cx="200" cy="318" r="74" fill={`url(#sun-${uid})`} />
+        </motion.g>
+
+        <motion.path style={{ x: farX }} d="M-20 330 C 40 300 80 296 130 312 S 220 290 270 300 S 360 286 420 304 L 420 480 L -20 480 Z" fill={DUSK.ember} />
+        <motion.path style={{ x: midX }} d="M-20 356 C 50 330 110 342 160 352 S 260 326 320 338 S 390 346 420 336 L 420 480 L -20 480 Z" fill="#241b18" />
+        <motion.g style={{ x: nearX }}>
+          <path d="M-30 392 C 60 372 120 384 175 380 C 230 376 300 360 430 384 L 430 480 L -30 480 Z" fill={DUSK.night} />
+          <path d="M150 480 C 176 440 196 410 197 381 L 203 381 C 206 410 232 444 262 480 Z" fill={`url(#road-${uid})`} />
+          <motion.path
+            d="M206 480 C 204 446 201 412 200 382"
+            fill="none"
+            stroke={DUSK.citron}
+            strokeWidth="1.6"
+            strokeDasharray="6 7"
+            initial={{ pathLength: 0 }}
+            animate={{ pathLength: 1 }}
+            transition={{ duration: 1.6, ease: EASE, delay: 0.9 }}
+          />
+        </motion.g>
+        <text x="20" y="462" fill={DUSK.ivory} fillOpacity="0.55" style={{ fontFamily: "var(--font-mono)", fontSize: 10, letterSpacing: "0.12em" }}>
+          TODAY
+        </text>
+        <text x="380" y="462" textAnchor="end" fill={DUSK.citron} fillOpacity="0.85" style={{ fontFamily: "var(--font-mono)", fontSize: 10, letterSpacing: "0.12em" }}>
+          {year}
+        </text>
+      </svg>
+    </div>
   );
 }
 
