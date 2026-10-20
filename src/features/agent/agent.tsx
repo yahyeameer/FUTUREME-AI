@@ -239,9 +239,9 @@ function SectionHead({ id, title, note, action, dot }: { id: string; title: stri
 
 function Metric({ label, value, tone }: { label: string; value: number; tone?: "warning" }) {
   return (
-    <div className="border-border px-5 py-4 [&:not(:last-child)]:border-r max-sm:[&:nth-child(2)]:border-r-0 max-sm:[&:nth-child(-n+2)]:border-b">
-      <p className="t-meta">{label}</p>
-      <CountUp value={value} className={cn("mt-1 block font-display text-[2rem] leading-none", tone === "warning" && value > 0 && "text-warning")} />
+    <div className="group/metric border-border px-5 py-4 transition-colors duration-300 hover:bg-[radial-gradient(120%_100%_at_50%_100%,var(--accent-wash),transparent_70%)] [&:not(:last-child)]:border-r max-sm:[&:nth-child(2)]:border-r-0 max-sm:[&:nth-child(-n+2)]:border-b">
+      <p className="t-meta transition-colors group-hover/metric:text-foreground">{label}</p>
+      <CountUp value={value} className={cn("mt-1 block font-display text-[2rem] leading-none transition-transform duration-300 group-hover/metric:-translate-y-1", tone === "warning" && value > 0 && "text-warning")} />
     </div>
   );
 }
@@ -250,13 +250,16 @@ function Metric({ label, value, tone }: { label: string; value: number; tone?: "
 function ToolOrbit({ tools }: { tools: ToolInfo[] }) {
   const r = 118;
   return (
-    <div className="relative size-[18rem]">
+    <div className="group/tools relative size-[18rem]">
       <div className="absolute inset-0 flex items-center justify-center">
-        <Orb size={170}>
+        <Orb size={170} active>
           <Bot className="size-9 text-[#17191b] dark:text-foreground" aria-hidden />
         </Orb>
       </div>
-      <div aria-hidden className="absolute inset-0 animate-orbit-slow">
+      <svg aria-hidden viewBox="0 0 288 288" className="absolute inset-0 size-full">
+        <circle cx="144" cy="144" r="118" fill="none" stroke="var(--accent)" strokeOpacity="0.35" strokeDasharray="2 6" className="animate-[dash-flow_1.2s_linear_infinite]" />
+      </svg>
+      <div aria-hidden className="absolute inset-0 animate-orbit-slow group-hover/tools:[animation-play-state:paused]">
         {tools.map((t, i) => {
           const a = (i / tools.length) * Math.PI * 2 - Math.PI / 2;
           const x = Math.round(Math.cos(a) * r * 100) / 100;
@@ -267,13 +270,16 @@ function ToolOrbit({ tools }: { tools: ToolInfo[] }) {
               className="absolute top-1/2 left-1/2 -mt-5 -ml-5"
               style={{ transform: `translate(${x}px, ${y}px)` }}
             >
-              <span
-                className={cn(
-                  "flex size-10 animate-[orbit_60s_linear_infinite_reverse] items-center justify-center rounded-xl border bg-surface shadow-card",
-                  t.gate === "unavailable" ? "border-dashed border-border-strong text-subtle opacity-60" : t.gate === "approval" ? "border-copper/30 text-copper" : "border-accent/40 text-accent-ink",
-                )}
-              >
-                <t.icon className="size-4.5" />
+              <span className="relative block animate-[orbit_60s_linear_infinite_reverse] group-hover/tools:[animation-play-state:paused]">
+                <span
+                  className={cn(
+                    "peer/tool flex size-10 items-center justify-center rounded-xl border bg-surface shadow-card transition-[scale,box-shadow] duration-300 hover:scale-125 hover:shadow-[0_0_18px_-2px_var(--accent)]",
+                    t.gate === "unavailable" ? "border-dashed border-border-strong text-subtle opacity-60" : t.gate === "approval" ? "border-copper/30 text-copper" : "border-accent/40 text-accent-ink",
+                  )}
+                >
+                  <t.icon className="size-4.5" />
+                </span>
+                <span className="pointer-events-none absolute top-full left-1/2 mt-1.5 -translate-x-1/2 rounded-md border border-border bg-surface px-1.5 py-0.5 font-mono text-[10px] whitespace-nowrap text-muted-foreground opacity-0 shadow-card transition-opacity peer-hover/tool:opacity-100">{t.label}</span>
               </span>
             </span>
           );
@@ -298,8 +304,11 @@ function Loop() {
         <motion.div className="h-full bg-gradient-to-r from-accent via-copper to-accent" initial={{ x: "-100%" }} animate={{ x: "100%" }} transition={{ duration: 3.2, repeat: Infinity, ease: "easeInOut" }} />
       </div>
       {LOOP.map((s, i) => (
-        <motion.li key={s.title} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 + i * 0.08 }} className="relative flex gap-3 sm:flex-col sm:items-center sm:text-center">
-          <span className={cn("relative flex size-10 shrink-0 items-center justify-center rounded-full border bg-surface shadow-card", i === 3 ? "border-copper/40 text-copper" : "border-border text-foreground")}>
+        <motion.li key={s.title} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 + i * 0.08 }} className="group/step relative flex gap-3 sm:flex-col sm:items-center sm:text-center">
+          <span
+            className={cn("relative flex size-10 shrink-0 animate-[step-lit_5s_ease-in-out_infinite] items-center justify-center rounded-full border bg-surface shadow-card transition-transform duration-300 group-hover/step:scale-115 group-hover/step:-rotate-6", i === 3 ? "border-copper/40 text-copper" : "border-border text-foreground")}
+            style={{ animationDelay: `${i}s` }}
+          >
             <s.icon className="size-4" aria-hidden />
           </span>
           <div className="min-w-0">
@@ -324,11 +333,12 @@ function ToolCard({ tool, usage }: { tool: ToolInfo; usage?: { count: number; la
   const gate = GATE[tool.gate];
   const off = tool.gate === "unavailable";
   return (
-    <article className={cn("card card-hover flex flex-col p-5", off && "border-dashed bg-surface/60 shadow-none")}>
+    <article className={cn("group card card-hover flex flex-col p-5", off && "border-dashed bg-surface/60 shadow-none")}>
       <div className="flex items-start gap-3.5">
         <span
           className={cn(
-            "flex size-11 shrink-0 items-center justify-center rounded-xl border",
+            "flex size-11 shrink-0 items-center justify-center rounded-xl border transition-[transform,box-shadow] duration-500",
+            !off && "group-hover:scale-110 group-hover:-rotate-6 group-hover:shadow-[0_0_18px_-3px_var(--accent)]",
             off ? "border-dashed border-border-strong text-subtle" : tool.gate === "approval" ? "border-copper/25 bg-copper-wash text-copper" : "border-accent/30 bg-accent-wash text-accent-ink",
           )}
         >

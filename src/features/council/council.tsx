@@ -144,29 +144,65 @@ export function Council() {
 }
 
 /** The four voices around a table. They pulse while the council meets. */
+/**
+ * The four voices orbiting the chair, joined to it by threads of light. Hovering the ring stops the orbit; hovering a
+ * voice lifts it and names it. While the council meets, the orbit quickens and the threads run.
+ */
 function CouncilRing({ busy }: { busy: boolean }) {
-  const r = 78;
+  const r = 82;
+  const spin = busy ? "[animation-duration:9s]" : "[animation-duration:48s]";
   return (
-    <div className="relative mx-auto hidden size-[13rem] lg:block" aria-hidden>
-      <div className={cn("absolute inset-8 rounded-full border border-dashed border-border-strong", busy && "animate-orbit")} />
-      <div className="absolute inset-[4.6rem] flex items-center justify-center rounded-full bg-primary text-primary-foreground shadow-card">
+    <div className="group/ring relative mx-auto hidden size-[14rem] lg:block" aria-hidden>
+      <div className="absolute inset-[1.6rem] rounded-full border border-dashed border-border-strong" />
+      <div className="absolute inset-[3.4rem] rounded-full bg-[radial-gradient(circle,var(--accent-wash),transparent_70%)] blur-md transition-opacity group-hover/ring:opacity-100 opacity-60" />
+      <div className={cn("absolute inset-0 animate-orbit group-hover/ring:[animation-play-state:paused]", spin)}>
+        <svg viewBox="-112 -112 224 224" className="absolute inset-0 size-full overflow-visible">
+          {VOICES.map((v, i) => {
+            const a = (i / VOICES.length) * Math.PI * 2 - Math.PI / 2;
+            return (
+              <line
+                key={v}
+                x1="0"
+                y1="0"
+                x2={Math.round(Math.cos(a) * r)}
+                y2={Math.round(Math.sin(a) * r)}
+                stroke="var(--accent)"
+                strokeOpacity={busy ? 0.9 : 0.45}
+                strokeWidth="1.2"
+                strokeDasharray="3 5"
+                className={cn("animate-[dash-flow_1.6s_linear_infinite]", !busy && "[animation-duration:4s]")}
+              />
+            );
+          })}
+        </svg>
+        {VOICES.map((v, i) => {
+          const a = (i / VOICES.length) * Math.PI * 2 - Math.PI / 2;
+          const s = VOICE_STYLE[v];
+          return (
+            <span key={v} className="absolute top-1/2 left-1/2 -mt-5 -ml-5 size-10" style={{ transform: `translate(${Math.round(Math.cos(a) * r)}px, ${Math.round(Math.sin(a) * r)}px)` }}>
+              {/* Counter-rotate so each voice stays upright while the ring turns. */}
+              <span className={cn("group/voice block size-full animate-orbit [animation-direction:reverse] group-hover/ring:[animation-play-state:paused]", spin)}>
+                <span className="block size-full transition-transform duration-300 group-hover/voice:scale-125">
+                  <motion.span
+                    className={cn("flex size-full items-center justify-center rounded-xl border shadow-card backdrop-blur transition-shadow duration-300 group-hover/voice:shadow-[0_0_22px_-4px_currentColor]", s.tint)}
+                    animate={busy ? { scale: [1, 1.14, 1] } : { scale: 1 }}
+                    transition={busy ? { duration: 1.2, repeat: Infinity, delay: i * 0.3 } : undefined}
+                  >
+                    <s.icon className="size-4.5" />
+                  </motion.span>
+                </span>
+                <span className="pointer-events-none absolute top-full left-1/2 mt-2 -translate-x-1/2 translate-y-1 rounded-full border border-border bg-surface/90 px-2 py-0.5 text-[10.5px] whitespace-nowrap text-foreground opacity-0 shadow-card backdrop-blur transition-all duration-200 group-hover/voice:translate-y-0 group-hover/voice:opacity-100">
+                  {teamLabel(v)}
+                </span>
+              </span>
+            </span>
+          );
+        })}
+      </div>
+      <div className="absolute inset-[4.9rem] flex items-center justify-center rounded-full border border-white/20 bg-primary text-primary-foreground shadow-[inset_0_1px_0_rgb(255_255_255/0.2),0_0_30px_-6px_var(--primary-glow)] transition-transform duration-500 group-hover/ring:scale-110">
+        <span className={cn("absolute -inset-1.5 rounded-full border border-accent/50", busy ? "animate-ping" : "animate-breathe")} />
         <Users className="size-6" />
       </div>
-      {VOICES.map((v, i) => {
-        const a = (i / VOICES.length) * Math.PI * 2 - Math.PI / 2;
-        const s = VOICE_STYLE[v];
-        return (
-          <motion.span
-            key={v}
-            className={cn("absolute top-1/2 left-1/2 -mt-5 -ml-5 flex size-10 items-center justify-center rounded-xl border shadow-card", s.tint)}
-            style={{ x: Math.round(Math.cos(a) * r), y: Math.round(Math.sin(a) * r) }}
-            animate={busy ? { scale: [1, 1.12, 1] } : { scale: 1 }}
-            transition={busy ? { duration: 1.2, repeat: Infinity, delay: i * 0.3 } : undefined}
-          >
-            <s.icon className="size-4.5" />
-          </motion.span>
-        );
-      })}
     </div>
   );
 }

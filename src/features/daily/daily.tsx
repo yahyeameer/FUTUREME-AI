@@ -5,13 +5,16 @@ import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import * as React from "react";
 import { toast } from "sonner";
+import { Seal } from "@/components/brand/seal";
 import { PageFrame } from "@/components/layout/page-frame";
+import { Ticker } from "@/components/motion/ticker";
 import { EmptyState } from "@/components/states";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Segmented } from "@/components/ui/segmented";
 import { Select } from "@/components/ui/select";
 import { Tooltip } from "@/components/ui/tooltip";
+import { useNow } from "@/lib/use-now";
 import { cn, formatDate } from "@/lib/utils";
 import { useWorkspace } from "@/lib/workspace-store";
 import type { ArticleSection, DailyArticle, DailyEdition, DailyItem, SourceRef, TrendItem } from "@/types";
@@ -170,19 +173,58 @@ function articlesOf(e: DailyEdition): DailyArticle[] {
 function Masthead({ edition }: { edition?: DailyEdition }) {
   const { workspace } = useWorkspace();
   const profile = workspace.profile;
+  const now = useNow();
+  const horizon = profile?.horizonYear;
+  const daysLeft = now && horizon ? Math.max(0, Math.ceil((new Date(horizon, 0, 1).getTime() - now.getTime()) / 86_400_000)) : null;
+  const done = workspace.tasks.filter((t) => t.status === "done").length;
+  const waiting = workspace.approvals.filter((a) => a.status === "pending").length;
+  const stats = [
+    now ? `${now.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })} local` : "Live",
+    daysLeft !== null ? `${daysLeft.toLocaleString("en-GB")} days to ${horizon}` : null,
+    `${done} of ${workspace.tasks.length} steps done`,
+    `${workspace.milestones.length} milestones on the road`,
+    `${workspace.memories.length} notes in the vault`,
+    waiting ? `${waiting} waiting for your OK` : "Nothing waiting for your OK",
+    `${workspace.editions.length} editions published`,
+  ].filter((x): x is string => !!x);
+
   return (
     <header className="border-b-[3px] border-double border-foreground/80 pb-3 text-center">
       <div className="flex items-center justify-between gap-3 border-b border-border pb-2 t-meta">
         <span>{edition ? `No. ${edition.issueNumber}` : "No. —"}</span>
-        <span className="hidden sm:inline">Toward {profile?.horizonYear ?? "your future"}</span>
+        <span className="hidden sm:inline">Toward {horizon ?? "your future"}</span>
         <span>{edition ? formatDate(edition.date, { weekday: "short", day: "numeric", month: "long", year: "numeric" }) : "Not yet published"}</span>
       </div>
-      <h1 className="mt-3 font-display text-[clamp(2.9rem,1.8rem+5vw,6.25rem)] leading-[0.9] tracking-[-0.02em]">
-        FutureMe <span className="italic">Daily</span>
-      </h1>
+      <div className="mt-3 flex items-center justify-center gap-4 sm:justify-between">
+        <Seal text="EST. FROM YOUR OWN RECORDS ✦ NOTHING INVENTED ✦ " className="hidden text-muted-foreground sm:flex">
+          <span className="font-display text-[22px] leading-none text-foreground italic">{edition ? `№${edition.issueNumber}` : "№—"}</span>
+          <span className="mt-0.5 font-mono text-[8px] tracking-[0.18em]">ISSUE</span>
+        </Seal>
+        <h1 aria-label="FutureMe Daily" className="group/title cursor-default font-display text-[clamp(2.9rem,1.8rem+5vw,6.25rem)] leading-[0.9] tracking-[-0.02em]">
+          {Array.from("FutureMe Daily").map((ch, i) => (
+            <span
+              key={i}
+              aria-hidden
+              className={cn(
+                "inline-block animate-[title-in_0.7s_cubic-bezier(0.2,0.7,0.2,1)_both] transition-[transform,color] duration-300 hover:-translate-y-2 hover:text-copper hover:[text-shadow:0_0_24px_var(--accent)]",
+                i > 8 && "italic",
+                ch === " " && "w-[0.25em]",
+              )}
+              style={{ animationDelay: `${i * 0.035}s` }}
+            >
+              {ch === " " ? "\u00a0" : ch}
+            </span>
+          ))}
+        </h1>
+        <Seal text={`TOWARD ${horizon ?? "THE FUTURE"} ✦ COUNTING DOWN ✦ `} className="hidden text-muted-foreground sm:flex">
+          <span className="font-display text-[22px] leading-none text-foreground tabular-nums">{daysLeft !== null ? daysLeft.toLocaleString("en-GB") : "—"}</span>
+          <span className="mt-0.5 font-mono text-[8px] tracking-[0.18em]">DAYS LEFT</span>
+        </Seal>
+      </div>
       <p className="mt-2 font-serif text-[13px] text-muted-foreground italic">
-        {profile ? `The record of ${profile.name}'s road to ${profile.horizonYear}. Only what your records show.` : "Only what your records show."}
+        {profile ? `The record of ${profile.name}'s road to ${horizon}. Only what your records show.` : "Only what your records show."}
       </p>
+      <Ticker label="Today in numbers" items={stats.map((s) => <span key={s} className="t-meta">{s}</span>)} className="mt-3 border-t border-border pt-2" />
     </header>
   );
 }

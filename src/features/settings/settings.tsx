@@ -36,7 +36,7 @@ export function Settings() {
           <ul className="sticky top-20 space-y-0.5">
             {SECTIONS.map((s) => (
               <li key={s.id}>
-                <a href={`#${s.id}`} className="block rounded-md px-2 py-1.5 text-[13px] text-muted-foreground hover:bg-surface-2 hover:text-foreground">
+                <a href={`#${s.id}`} className="relative block rounded-md px-2 py-1.5 text-[13px] text-muted-foreground transition-[padding,background-color,color] duration-200 before:absolute before:top-1.5 before:bottom-1.5 before:left-0 before:w-[2px] before:rounded-full before:bg-accent before:opacity-0 before:shadow-[0_0_6px_var(--accent)] before:transition-opacity hover:bg-[linear-gradient(90deg,var(--accent-wash),transparent)] hover:pl-3 hover:text-foreground hover:before:opacity-100">
                   {s.label}
                 </a>
               </li>

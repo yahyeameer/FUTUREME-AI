@@ -19,6 +19,7 @@ import { excerpt, KIND_LABEL } from "@/features/memory/memory-preview";
 import { ProvenanceBadge } from "@/features/memory/provenance";
 import { TaskRow } from "@/features/roadmap/task-row";
 import { activeMilestone, convergence, liveMemories, milestoneStatuses, nextStep, pendingApprovals, progressOf, recentMemories, sortedMilestones, tasksFor } from "@/lib/derive";
+import { useNow } from "@/lib/use-now";
 import { cn, formatDate, greeting, pluralize, relativeDay } from "@/lib/utils";
 import { useWorkspace } from "@/lib/workspace-store";
 import type { ActivityItem } from "@/types";
@@ -231,7 +232,8 @@ function QuickAsk({ name }: { name: string }) {
 function Stat({ icon: Icon, label, children, foot, href }: { icon: typeof Check; label: string; children: React.ReactNode; foot?: React.ReactNode; href?: string }) {
   const body = (
     <>
-      <div className="flex items-center justify-between">
+      <span aria-hidden className="pointer-events-none absolute -top-12 -right-12 size-32 rounded-full opacity-0 blur-2xl transition-opacity duration-500 group-hover:opacity-50" style={{ background: "radial-gradient(circle, var(--accent), transparent 70%)" }} />
+      <div className="relative flex items-center justify-between">
         <p className="t-label">{label}</p>
         <span className="flex size-7 items-center justify-center rounded-full bg-surface-3/80 text-muted-foreground transition-[color,background-color,transform] duration-300 group-hover:rotate-[-8deg] group-hover:scale-110 group-hover:bg-accent group-hover:text-accent-foreground group-hover:shadow-[0_0_14px_-2px_var(--accent)]">
           <Icon className="size-3.5" aria-hidden />
@@ -242,11 +244,11 @@ function Stat({ icon: Icon, label, children, foot, href }: { icon: typeof Check;
     </>
   );
   return href ? (
-    <Link href={href} className="group card card-hover block p-5">
+    <Link href={href} className="group card card-hover relative block overflow-hidden p-5">
       {body}
     </Link>
   ) : (
-    <div className="group card card-hover p-5">{body}</div>
+    <div className="group card card-hover relative overflow-hidden p-5">{body}</div>
   );
 }
 
@@ -310,8 +312,10 @@ function StatHorizon() {
   const { workspace } = useWorkspace();
   const year = workspace.profile!.horizonYear;
   const years = Math.max(0, year - new Date().getFullYear());
+  const now = useNow();
+  const days = now ? Math.max(0, Math.ceil((new Date(year, 0, 1).getTime() - now.getTime()) / 86_400_000)) : null;
   return (
-    <Stat icon={Hourglass} label={`Toward ${year}`} href="/reflection" foot="Years left to the future you described">
+    <Stat icon={Hourglass} label={`Toward ${year}`} href="/reflection" foot={days !== null ? <span className="tabular-nums">{days.toLocaleString("en-GB")} days to the future you described</span> : "Years left to the future you described"}>
       <p className="font-display text-[2.6rem] leading-none tracking-tight">
         <CountUp value={years} />
         <span className="ml-1 text-[1.1rem] text-subtle">{years === 1 ? "year" : "years"}</span>
