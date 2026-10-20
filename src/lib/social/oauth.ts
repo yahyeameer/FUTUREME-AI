@@ -56,7 +56,11 @@ interface TokenResponse {
   expires_in?: number;
 }
 
-export const PROVIDERS: Record<Platform, Provider> = {
+export const OAUTH_PLATFORMS = ["linkedin", "x", "facebook"] as const satisfies readonly Platform[];
+export type OAuthPlatform = (typeof OAUTH_PLATFORMS)[number];
+export const isOAuthPlatform = (p: Platform): p is OAuthPlatform => (OAUTH_PLATFORMS as readonly Platform[]).includes(p);
+
+export const PROVIDERS: Record<OAuthPlatform, Provider> = {
   x: {
     scopes: ["tweet.read", "users.read", "offline.access"],
     clientId: () => process.env.X_CLIENT_ID,
@@ -180,7 +184,7 @@ export const PROVIDERS: Record<Platform, Provider> = {
   },
 };
 
-export const oauthConfigured = (p: Platform) => !!PROVIDERS[p].clientId() && (PROVIDERS[p].pkce || !!PROVIDERS[p].clientSecret());
+export const oauthConfigured = (p: Platform) => isOAuthPlatform(p) && !!PROVIDERS[p].clientId() && (PROVIDERS[p].pkce || !!PROVIDERS[p].clientSecret());
 
 /** Where the platform sends the person back. Set FUTUREME_PUBLIC_URL when FutureMe runs behind a proxy or on a domain. */
 export const publicBase = (origin: string) => (process.env.FUTUREME_PUBLIC_URL ?? process.env.TWIN_PUBLIC_URL ?? origin).replace(/\/+$/, "");
@@ -192,8 +196,8 @@ const STATE_TTL_MINUTES = 10;
 /** Step 1: the link to the platform's consent screen. The person has already agreed in FutureMe. */
 export function startOAuth(db: Db, platform: Platform, origin: string, consent: boolean): string {
   if (!consent) throw new Error("Agree to the connection first.");
+  if (!isOAuthPlatform(platform) || !oauthConfigured(platform)) throw new Error(`Signing in with ${PLATFORM_NAMES[platform]} isn't set up on this server. Import your data export instead.`);
   const p = PROVIDERS[platform];
-  if (!oauthConfigured(platform)) throw new Error(`Signing in with ${PLATFORM_NAMES[platform]} isn't set up on this server. Import your data export instead.`);
   db.prepare(`DELETE FROM social_oauth_states WHERE created_at < datetime('now', '-${STATE_TTL_MINUTES} minutes')`).run();
   const state = crypto.randomBytes(24).toString("base64url");
   const verifier = crypto.randomBytes(48).toString("base64url");
@@ -222,7 +226,9 @@ export async function finishOAuth(
     : undefined;
   if (params.state) db.prepare("DELETE FROM social_oauth_states WHERE state = ?").run(params.state);
   if (params.error) throw new Error(`${PLATFORM_NAMES[platform]} said: ${params.error}. Nothing was imported.`);
-  if (!row || row.platform !== platform || !params.code) throw new Error("This sign-in link expired or didn't come from FutureMe. Start again from Connected accounts.");
+  if (!row || row.platform !== platform || !params.code || !isOAuthPlatform(platform)) {
+    throw new Error("This sign-in link expired or didn't come from FutureMe. Start again from Connected accounts.");
+  }
 
   const provider = PROVIDERS[platform];
   const token = await provider.exchange(params.code, row.verifier, redirectUri(platform, origin), http);
@@ -242,6 +248,7 @@ function storedToken(db: Db, platform: Platform): Token | null {
 /** Fetches again with the stored token, refreshing it first when it has expired. */
 export async function syncOAuth(db: Db, platform: Platform, opts: { http?: Fetch; provider?: LlmProvider } = {}) {
   const http = opts.http ?? fetch;
+  if (!isOAuthPlatform(platform)) throw new Error(`${PLATFORM_NAMES[platform]} has no sign-in; fetch your public profile again instead.`);
   const p = PROVIDERS[platform];
   let token = storedToken(db, platform);
   if (!token) throw new Error(`Connect ${PLATFORM_NAMES[platform]} again: the saved connection is missing or can't be read with this server's key.`);
@@ -257,7 +264,7 @@ export async function syncOAuth(db: Db, platform: Platform, opts: { http?: Fetch
 /** Revokes the token at the platform (best effort) and forgets it. Imported data stays unless `deleteData`. */
 export async function disconnect(db: Db, platform: Platform, opts: { deleteData?: boolean; http?: Fetch; provider?: LlmProvider } = {}) {
   const token = storedToken(db, platform);
-  if (token) await PROVIDERS[platform].revoke(token, opts.http ?? fetch).catch(() => undefined);
+  if (token && isOAuthPlatform(platform)) await PROVIDERS[platform].revoke(token, opts.http ?? fetch).catch(() => undefined);
   db.prepare("DELETE FROM social_tokens WHERE platform = ?").run(platform);
   if (opts.deleteData) await deleteSource(db, platform, opts.provider);
 }

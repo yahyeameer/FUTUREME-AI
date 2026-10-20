@@ -7,10 +7,19 @@ import { z } from "zod";
 // What is never read: messages, connections and contacts, other people's posts and comments, photos, ads and location
 // history. Those files are listed as skipped and stay in the archive.
 
-export const PLATFORMS = ["linkedin", "x", "facebook"] as const;
+export const PLATFORMS = ["linkedin", "x", "facebook", "instagram", "tiktok", "youtube"] as const;
 export type Platform = (typeof PLATFORMS)[number];
+/** Platforms with a data export FutureMe can read. The others are fetched from their public profile (see apify.ts). */
+export const EXPORT_PLATFORMS = ["linkedin", "x", "facebook"] as const satisfies readonly Platform[];
 
-export const PLATFORM_NAMES: Record<Platform, string> = { linkedin: "LinkedIn", x: "X", facebook: "Facebook" };
+export const PLATFORM_NAMES: Record<Platform, string> = {
+  linkedin: "LinkedIn",
+  x: "X",
+  facebook: "Facebook",
+  instagram: "Instagram",
+  tiktok: "TikTok",
+  youtube: "YouTube",
+};
 
 const MAX_POSTS = 3000;
 const MAX_TEXT = 3000;
@@ -328,7 +337,7 @@ const listCell = (cell: string | undefined) =>
 const MONTHS = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"];
 
 /** "Jan 2020" → "2020-01", "2020" → "2020". */
-function monthOf(v: string | undefined): string | undefined {
+export function monthOf(v: string | undefined): string | undefined {
   if (!v?.trim()) return undefined;
   const m = v.trim().match(/^([A-Za-z]{3})[a-z]*\.? (\d{4})$/);
   if (m) {
@@ -340,7 +349,7 @@ function monthOf(v: string | undefined): string | undefined {
 
 const monthOfTs = (ts: number | undefined) => (ts ? new Date(ts * 1000).toISOString().slice(0, 7) : undefined);
 
-function isoDate(v: string | undefined): string | null {
+export function isoDate(v: string | undefined): string | null {
   if (!v) return null;
   const d = new Date(v.includes(" UTC") ? v.replace(" UTC", "Z").replace(" ", "T") : v);
   return Number.isNaN(d.getTime()) ? null : d.toISOString().slice(0, 10);

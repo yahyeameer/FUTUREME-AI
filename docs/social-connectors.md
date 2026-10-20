@@ -1,6 +1,6 @@
-# Connected accounts: LinkedIn, X and Facebook
+# Connected accounts: LinkedIn, X, Facebook, Instagram, TikTok and YouTube
 
-Without this, the future self only knows the few lines typed in onboarding. **Connected accounts** (`/connections`) lets you bring in what you've already written on LinkedIn, X and Facebook, so your future self gets your history right and speaks in your voice.
+Without this, the future self only knows the few lines typed in onboarding. **Connected accounts** (`/connections`) lets you bring in what you've already written on LinkedIn, X and Facebook (from their data exports) and on Instagram, TikTok and YouTube (from your public profile), so your future self gets your history right and speaks in your voice.
 
 ## What happens
 
@@ -39,6 +39,32 @@ Register this redirect URL with each platform: `https://<your FutureMe address>/
 
 **Tokens are never stored in plain text.** They're encrypted with AES-256-GCM before they reach SQLite. The key comes from `FUTUREME_SECRET_KEY`, or is generated once into `secret.key` next to the database (mode 600). The key never enters the database, so the Supabase copy (docs/supabase.md) only ever holds ciphertext. Changing the key means connecting again; nothing leaks. **Sync** fetches again (refreshing the X token when it has expired); **Disconnect** revokes the token at the platform and forgets it, keeping what was imported until you delete it.
 
+## Fetching a public profile (Apify)
+
+Instagram, TikTok and YouTube have no export FutureMe can read, and exports take a day to arrive. So with `APIFY_TOKEN` set, every card also has **Fetch public profile**, which runs an [Apify](https://apify.com) actor through Apify's hosted MCP server (`https://mcp.apify.com`, tools `call-actor`, `get-actor-run`, `get-dataset-items`), falling back to Apify's REST API if MCP can't be reached (or always, with `APIFY_TRANSPORT=rest`).
+
+| Platform | Actor | What's fetched |
+| --- | --- | --- |
+| Instagram | `apify/instagram-profile-scraper` | Bio, name, link, captions of the latest posts |
+| TikTok | `clockworks/tiktok-profile-scraper` | Bio, name, link, captions of the latest 60 videos |
+| YouTube | `streamers/youtube-channel-scraper` | Channel name, description, location, latest 50 video titles |
+| X | `apidojo/tweet-scraper` | Bio, name, location, latest 100 posts (only the account's own; reposts skipped) |
+| LinkedIn | `harvestapi/linkedin-profile-scraper`, then `harvestapi/linkedin-profile-posts` | Headline, About, experience, education, skills, languages; then the latest 50 posts |
+| Facebook | `apify/facebook-posts-scraper` | Latest 50 posts on a public **Page**. Personal profiles are refused: use the export. |
+
+Every run is capped at its item count, 120 seconds and $0.25 (`maxTotalChargeUsd`). The MCP connection loads only the one actor being run. The token stays on the server; the agent has no tool that fetches profiles, and the MCP server FutureMe exposes doesn't either.
+
+### Only your own accounts
+
+Anyone can type someone else's username, so a fetch only counts once you've shown the account is yours (`src/lib/social/claims.ts`):
+
+1. You name the account and agree it's yours. FutureMe makes a one-time code like `FM-7KQ2MX`.
+2. You put the code where only the owner can: your bio (Instagram, TikTok, X, or a new post there), your headline or About (LinkedIn), your channel description (YouTube), or a new post on the Page (Facebook).
+3. **Check** fetches the account and looks for the code. Not there: everything fetched is thrown away, nothing is stored or shown, and you're told where to put it. There: the account is verified, and only then is anything else fetched (LinkedIn's posts).
+4. You see what was fetched (counts and a sample post) and choose **Import**. The code is removed from the imported text, so it doesn't end up in your persona, and you can take it off the account.
+
+Codes expire after 24 hours and allow 5 checks; at most 5 accounts per platform can be tried a day; one claim per platform. The scraper's answer has to be the named account too (a different username, a private account, or other people's posts in an X search are refused or dropped). A verified account can be fetched again for 30 days without a new code. Deleting a platform deletes its verification.
+
 ## For the demo
 
 **Try sample data** imports a made-up LinkedIn and X history for the demo user, Hodan (`src/lib/social/sample.ts`), through the same parser as a real archive. It's marked *Sample* and deletes like anything else.
@@ -50,6 +76,7 @@ Register this redirect URL with each platform: `https://<your FutureMe address>/
 - `src/lib/social/persona.ts`: persona, its prompt block and vault note
 - `src/lib/social/store.ts`: import, delete, search, persona rebuild
 - `src/lib/social/oauth.ts`, `secrets.ts`: sign-in and token encryption
+- `src/lib/social/apify.ts`, `claims.ts`: public-profile fetch over Apify MCP, and the ownership check
 - `src/app/api/connections`: the page's API and the OAuth callback
 - `src/features/connections/connections.tsx`: the page
-- `tests/social.test.ts`
+- `tests/social.test.ts`, `tests/social-fetch.test.ts`

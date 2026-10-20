@@ -8,7 +8,7 @@ import { buildPersona, personaMarkdown, personaPrompt, type Persona } from "./pe
 // them, plus a persona the future self is given on every turn. Nothing is imported without the person's consent, and
 // deleting a source removes its notes, its tokens and its part of the persona.
 
-export type ImportMethod = "export" | "oauth" | "sample";
+export type ImportMethod = "export" | "oauth" | "apify" | "sample";
 
 const PERSONA_KEY = "social_persona";
 const PERSONA_TITLE = "Persona from your accounts";
@@ -110,12 +110,13 @@ export async function importSocial(
   return { platform: imp.platform, posts: imp.posts.length, notes };
 }
 
-/** Deletes one platform's imported data and its token. Revoking the token at the platform is the caller's job. */
+/** Deletes one platform's imported data, its token and its ownership check. Revoking the token at the platform is the caller's job. */
 export async function deleteSource(db: Db, platform: Platform, provider?: LlmProvider) {
   const row = db.prepare("SELECT notes FROM social_sources WHERE platform = ?").get(platform) as { notes: string } | undefined;
   if (row) removeNotes(JSON.parse(row.notes));
   db.prepare("DELETE FROM social_sources WHERE platform = ?").run(platform);
   db.prepare("DELETE FROM social_tokens WHERE platform = ?").run(platform);
+  db.prepare("DELETE FROM social_claims WHERE platform = ?").run(platform);
   await rebuildPersona(db, provider);
 }
 

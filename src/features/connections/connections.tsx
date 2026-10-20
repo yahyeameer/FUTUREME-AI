@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowLeftRight, AtSign, Check, FileArchive, KeyRound, Loader2, Lock, RefreshCw, ShieldCheck, Sparkles, Trash2, Unplug, Upload } from "lucide-react";
+import { ArrowLeftRight, AtSign, BadgeCheck, Check, Copy, FileArchive, Globe, KeyRound, Loader2, Lock, RefreshCw, ShieldCheck, Sparkles, Trash2, Unplug, Upload } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import * as React from "react";
@@ -15,13 +15,17 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from "@/components/ui/input";
 import type { ConnectionsState } from "@/app/api/connections/state";
 import { readExports } from "@/lib/social/extract";
-import { PLATFORM_NAMES, PLATFORMS, type Platform, type SocialImport } from "@/lib/social/parse";
+import { EXPORT_PLATFORMS, PLATFORM_NAMES, PLATFORMS, type Platform, type SocialImport } from "@/lib/social/parse";
 import { past } from "@/lib/social/persona";
 import { browserInflate, fileSource } from "@/lib/social/zip";
 import { cn, formatDate, pluralize } from "@/lib/utils";
 import { useWorkspaceContext } from "@/lib/workspace-store";
 
-type State = ConnectionsState & { comparison?: Comparison; url?: string };
+type State = ConnectionsState & { comparison?: Comparison; url?: string; claim?: Claim; check?: { verified: boolean; claim: Claim; reason?: string } };
+type Claim = ConnectionsState["fetch"]["claims"][number];
+type ExportPlatform = (typeof EXPORT_PLATFORMS)[number];
+const oauthOf = (state: State, p: Platform) => (p in state.oauth ? state.oauth[p as keyof State["oauth"]] : null);
+const hasExport = (p: Platform): p is ExportPlatform => (EXPORT_PLATFORMS as readonly Platform[]).includes(p);
 interface Comparison {
   question: string;
   without: string;
@@ -40,9 +44,12 @@ const MARK: Record<Platform, { label: string; className: string }> = {
   linkedin: { label: "in", className: "bg-[#0a66c2] text-white" },
   x: { label: "𝕏", className: "bg-foreground text-background" },
   facebook: { label: "f", className: "bg-[#1877f2] text-white" },
+  instagram: { label: "◎", className: "bg-gradient-to-br from-[#f58529] via-[#dd2a7b] to-[#8134af] text-white" },
+  tiktok: { label: "♪", className: "bg-[#010101] text-white" },
+  youtube: { label: "▶", className: "bg-[#ff0000] text-white" },
 };
 
-const HOW_TO: Record<Platform, { steps: string; link: string; wait: string }> = {
+const HOW_TO: Record<ExportPlatform, { steps: string; link: string; wait: string }> = {
   linkedin: {
     steps: "Settings → Data privacy → Get a copy of your data. Pick “Download larger data archive”, or at least Profile, Positions, Education, Skills and Shares.",
     link: "https://www.linkedin.com/mypreferences/d/download-my-data",
@@ -79,6 +86,7 @@ export function Connections() {
     setImportOpen(open);
   };
   const [connectFor, setConnectFor] = React.useState<Platform | null>(null);
+  const [fetchFor, setFetchFor] = React.useState<Platform | null>(null);
   const [confirmDelete, setConfirmDelete] = React.useState<Platform | "all" | null>(null);
   const search = useSearchParams();
   const router = useRouter();
@@ -179,6 +187,7 @@ export function Connections() {
                 source={bySource.get(p)}
                 onImport={() => openImport(true)}
                 onConnect={() => setConnectFor(p)}
+                onFetch={() => setFetchFor(p)}
                 onSync={() => act(() => post({ action: "sync", platform: p }), `${PLATFORM_NAMES[p]} synced.`)}
                 onDisconnect={() => act(() => post({ action: "disconnect", platform: p }), `${PLATFORM_NAMES[p]} disconnected. Imported data stays until you delete it.`)}
                 onDelete={() => setConfirmDelete(p)}
@@ -195,12 +204,13 @@ export function Connections() {
           </>
         ) : (
           <EmptyState icon={FileArchive} title="Your future self only knows what you typed in onboarding">
-            Import your LinkedIn, X or Facebook data and it learns your career, what you care about and how you write, from your own words. You choose what goes in, see everything it learned, and can delete it any time.
+            Import your LinkedIn, X or Facebook data, or fetch a public profile you own, and it learns your career, what you care about and how you write, from your own words. You choose what goes in, see everything it learned, and can delete it any time.
           </EmptyState>
         )}
       </div>
 
       <ImportDialog key={`import-${importRound}`} open={importOpen} onOpenChange={openImport} onImported={(next) => setState(next)} />
+      <FetchDialog key={`fetch-${fetchFor ?? "none"}`} platform={fetchFor} state={state} onState={setState} onClose={() => setFetchFor(null)} />
       <ConnectDialog key={connectFor ?? "none"} platform={connectFor} state={state} onClose={() => setConnectFor(null)} act={act} />
       <Dialog open={!!confirmDelete} onOpenChange={(o) => !o && setConfirmDelete(null)}>
         <DialogContent>
@@ -236,7 +246,7 @@ function Header({ actions }: { actions?: React.ReactNode }) {
     <PageHeader
       eyebrow="Connected accounts"
       title="Let your future self know you"
-      description="Bring in what you've already written on LinkedIn, X and Facebook, so your future self gets your story right and sounds like you. Only your profile and your own posts are read."
+      description="Bring in what you've already written on LinkedIn, X, Facebook, Instagram, TikTok and YouTube, so your future self gets your story right and sounds like you. Only your profile and your own posts are read."
       actions={actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}
     />
   );
@@ -250,12 +260,14 @@ function PlatformCard(props: {
   source?: Source;
   onImport: () => void;
   onConnect: () => void;
+  onFetch: () => void;
   onSync: () => void;
   onDisconnect: () => void;
   onDelete: () => void;
 }) {
   const { platform, state, source } = props;
-  const oauth = state.oauth[platform];
+  const oauth = oauthOf(state, platform);
+  const claim = state.fetch.claims.find((c) => c.platform === platform);
   const [busy, setBusy] = React.useState(false);
   const run = (fn: () => void | Promise<unknown>) => async () => {
     setBusy(true);
@@ -272,7 +284,7 @@ function PlatformCard(props: {
         </div>
         {source && (
           <Badge tone={source.method === "sample" ? "warning" : "success"} className="ml-auto">
-            {source.method === "sample" ? "Sample" : source.method === "oauth" ? "Connected" : "Imported"}
+            {{ sample: "Sample", oauth: "Connected", apify: "Fetched", export: "Imported" }[source.method]}
           </Badge>
         )}
       </div>
@@ -283,7 +295,13 @@ function PlatformCard(props: {
           <Stat n={source.counts.skills} label="skills" />
         </dl>
       ) : (
-        <p className="mt-3 text-[12.5px] leading-relaxed text-muted-foreground">{HOW_TO[platform].steps}</p>
+        <p className="mt-3 text-[12.5px] leading-relaxed text-muted-foreground">
+          {hasExport(platform)
+            ? HOW_TO[platform].steps
+            : state.fetch.configured
+              ? `Fetch your public profile once you've shown it's yours. ${state.fetch.reads[platform]}`
+              : `${PLATFORM_NAMES[platform]} has no data export FutureMe can read. Fetching your public profile needs APIFY_TOKEN on this server.`}
+        </p>
       )}
       {source && (
         <p className="mt-3 text-[12px] text-muted-foreground">
@@ -293,14 +311,24 @@ function PlatformCard(props: {
         </p>
       )}
       <div className="mt-auto flex flex-wrap gap-2 pt-4">
-        {!source && (
+        {claim?.status === "pending" && !source && (
+          <p className="w-full text-[12px] text-muted-foreground">
+            Waiting for code <span className="font-mono">{claim.code}</span> on {claim.handle}.
+          </p>
+        )}
+        {!source && hasExport(platform) && (
           <Button size="sm" variant="secondary" asChild>
             <a href={HOW_TO[platform].link} target="_blank" rel="noreferrer">
               Get my export
             </a>
           </Button>
         )}
-        {oauth.connected ? (
+        {state.fetch.configured && (!source || source.method === "apify") && (
+          <Button size="sm" variant="secondary" onClick={props.onFetch}>
+            <Globe /> {source ? "Fetch again" : claim?.status === "pending" ? "Check code" : "Fetch public profile"}
+          </Button>
+        )}
+        {oauth?.connected ? (
           <>
             <Button size="sm" variant="secondary" disabled={busy} onClick={run(props.onSync)}>
               {busy ? <Loader2 className="animate-spin" /> : <RefreshCw />} Sync
@@ -310,7 +338,7 @@ function PlatformCard(props: {
             </Button>
           </>
         ) : (
-          oauth.configured && (
+          oauth?.configured && (
             <Button size="sm" variant="secondary" onClick={props.onConnect}>
               <KeyRound /> Sign in
             </Button>
@@ -466,7 +494,8 @@ function Rule({ ok, children }: { ok: boolean; children: React.ReactNode }) {
 function ConnectDialog({ platform, state, onClose, act }: { platform: Platform | null; state: State; onClose: () => void; act: (fn: () => Promise<State>) => Promise<State | null> }) {
   const [agreed, setAgreed] = React.useState(false);
   if (!platform) return null;
-  const oauth = state.oauth[platform];
+  const oauth = oauthOf(state, platform);
+  if (!oauth) return null;
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
       <DialogContent>
@@ -496,6 +525,157 @@ function ConnectDialog({ platform, state, onClose, act }: { platform: Platform |
           >
             <KeyRound /> Continue to {PLATFORM_NAMES[platform]}
           </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// ---------- Fetch a public profile: consent and account, a code on the account, check, preview, import ----------
+
+// Keyed by platform, so each opening starts from the server's claim (or a fresh consent).
+function FetchDialog({ platform, state, onState, onClose }: { platform: Platform | null; state: State; onState: (s: State) => void; onClose: () => void }) {
+  const existing = platform ? state.fetch.claims.find((c) => c.platform === platform) : undefined;
+  const [claim, setClaim] = React.useState<Claim | undefined>(existing);
+  const [agreed, setAgreed] = React.useState(false);
+  const [account, setAccount] = React.useState("");
+  const [busy, setBusy] = React.useState(false);
+  const [problem, setProblem] = React.useState<string | null>(null);
+  if (!platform) return null;
+  const name = PLATFORM_NAMES[platform];
+
+  const step = async (body: object, then: (next: State) => void) => {
+    setBusy(true);
+    setProblem(null);
+    try {
+      const next = await post(body);
+      onState(next);
+      then(next);
+    } catch (err) {
+      setProblem(err instanceof Error ? err.message : "That didn't work.");
+    }
+    setBusy(false);
+  };
+  const start = () => step({ action: "claimStart", platform, account, consent: true }, (next) => setClaim(next.claim));
+  const check = () =>
+    step({ action: "claimCheck", id: claim!.id }, (next) => {
+      setClaim(next.check?.claim);
+      if (next.check && !next.check.verified) setProblem(next.check.reason ?? "The code wasn't found.");
+    });
+  const importIt = () =>
+    step({ action: "claimImport", id: claim!.id, consent: true }, () => {
+      toast.success(`Imported your public ${name} profile. Your future self knows you better now.`);
+      onClose();
+    });
+  const startOver = () =>
+    step({ action: "claimCancel", platform }, () => {
+      setClaim(undefined);
+      setAgreed(false);
+    });
+
+  const verified = claim?.status === "verified";
+  return (
+    <Dialog open onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="max-w-lg">
+        <DialogHeader>
+          <DialogTitle>{!claim ? `Fetch your public ${name} profile` : verified ? (claim.ready ? "Here's what was fetched" : "Your account is verified") : `Show ${name} it's yours`}</DialogTitle>
+          <DialogDescription>
+            {!claim
+              ? state.fetch.reads[platform]
+              : verified
+                ? claim.ready
+                  ? "Nothing has been imported yet. Check it, then import."
+                  : `Verified until ${formatDate(claim.expiresAt, { day: "numeric", month: "short" })}. Fetch again to get your latest posts.`
+                : "Anyone can type a username, so FutureMe only fetches an account that carries this code."}
+          </DialogDescription>
+        </DialogHeader>
+
+        {!claim ? (
+          <div className="space-y-4 text-[13px]">
+            <ul className="space-y-2">
+              <Rule ok>Public data only, fetched by Apify for this server. Private accounts are refused.</Rule>
+              <Rule ok>You&apos;ll be given a one-time code to put on the account. Until it shows up there, whatever was fetched is thrown away.</Rule>
+              <Rule ok>You see what was fetched before anything is saved, and can delete it any time.</Rule>
+            </ul>
+            <label className="block space-y-1.5">
+              <span className="t-label">Your {name} username or profile link</span>
+              <Input value={account} onChange={(e) => setAccount(e.target.value)} placeholder={platform === "linkedin" ? "linkedin.com/in/your-name" : "@yourname"} maxLength={200} />
+            </label>
+            <label className="flex items-start gap-2.5 rounded-lg border border-border bg-surface-2 px-3 py-2.5">
+              <Checkbox checked={agreed} onCheckedChange={(v) => setAgreed(v === true)} className="mt-0.5" aria-label="I agree" />
+              <span>This is my own account, and I want my future self to learn from it.</span>
+            </label>
+          </div>
+        ) : !verified ? (
+          <div className="space-y-4 text-[13px]">
+            <ol className="list-decimal space-y-1.5 pl-5">
+              <li>
+                Add this code to {claim.where} on <span className="font-medium">{claim.handle}</span>:
+              </li>
+            </ol>
+            <div className="flex items-center gap-2">
+              <code className="flex-1 rounded-lg border border-border bg-surface-2 px-3 py-2.5 text-center font-mono text-[17px] tracking-widest" data-testid="claim-code">
+                {claim.code}
+              </code>
+              <Button
+                size="sm"
+                variant="secondary"
+                onClick={() => navigator.clipboard?.writeText(claim.code).then(() => toast.success("Copied."), () => undefined)}
+                aria-label="Copy code"
+              >
+                <Copy /> Copy
+              </Button>
+            </div>
+            <ol start={2} className="list-decimal space-y-1.5 pl-5">
+              <li>Save it so it&apos;s public, then check. You can remove the code once you&apos;re verified.</li>
+            </ol>
+            <p className="text-[12px] text-muted-foreground">
+              {pluralize(claim.checksLeft, "check")} left · code expires {formatDate(claim.expiresAt, { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" })}
+            </p>
+          </div>
+        ) : claim.ready ? (
+          <div className="flex gap-3 rounded-xl border border-border bg-surface-2 p-3 text-[13px]">
+            <PlatformMark platform={platform} className="size-8 text-[13px]" />
+            <div className="min-w-0 space-y-1">
+              <p className="font-medium">
+                {name}
+                <span className="font-normal text-muted-foreground"> · {claim.ready.name ?? claim.handle}</span>
+                <Badge tone="success" className="ml-2">
+                  <BadgeCheck className="size-3" /> Verified
+                </Badge>
+              </p>
+              <p className="text-muted-foreground">
+                {[pluralize(claim.ready.posts, "post"), claim.ready.roles && pluralize(claim.ready.roles, "role"), claim.ready.skills && pluralize(claim.ready.skills, "skill")].filter(Boolean).join(" · ")}
+              </p>
+              {claim.ready.sample && <p className="line-clamp-2 text-[12.5px] italic text-muted-foreground">“{claim.ready.sample}”</p>}
+            </div>
+          </div>
+        ) : null}
+        {problem && <p role="alert" className="rounded-lg border border-destructive/30 bg-destructive-wash px-3 py-2 text-[12.5px]">{problem}</p>}
+
+        <DialogFooter>
+          {claim ? (
+            <Button variant="ghost" onClick={startOver} disabled={busy}>
+              Use another account
+            </Button>
+          ) : (
+            <Button variant="ghost" onClick={onClose}>
+              Cancel
+            </Button>
+          )}
+          {!claim ? (
+            <Button variant="primary" disabled={!agreed || !account.trim() || busy} onClick={start}>
+              {busy ? <Loader2 className="animate-spin" /> : <Globe />} Get my code
+            </Button>
+          ) : verified && claim.ready ? (
+            <Button variant="primary" disabled={busy} onClick={importIt}>
+              {busy ? <Loader2 className="animate-spin" /> : <Check />} Import
+            </Button>
+          ) : (
+            <Button variant="primary" disabled={busy || (!verified && claim.checksLeft === 0)} onClick={check}>
+              {busy ? <Loader2 className="animate-spin" /> : <RefreshCw />} {busy ? "Fetching… up to a minute" : verified ? "Fetch again" : "Check for the code"}
+            </Button>
+          )}
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -672,6 +852,12 @@ function Rules({ state }: { state: State }) {
       <RailSection title="Where it lives">
         <p className="text-[12.5px] leading-relaxed text-muted-foreground">
           Notes in your vault&apos;s Social folder, readable in Obsidian. Your future self searches them with its search_social tool and quotes them with dates.
+        </p>
+      </RailSection>
+      <RailSection title="Only your own accounts">
+        <p className="flex gap-2 text-[12.5px] leading-relaxed text-muted-foreground">
+          <BadgeCheck className="mt-0.5 size-3.5 shrink-0 text-success" />
+          A public profile is fetched only after a one-time code shows up on it, which only its owner can do. Until then whatever was fetched is thrown away, so nobody can pull in someone else&apos;s posts.
         </p>
       </RailSection>
       <RailSection title="Sign-in tokens">

@@ -1,4 +1,4 @@
-// Tables for imported accounts (see store.ts) and OAuth connections (see oauth.ts).
+// Tables for imported accounts (see store.ts), OAuth connections (see oauth.ts) and ownership checks (see claims.ts).
 
 export const SOCIAL_SCHEMA = `
 CREATE TABLE IF NOT EXISTS social_sources (
@@ -23,5 +23,22 @@ CREATE TABLE IF NOT EXISTS social_oauth_states (
   verifier TEXT NOT NULL,
   consent_at TEXT NOT NULL,
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE TABLE IF NOT EXISTS social_claims (
+  id TEXT PRIMARY KEY,
+  platform TEXT NOT NULL,
+  handle TEXT NOT NULL,
+  code TEXT NOT NULL,
+  status TEXT NOT NULL,
+  checks INTEGER NOT NULL DEFAULT 0,
+  consent_at TEXT NOT NULL,
+  data TEXT,
+  created_at TEXT NOT NULL,
+  verified_at TEXT
+);
+CREATE TABLE IF NOT EXISTS social_claim_log (
+  platform TEXT NOT NULL,
+  handle TEXT NOT NULL,
+  created_at TEXT NOT NULL
 );
 `;
