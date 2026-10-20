@@ -2,6 +2,7 @@ import { parseJsonReply, runAgent, type AgentName } from "./agents";
 import type { Db } from "./db";
 import { getProfile, type Profile } from "./futureme";
 import { CHAIR_MARKER, COUNCIL_MARKER } from "./mock-llm";
+import { SCHEMAS } from "./nemotron";
 import { writeNote } from "./vault";
 
 // The council: one question goes to several future selves at once (each its own Docker Agent agent), and a chair agent
@@ -75,7 +76,7 @@ export async function runCouncil(db: Db, rawQuestion: string): Promise<CouncilRe
   const chair = await runAgent(db, "council_chair", [
     context,
     { role: "user", content: `${CHAIR_MARKER} Question: ${question}\n\n${answered.map((v) => `## ${v.label}\n${v.reply}`).join("\n\n")}` },
-  ]);
+  ], { schema: SCHEMAS.councilBrief });
   const parsed = parseJsonReply<Partial<CouncilBrief>>(chair.reply);
   const brief: CouncilBrief = {
     summary: str(parsed?.summary) || chair.reply.slice(0, 600) || "The council answered; see each voice below.",

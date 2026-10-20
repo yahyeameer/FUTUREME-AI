@@ -24,8 +24,10 @@ const call = (name: string, args: unknown): ToolCall => ({
 });
 
 function text(m: ChatMessage | undefined): string {
-  if (!m || typeof m.content !== "string") return "";
-  return m.content;
+  if (!m?.content) return "";
+  if (typeof m.content === "string") return m.content;
+  // A message with a photo: the stand-in reads only its text.
+  return m.content.map((p) => ("text" in p ? p.text : "")).join(" ");
 }
 
 function story(profileJson: string): string {

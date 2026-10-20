@@ -5,6 +5,7 @@ import type { Db } from "./db";
 import { getRun, runsForMission, runSubAgent, type HelperTool, type RunRecord, type SubTask } from "./delegation";
 import { createApproval, getProfile } from "./futureme";
 import { MISSION_PLAN_MARKER, MISSION_REPORT_MARKER } from "./mock-llm";
+import { SCHEMAS } from "./nemotron";
 import { supervise } from "./supervisor";
 import { searchProvider } from "./web";
 
@@ -72,7 +73,7 @@ async function work(db: Db, id: number, goal: string): Promise<MissionRecord> {
   const webOn = searchProvider() !== "off";
   try {
     // 1. Plan.
-    const planning = await runAgent(db, "mission_lead", [context, { role: "user", content: `${MISSION_PLAN_MARKER} ${JSON.stringify({ goal, web_search: webOn })}` }]);
+    const planning = await runAgent(db, "mission_lead", [context, { role: "user", content: `${MISSION_PLAN_MARKER} ${JSON.stringify({ goal, web_search: webOn })}` }], { schema: SCHEMAS.missionPlan });
     const raw = parseJsonReply<{ tasks?: unknown[] }>(planning.reply)?.tasks ?? [];
     const plan: PlannedTask[] = raw
       .map((t) => TaskSchema.safeParse(t))
@@ -108,7 +109,7 @@ async function work(db: Db, id: number, goal: string): Promise<MissionRecord> {
         supervisor: results[i].supervision?.verdict ?? null,
       })),
     };
-    const lead = await runAgent(db, "mission_lead", [context, { role: "user", content: `${MISSION_REPORT_MARKER} ${JSON.stringify(payload)}` }]);
+    const lead = await runAgent(db, "mission_lead", [context, { role: "user", content: `${MISSION_REPORT_MARKER} ${JSON.stringify(payload)}` }], { schema: SCHEMAS.missionReport });
     const parsed = parseJsonReply<{ report?: unknown; next_step?: unknown; plan?: unknown }>(lead.reply);
     const report = typeof parsed?.report === "string" && parsed.report.trim() ? parsed.report.trim() : lead.reply.trim();
     const nextStep = typeof parsed?.next_step === "string" ? parsed.next_step.trim() || null : null;

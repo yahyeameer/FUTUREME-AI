@@ -61,13 +61,13 @@ export async function probeLive(timeoutMs = 20_000): Promise<boolean> {
 }
 
 export function createLiveService(): FutureMeService {
-  async function* sendMessage(text: string, { signal }: { style: CoachingStyle; signal?: AbortSignal }): AsyncIterable<TurnEvent> {
+  async function* sendMessage(text: string, { signal, image }: { style: CoachingStyle; signal?: AbortSignal; image?: string }): AsyncIterable<TurnEvent> {
     const working: ToolCall = { name: "agent", label: "Searching your memory and thinking", status: "running" };
     yield { type: "tool", tool: working };
 
     let res: Response;
     try {
-      res = await fetch("/api/chat", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text }), signal });
+      res = await fetch("/api/chat", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text, image }), signal });
     } catch (err) {
       if ((err as Error).name === "AbortError") throw err;
       yield { type: "error", error: "Couldn't reach the FutureMe server. Check your connection and try again." };
@@ -93,9 +93,16 @@ export function createLiveService(): FutureMeService {
         if (!line) continue;
         const event = JSON.parse(line) as
           | { type: "delta"; text: string }
+          | { type: "reasoning"; text: string }
+          | { type: "reset" }
+          | { type: "tool"; name: string; status: ToolCall["status"] }
           | { type: "error"; error: string }
-          | { type: "done"; id: number; reply: string; citations: string[]; approvals: number[]; tools: string[]; backend: string };
-        if (event.type === "delta") {
+          | { type: "done"; id: number; reply: string; citations: string[]; approvals: number[]; tools: string[]; backend: string; reasoning: string | null };
+        if (event.type === "reasoning" || event.type === "reset") {
+          yield event;
+        } else if (event.type === "tool") {
+          yield { type: "tool", tool: { name: event.name, label: toolLabel(event.name), status: event.status } };
+        } else if (event.type === "delta") {
           if (first) {
             yield { type: "tool", tool: { ...working, label: "Thought it through", status: "done" } };
             first = false;
@@ -116,6 +123,7 @@ export function createLiveService(): FutureMeService {
             createdAt: new Date().toISOString(),
             citations: event.citations.map((p) => ({ memoryId: p, title: titleOf.get(p) ?? p })),
             approvalIds: event.approvals.map(String),
+            reasoning: event.reasoning ?? undefined,
             tools: [...counts].map(([name, n]) => ({
               name,
               label: toolLabel(name),
