@@ -4,9 +4,11 @@ import { Shuffle } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import * as React from "react";
 import { EASE, HorizonScene, Plate, scatter } from "@/features/reflection/art";
+import { yearsInWords } from "@/lib/utils";
 
 // Magazine covers for the reflection. Each is a full scene in its own print style, sized 400×480,
-// with the horizon year worked into the picture. Like the other plates they keep their own palette in both themes.
+// with the horizon year worked into the picture. Each one also draws the plan's length, one mark per year (`span`), so a
+// three-year plan and a fifteen-year plan get visibly different pictures. They keep their own palette in both themes.
 
 const MONO = { fontFamily: "var(--font-mono)" };
 const DISPLAY = { fontFamily: "var(--font-display)" };
@@ -42,6 +44,18 @@ function roman(n: number) {
   return out;
 }
 
+/** Props every cover scene takes: the horizon year, and how many years away it is. */
+export interface SceneProps {
+  year: number;
+  span: number;
+}
+
+/** "TEN YEARS", for the spaced-out capitals the covers use. */
+const spanCaps = (span: number) => yearsInWords(span).toUpperCase();
+
+/** At most `max` marks, so a long plan still fits in the picture. */
+const marks = (span: number, max = 20) => Math.max(1, Math.min(span, max));
+
 function Frame({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <svg viewBox="0 0 400 480" className="block h-auto w-full" role="img" aria-label={label}>
@@ -51,7 +65,7 @@ function Frame({ label, children }: { label: string; children: React.ReactNode }
 }
 
 /** Synthwave: a striped sun setting behind a lit skyline, over a neon grid. */
-function SkylineScene({ year }: { year: number }) {
+function SkylineScene({ year, span }: SceneProps) {
   const uid = useUid();
   const stars = React.useMemo(() => scatter(40, 11), []);
   const lights = React.useMemo(() => scatter(400, 5), []);
@@ -69,8 +83,10 @@ function SkylineScene({ year }: { year: number }) {
     [358, 284, 42],
   ];
   const H = 360;
+  // The city rises with the plan: a three-year skyline is low, a fifteen-year one crowds the sun.
+  const rise = Math.min(1.2, Math.max(0.6, 0.55 + span * 0.045));
   return (
-    <Frame label={`Illustration: a neon city skyline at sunset, ${year}`}>
+    <Frame label={`Illustration: a neon city skyline at sunset, built over ${yearsInWords(span)}, ${year}`}>
       <defs>
         <linearGradient id={`sk-sky-${uid}`} x1="0" y1="0" x2="0" y2="1">
           <stop offset="0" stopColor="#07061a" />
@@ -103,18 +119,21 @@ function SkylineScene({ year }: { year: number }) {
       <motion.g initial={{ y: 50 }} animate={{ y: 0 }} transition={{ duration: 2, ease: EASE }}>
         <circle cx="200" cy="262" r="112" fill={`url(#sk-sun-${uid})`} mask={`url(#sk-cut-${uid})`} />
       </motion.g>
-      {towers.map(([x, top, width], t) => (
-        <g key={t}>
-          <rect x={x} y={top} width={width} height={H - top} fill="#0b0819" />
-          {Array.from({ length: Math.floor((H - top - 12) / 14) }, (_, r) =>
-            Array.from({ length: Math.floor((width - 8) / 9) }, (_, c) => {
-              const l = lights[(t * 97 + r * 13 + c) % lights.length];
-              if (l.o < 0.55) return null;
-              return <rect key={`${r}-${c}`} x={x + 6 + c * 9} y={top + 10 + r * 14} width="4" height="6" fill={l.x > 0.7 ? "#34e1ff" : "#ffd36e"} opacity={0.5 + l.o * 0.5} />;
-            }),
-          )}
-        </g>
-      ))}
+      {towers.map(([x, tall, width], t) => {
+        const top = H - (H - tall) * rise;
+        return (
+          <g key={t}>
+            <rect x={x} y={top} width={width} height={H - top} fill="#0b0819" />
+            {Array.from({ length: Math.floor((H - top - 12) / 14) }, (_, r) =>
+              Array.from({ length: Math.floor((width - 8) / 9) }, (_, c) => {
+                const l = lights[(t * 97 + r * 13 + c) % lights.length];
+                if (l.o < 0.55) return null;
+                return <rect key={`${r}-${c}`} x={x + 6 + c * 9} y={top + 10 + r * 14} width="4" height="6" fill={l.x > 0.7 ? "#34e1ff" : "#ffd36e"} opacity={0.5 + l.o * 0.5} />;
+              }),
+            )}
+          </g>
+        );
+      })}
       <rect y={H} width="400" height="120" fill="#0b0819" />
       <g stroke="#ff4fd8" strokeWidth="1" opacity="0.75">
         {[0, 1, 2, 3, 4, 5, 6, 7].map((k) => (
@@ -129,14 +148,14 @@ function SkylineScene({ year }: { year: number }) {
         {year}
       </text>
       <text x="200" y="126" textAnchor="middle" fill="#ff9fe4" style={{ ...MONO, fontSize: 10, letterSpacing: "0.4em" }}>
-        THE CITY YOU BUILT
+        BUILT IN {spanCaps(span)}
       </text>
     </Frame>
   );
 }
 
 /** Engraving: a small boat on cross-hatched seas, a lighthouse sweeping the dark. */
-function VoyageScene({ year }: { year: number }) {
+function VoyageScene({ year, span }: SceneProps) {
   const uid = useUid();
   const ink = "#14263b";
   const paper = "#efe6d0";
@@ -146,7 +165,7 @@ function VoyageScene({ year }: { year: number }) {
     return d;
   };
   return (
-    <Frame label={`Illustration: an engraving of a sailboat and a lighthouse, ${year}`}>
+    <Frame label={`Illustration: an engraving of a sailboat on a ${yearsInWords(span)} voyage to a lighthouse, ${year}`}>
       <defs>
         <pattern id={`vo-hatch-${uid}`} width="6" height="5" patternUnits="userSpaceOnUse">
           <path d="M0 2.5 H6" stroke={ink} strokeWidth="0.7" opacity="0.35" />
@@ -171,6 +190,14 @@ function VoyageScene({ year }: { year: number }) {
       {Array.from({ length: 22 }, (_, i) => (
         <path key={i} d={wave(326 + i * 7, 3 + (i % 4), 14 + (i % 5) * 3, i * 23)} fill="none" stroke={ink} strokeWidth={i % 3 === 0 ? 1.3 : 0.8} />
       ))}
+      {/* The charted course to the light, a buoy for every year of the passage. */}
+      <path d="M24 458 C 120 440 190 420 236 386 S 300 340 318 330" fill="none" stroke={ink} strokeWidth="1" strokeDasharray="3 4" />
+      {Array.from({ length: marks(span) }, (_, i) => {
+        const t = (i + 1) / (marks(span) + 1);
+        const x = 24 + (318 - 24) * t;
+        const y = 458 - (458 - 330) * t ** 1.3;
+        return <circle key={i} cx={x} cy={y} r="3" fill={paper} stroke={ink} strokeWidth="1.2" />;
+      })}
       <motion.g initial={{ y: 0, rotate: 0 }} animate={{ y: [0, -5, 0], rotate: [-2, 2, -2] }} transition={{ duration: 5, repeat: Infinity, ease: "easeInOut" }}>
         <path d="M170 362 L250 362 L238 380 L182 380 Z" fill={ink} />
         <line x1="212" y1="362" x2="212" y2="270" stroke={ink} strokeWidth="2" />
@@ -183,17 +210,17 @@ function VoyageScene({ year }: { year: number }) {
       </text>
       <line x1="120" x2="280" y1="70" y2="70" stroke={ink} />
       <text x="200" y="88" textAnchor="middle" fill={ink} style={{ ...DISPLAY, fontSize: 15, fontStyle: "italic" }}>
-        the voyage out
+        the voyage out, {yearsInWords(span)}
       </text>
     </Frame>
   );
 }
 
 /** Bauhaus: primary shapes stacked into a poster, the year running up the edge. */
-function BauhausScene({ year }: { year: number }) {
+function BauhausScene({ year, span }: SceneProps) {
   const shape = (delay: number) => ({ initial: { opacity: 0, scale: 0.6 }, animate: { opacity: 1, scale: 1 }, transition: { delay, type: "spring" as const, stiffness: 120, damping: 14 } });
   return (
-    <Frame label={`Illustration: a Bauhaus poster of circles and blocks, ${year}`}>
+    <Frame label={`Illustration: a Bauhaus poster of circles and blocks, one dot for each of ${yearsInWords(span)}, ${year}`}>
       <rect width="400" height="480" fill="#ece3cf" />
       <g stroke="#161616" strokeWidth="0.6" opacity="0.18">
         {[80, 160, 240, 320].map((x) => (
@@ -210,21 +237,21 @@ function BauhausScene({ year }: { year: number }) {
       <motion.circle cx="236" cy="190" r="46" fill="#ece3cf" {...shape(0.5)} />
       <motion.path d="M30 452 A124 124 0 0 1 278 452 Z" fill="#1d3a6e" {...shape(0.4)} />
       <motion.line x1="18" y1="330" x2="330" y2="40" stroke="#161616" strokeWidth="9" initial={{ pathLength: 0 }} animate={{ pathLength: 1 }} transition={{ delay: 0.6, duration: 0.8, ease: EASE }} />
-      {[0, 1, 2].map((i) => (
-        <motion.circle key={i} cx={60 + i * 26} cy="372" r="8" fill="#161616" {...shape(0.8 + i * 0.08)} />
+      {Array.from({ length: marks(span) }, (_, i) => (
+        <motion.circle key={i} cx={40 + (i % 8) * 20} cy={360 + Math.floor(i / 8) * 20} r="7" fill="#161616" {...shape(0.8 + i * 0.05)} />
       ))}
       <text x="384" y="470" fill="#161616" transform="rotate(-90 384 470)" style={{ ...SANS, fontSize: 96, fontWeight: 800, letterSpacing: "-0.04em" }}>
         {year}
       </text>
       <text x="22" y="30" fill="#161616" style={{ ...MONO, fontSize: 10, letterSpacing: "0.3em" }}>
-        FORM · WORK · FUTURE
+        FORM · WORK · {spanCaps(span)}
       </text>
     </Frame>
   );
 }
 
 /** Blueprint: signals racing along circuit traces into a chip stamped with the year. */
-function CircuitScene({ year }: { year: number }) {
+function CircuitScene({ year, span }: SceneProps) {
   const uid = useUid();
   const traces = [
     "M0 70 H60 V150 H130",
@@ -240,7 +267,7 @@ function CircuitScene({ year }: { year: number }) {
     "M200 480 V290",
   ];
   return (
-    <Frame label={`Illustration: a glowing circuit board blueprint, ${year}`}>
+    <Frame label={`Illustration: a glowing circuit board blueprint, a ${yearsInWords(span)} build, ${year}`}>
       <defs>
         <pattern id={`ci-grid-${uid}`} width="20" height="20" patternUnits="userSpaceOnUse">
           <path d="M20 0 H0 V20" fill="none" stroke="#0e3553" strokeWidth="1" />
@@ -290,18 +317,36 @@ function CircuitScene({ year }: { year: number }) {
       <text x="200" y="246" textAnchor="middle" fill="#4fd1c5" style={{ ...MONO, fontSize: 9, letterSpacing: "0.3em" }}>
         FM-CORE · ONLINE
       </text>
+      {/* A register with one cell per year, filling in turn. */}
+      {Array.from({ length: marks(span) }, (_, i) => i).map((i, _, all) => {
+        const w = (108 - (all.length - 1) * 2) / all.length;
+        return (
+          <motion.rect
+            key={i}
+            x={146 + i * (w + 2)}
+            y="258"
+            width={w}
+            height="8"
+            rx="1"
+            fill="#8ffff0"
+            initial={{ opacity: 0.15 }}
+            animate={{ opacity: [0.15, 1, 1] }}
+            transition={{ duration: 0.6, delay: 0.4 + i * 0.12, ease: "easeOut" }}
+          />
+        );
+      })}
       <text x="20" y="462" fill="#4fd1c5" opacity="0.8" style={{ ...MONO, fontSize: 9, letterSpacing: "0.2em" }}>
-        SCHEMATIC · TODAY → {year}
+        SCHEMATIC · TODAY → {year} · {span} YR BUILD
       </text>
     </Frame>
   );
 }
 
 /** Botanical plate: a seedling drawn with its roots and annotated like a field guide. */
-function SeedlingScene({ year }: { year: number }) {
+function SeedlingScene({ year, span }: SceneProps) {
   const ink = "#2b3a2a";
   return (
-    <Frame label={`Illustration: a botanical drawing of a growing seedling, ${year}`}>
+    <Frame label={`Illustration: a botanical drawing of a seedling grown over ${yearsInWords(span)}, ${year}`}>
       <rect width="400" height="480" fill="#f3ecdc" />
       <rect x="14" y="14" width="372" height="452" fill="none" stroke={ink} strokeWidth="0.8" />
       <circle cx="318" cy="96" r="30" fill="none" stroke="#c98a2b" strokeWidth="1.5" />
@@ -344,23 +389,40 @@ function SeedlingScene({ year }: { year: number }) {
           c. roots
         </text>
       </g>
+      {/* A field-guide height scale, marked in years from the soil to the flower. */}
+      <g stroke={ink} strokeWidth="0.8">
+        <line x1="362" x2="362" y1="360" y2="160" />
+        {Array.from({ length: marks(span, 30) + 1 }, (_, i) => i).map((i, _, all) => {
+          const y = 360 - (200 * i) / (all.length - 1);
+          const major = i === 0 || i === all.length - 1 || i % 5 === 0;
+          return <line key={i} x1={major ? 354 : 357} x2="362" y1={y} y2={y} />;
+        })}
+      </g>
+      <g fill={ink} textAnchor="end" style={{ ...MONO, fontSize: 8 }}>
+        <text x="372" y="374" textAnchor="middle">
+          0
+        </text>
+        <text x="372" y="150" textAnchor="middle">
+          {span} yr
+        </text>
+      </g>
       <text x="30" y="52" fill={ink} style={{ ...DISPLAY, fontSize: 30, fontStyle: "italic" }}>
         Perennis futura
       </text>
       <text x="30" y="72" fill={ink} opacity="0.75" style={{ ...MONO, fontSize: 9, letterSpacing: "0.25em" }}>
-        FIG. {year} · GROWN, NOT FOUND
+        FIG. {year} · {span} {span === 1 ? "YEAR" : "YEARS"} OF GROWTH
       </text>
     </Frame>
   );
 }
 
 /** Risograph: a rocket in misregistered pink and blue, lifting off on a halftone plume. */
-function RocketScene({ year }: { year: number }) {
+function RocketScene({ year, span }: SceneProps) {
   const uid = useUid();
   const blend = { mixBlendMode: "multiply" as const };
   const rocket = "M200 96 C 232 136 238 196 232 266 L168 266 C 162 196 168 136 200 96 Z";
   return (
-    <Frame label={`Illustration: a risograph print of a rocket launching, ${year}`}>
+    <Frame label={`Illustration: a risograph print of a rocket on a ${yearsInWords(span)} countdown, ${year}`}>
       <defs>
         <pattern id={`ro-dots-${uid}`} width="8" height="8" patternUnits="userSpaceOnUse">
           <circle cx="4" cy="4" r="2.3" fill="#ff48b0" />
@@ -396,6 +458,16 @@ function RocketScene({ year }: { year: number }) {
           {year}
         </text>
       </motion.g>
+      <text x="22" y="52" fill="#0078bf" style={{ ...SANS, fontSize: 24, fontWeight: 900, letterSpacing: "0.02em", ...blend }}>
+        T–{span} YRS
+      </text>
+      <text x="24" y="54" fill="#ff48b0" style={{ ...SANS, fontSize: 24, fontWeight: 900, letterSpacing: "0.02em", ...blend }}>
+        T–{span} YRS
+      </text>
+      {/* The countdown: a pip for each year, the last one lit. */}
+      {Array.from({ length: marks(span) }, (_, i) => i).map((i, _, all) => (
+        <rect key={i} x={24 + i * 9} y="62" width="6" height="6" fill={i === all.length - 1 ? "#ff48b0" : "#0078bf"} style={blend} />
+      ))}
       <text x="22" y="456" fill="#0078bf" style={{ ...SANS, fontSize: 58, fontWeight: 900, letterSpacing: "-0.03em", ...blend }}>
         LIFTOFF
       </text>
@@ -407,12 +479,14 @@ function RocketScene({ year }: { year: number }) {
 }
 
 /** Cartography: contour lines around a summit, and a dashed route from here to the year. */
-function MapScene({ year }: { year: number }) {
+function MapScene({ year, span }: SceneProps) {
   const ink = "#6b4e2e";
+  // One contour per year of the climb: a short plan is a gentle hill, a long one a tall peak.
+  const count = Math.max(2, marks(span));
   const rings = React.useMemo(
     () =>
-      Array.from({ length: 10 }, (_, k) => {
-        const base = 16 + k * 19;
+      Array.from({ length: count }, (_, k) => {
+        const base = 16 + (k * 171) / (count - 1);
         let d = "";
         for (let i = 0; i <= 72; i++) {
           const a = (i / 72) * Math.PI * 2;
@@ -421,10 +495,10 @@ function MapScene({ year }: { year: number }) {
         }
         return d + "Z";
       }),
-    [],
+    [count],
   );
   return (
-    <Frame label={`Illustration: a topographic map with a route to the summit, ${year}`}>
+    <Frame label={`Illustration: a topographic map with ${count} contour lines, one per year, and a route to the summit, ${year}`}>
       <rect width="400" height="480" fill="#ece5d3" />
       <g stroke={ink} strokeOpacity="0.15">
         {[50, 130, 210, 290, 370].map((x) => (
@@ -435,7 +509,7 @@ function MapScene({ year }: { year: number }) {
         ))}
       </g>
       {rings.map((d, k) => (
-        <path key={k} d={d} fill={k === 0 ? "#d9c7a2" : "none"} stroke={ink} strokeWidth={k % 3 === 0 ? 1.4 : 0.7} />
+        <path key={k} d={d} fill={k === 0 ? "#d9c7a2" : "none"} stroke={ink} strokeWidth={k % 5 === 0 ? 1.4 : 0.7} />
       ))}
       <path d="M-10 380 C 40 360 90 372 120 400 C 140 430 110 470 60 490 L-10 490 Z" fill="#9fbfd0" stroke="#5f8aa3" />
       {[0, 1, 2].map((i) => (
@@ -481,19 +555,30 @@ function MapScene({ year }: { year: number }) {
         <rect width="40" height="5" />
         <rect x="40" width="40" height="5" fill="none" stroke={ink} />
         <text y="-5">0</text>
-        <text x="66" y="-5">10 YRS</text>
+        <text x="80" y="-5" textAnchor="end">
+          {span} YRS
+        </text>
+        <text y="18">1 LINE = 1 YEAR</text>
       </g>
     </Frame>
   );
 }
 
 /** Woodblock: a red sun over a snow-capped peak, bands of mist and curling waves. */
-function WoodblockScene({ year }: { year: number }) {
+function WoodblockScene({ year, span }: SceneProps) {
   const uid = useUid();
   const indigo = "#1f3b5a";
   const cream = "#efe0c2";
+  // A switchback trail up the mountain, one turn for each year.
+  const turns = marks(span, 16);
+  const trail = Array.from({ length: turns + 1 }, (_, i) => {
+    const y = 384 - (i * (384 - 212)) / turns;
+    const half = (370 - 1.55 * (390 - y)) / 2;
+    const x = 204 + (i === 0 || i === turns ? 0 : (i % 2 ? -1 : 1) * half * 0.5);
+    return `${i ? "L" : "M"}${x.toFixed(1)} ${y.toFixed(1)}`;
+  }).join(" ");
   return (
-    <Frame label={`Illustration: a Japanese woodblock print of a mountain and red sun, ${year}`}>
+    <Frame label={`Illustration: a Japanese woodblock print of a mountain with a ${turns}-turn trail and a red sun, ${year}`}>
       <defs>
         <linearGradient id={`wb-sky-${uid}`} x1="0" y1="0" x2="0" y2="1">
           <stop offset="0" stopColor={indigo} />
@@ -504,6 +589,7 @@ function WoodblockScene({ year }: { year: number }) {
       <motion.circle cx="292" cy="150" r="54" fill="#c8382e" initial={{ cy: 190 }} animate={{ cy: 150 }} transition={{ duration: 2.4, ease: EASE }} />
       <path d="M20 390 L176 182 C 188 168 212 168 224 182 L390 390 Z" fill="#2f4c6e" />
       <path d="M176 182 C 188 168 212 168 224 182 L246 212 L232 206 L222 222 L208 208 L196 226 L186 208 L170 220 L160 204 Z" fill="#f7f1e3" />
+      <motion.path d={trail} fill="none" stroke={cream} strokeOpacity="0.75" strokeWidth="1.6" strokeDasharray="4 4" initial={{ pathLength: 0 }} animate={{ pathLength: 1 }} transition={{ duration: 2.2, ease: EASE, delay: 0.4 }} />
       {[0, 1, 2, 3, 4].map((i) => (
         <line key={i} x1={150 - i * 26} y1={240 + i * 30} x2={168 - i * 22} y2={250 + i * 30} stroke={cream} strokeOpacity="0.35" strokeWidth="2" />
       ))}
@@ -532,19 +618,19 @@ function WoodblockScene({ year }: { year: number }) {
           </text>
         ))}
       <rect x="338" y="414" width="34" height="34" fill="#c8382e" />
-      <text x="355" y="437" textAnchor="middle" fill={cream} style={{ ...DISPLAY, fontSize: 15 }}>
-        FM
+      <text x="355" y="436" textAnchor="middle" fill={cream} style={{ ...DISPLAY, fontSize: span > 9 ? 13 : 15 }}>
+        {span}年
       </text>
     </Frame>
   );
 }
 
 /** Surrealism: a doorway standing alone in the desert, opening onto a bright day. */
-function DoorwayScene({ year }: { year: number }) {
+function DoorwayScene({ year, span }: SceneProps) {
   const uid = useUid();
   const stars = React.useMemo(() => scatter(30, 31), []);
   return (
-    <Frame label={`Illustration: a surreal open door in the desert with daylight beyond, ${year}`}>
+    <Frame label={`Illustration: a surreal open door in the desert with daylight beyond, and ${yearsInWords(span)} of footprints leading to it, ${year}`}>
       <defs>
         <linearGradient id={`do-sky-${uid}`} x1="0" y1="0" x2="0" y2="1">
           <stop offset="0" stopColor="#1e1b3a" />
@@ -596,6 +682,13 @@ function DoorwayScene({ year }: { year: number }) {
         {year}
       </text>
       <path d="M205 404 L215 404 L280 470 L262 470 Z" fill="#5a3628" opacity="0.45" />
+      {/* Footprints up to the door, a step for each year. */}
+      {Array.from({ length: marks(span) }, (_, i) => i).map((i, _, all) => {
+        const t = all.length === 1 ? 0 : i / (all.length - 1);
+        const x = 186 + 22 * t + (i % 2 ? 5 : -5) * (1 - t * 0.5);
+        const y = 474 - 62 * t;
+        return <ellipse key={i} cx={x} cy={y} rx={4 - 1.8 * t} ry={2.2 - t} fill="#2a1a1c" opacity="0.75" />;
+      })}
       <g fill="#241a26">
         <circle cx="210" cy="372" r="5" />
         <path d="M204 380 H216 L214 400 H206 Z" />
@@ -610,7 +703,7 @@ function DoorwayScene({ year }: { year: number }) {
 }
 
 /** Art Deco: a gold orrery, today and the future on their orbits around a sunburst. */
-function OrbitScene({ year }: { year: number }) {
+function OrbitScene({ year, span }: SceneProps) {
   const uid = useUid();
   const gold = "#d9b45a";
   const stars = React.useMemo(() => scatter(50, 17), []);
@@ -630,7 +723,7 @@ function OrbitScene({ year }: { year: number }) {
     { rx: 158, ry: 66, r: 11, d: 36, start: 4.1, label: String(year) },
   ];
   return (
-    <Frame label={`Illustration: an Art Deco orrery in gold, ${year}`}>
+    <Frame label={`Illustration: an Art Deco orrery in gold, its outer orbit marked in ${yearsInWords(span)}, ${year}`}>
       <defs>
         <radialGradient id={`or-sun-${uid}`} cx="40%" cy="40%" r="60%">
           <stop offset="0" stopColor="#fff2c2" />
@@ -665,6 +758,12 @@ function OrbitScene({ year }: { year: number }) {
       {planets.map((p) => (
         <ellipse key={p.rx} cx="200" cy="236" rx={p.rx} ry={p.ry} fill="none" stroke={gold} strokeOpacity="0.7" strokeWidth="0.9" />
       ))}
+      {/* The future's orbit, marked in years. */}
+      {Array.from({ length: marks(span, 30) }, (_, i) => i).map((i, _, all) => {
+        const a = (i / all.length) * Math.PI * 2 - Math.PI / 2;
+        const [c, s] = [Math.cos(a), Math.sin(a)];
+        return <line key={i} x1={200 + c * 152} y1={236 + s * 62} x2={200 + c * 166} y2={236 + s * 71} stroke={gold} strokeWidth="1.2" />;
+      })}
       <circle cx="200" cy="236" r="26" fill={`url(#or-sun-${uid})`} />
       <circle cx="200" cy="236" r="32" fill="none" stroke={gold} strokeWidth="0.8" />
       {planets.map((p) => {
@@ -684,6 +783,9 @@ function OrbitScene({ year }: { year: number }) {
         ANNO {year}
       </text>
       <line x1="130" x2="270" y1="88" y2="88" stroke={gold} strokeWidth="0.8" />
+      <text x="200" y="106" textAnchor="middle" fill={gold} opacity="0.8" style={{ ...MONO, fontSize: 9, letterSpacing: "0.3em" }}>
+        {spanCaps(span)} AROUND THE SUN
+      </text>
       <text x="200" y="420" textAnchor="middle" fill={gold} style={{ ...DISPLAY, fontSize: 20, fontStyle: "italic", letterSpacing: "0.08em" }}>
         per aspera ad astra
       </text>
@@ -693,24 +795,24 @@ function OrbitScene({ year }: { year: number }) {
 
 export interface Cover {
   id: string;
-  caption: (year: number) => string;
+  caption: (year: number, span: number) => string;
   /** Words in the aspiration that make this cover a good fit. */
   keywords?: RegExp;
-  Scene: (props: { year: number }) => React.ReactNode;
+  Scene: (props: SceneProps) => React.ReactNode;
 }
 
 export const COVERS: Cover[] = [
-  { id: "horizon", caption: (y) => `The horizon you named, ${y}.`, keywords: /\b(dream|horizon|hope|someday)\b/, Scene: HorizonScene },
-  { id: "skyline", caption: (y) => `The city you built, ${y}. After the synthwave posters.`, keywords: /\b(compan(y|ies)|business|startup|city|career|ceo|founder|money|finance|brand|market)\b/, Scene: SkylineScene },
-  { id: "voyage", caption: () => "The voyage out. After the old sea engravings.", keywords: /\b(travel|world|sea|ocean|explore|abroad|freedom|journey|sail)\b/, Scene: VoyageScene },
-  { id: "bauhaus", caption: (y) => `Form follows future, ${y}. After the Bauhaus.`, keywords: /\b(design|art|artist|architect\w*|creative|create|craft|product|music)\b/, Scene: BauhausScene },
-  { id: "circuit", caption: (y) => `Schematic for ${y}. A blueprint in progress.`, keywords: /\b(ai|software|code|coding|tech\w*|engineer\w*|data|computer|app|developer|digital|robot\w*)\b/, Scene: CircuitScene },
-  { id: "seedling", caption: () => "Perennis futura. A botanical plate.", keywords: /\b(grow\w*|farm\w*|crop\w*|health|garden|family|nature|heal\w*|teach\w*|community|children)\b/, Scene: SeedlingScene },
-  { id: "rocket", caption: (y) => `Liftoff, ${y}. A risograph print.`, keywords: /\b(launch|scale|million|rocket|space|ambition|global|fast)\b/, Scene: RocketScene },
-  { id: "map", caption: (y) => `The route to ${y}. A survey map.`, keywords: /\b(path|map|adventure|research|discover|africa|country|land|home)\b/, Scene: MapScene },
-  { id: "woodblock", caption: (y) => `View of the summit, ${y}. After the woodblock masters.`, keywords: /\b(discipline|master\w*|peace|mind|calm|balance|focus|sport\w*|athlete|fitness)\b/, Scene: WoodblockScene },
-  { id: "doorway", caption: () => "The door you opened. After the surrealists.", keywords: /\b(new|change|opportunit\w*|study|universit\w*|degree|move|start|school)\b/, Scene: DoorwayScene },
-  { id: "orbit", caption: (y) => `Anno ${y}. An Art Deco orrery.`, keywords: /\b(science|scien\w*|physics|vision|lead\w*|universe|impact|star\w*)\b/, Scene: OrbitScene },
+  { id: "horizon", caption: (y, s) => `The horizon you named, ${y}, ${yearsInWords(s)} down the road.`, keywords: /\b(dream|horizon|hope|someday)\b/, Scene: HorizonScene },
+  { id: "skyline", caption: (y, s) => `The city you built in ${yearsInWords(s)}, ${y}. After the synthwave posters.`, keywords: /\b(compan(y|ies)|business|startup|city|career|ceo|founder|money|finance|brand|market)\b/, Scene: SkylineScene },
+  { id: "voyage", caption: (_, s) => `A voyage of ${yearsInWords(s)}, a buoy for each year. After the old sea engravings.`, keywords: /\b(travel|world|sea|ocean|explore|abroad|freedom|journey|sail)\b/, Scene: VoyageScene },
+  { id: "bauhaus", caption: (y, s) => `Form follows future, ${y}: a dot for each of ${yearsInWords(s)}. After the Bauhaus.`, keywords: /\b(design|art|artist|architect\w*|creative|create|craft|product|music)\b/, Scene: BauhausScene },
+  { id: "circuit", caption: (y, s) => `Schematic for ${y}, ${yearsInWords(s)} in the build. A blueprint in progress.`, keywords: /\b(ai|software|code|coding|tech\w*|engineer\w*|data|computer|app|developer|digital|robot\w*)\b/, Scene: CircuitScene },
+  { id: "seedling", caption: (_, s) => `Perennis futura, grown over ${yearsInWords(s)}. A botanical plate.`, keywords: /\b(grow\w*|farm\w*|crop\w*|health|garden|family|nature|heal\w*|teach\w*|community|children)\b/, Scene: SeedlingScene },
+  { id: "rocket", caption: (y, s) => `Liftoff in ${y}, after a ${yearsInWords(s).replace(/ years?$/, "-year")} countdown. A risograph print.`, keywords: /\b(launch|scale|million|rocket|space|ambition|global|fast)\b/, Scene: RocketScene },
+  { id: "map", caption: (y, s) => `The route to ${y}, one contour for each of ${yearsInWords(s)}. A survey map.`, keywords: /\b(path|map|adventure|research|discover|africa|country|land|home)\b/, Scene: MapScene },
+  { id: "woodblock", caption: (y, s) => `View of the summit, ${y}, a turn in the trail for each of ${yearsInWords(s)}. After the woodblock masters.`, keywords: /\b(discipline|master\w*|peace|mind|calm|balance|focus|sport\w*|athlete|fitness)\b/, Scene: WoodblockScene },
+  { id: "doorway", caption: (_, s) => `The door you opened, ${yearsInWords(s)} of footsteps away. After the surrealists.`, keywords: /\b(new|change|opportunit\w*|study|universit\w*|degree|move|start|school)\b/, Scene: DoorwayScene },
+  { id: "orbit", caption: (y, s) => `Anno ${y}, ${yearsInWords(s)} around the sun. An Art Deco orrery.`, keywords: /\b(science|scien\w*|physics|vision|lead\w*|universe|impact|star\w*)\b/, Scene: OrbitScene },
 ];
 
 /** The cover that fits this reflection: one whose subject matches the aspiration, varied by the reflection. */
@@ -724,7 +826,7 @@ export function coverIndexFor(seed: string, aspiration: string) {
 }
 
 /** Plate I: the issue's cover, with a button to try another one. */
-export function CoverPlate({ index, year, onShuffle, className }: { index: number; year: number; onShuffle?: () => void; className?: string }) {
+export function CoverPlate({ index, year, span, onShuffle, className }: SceneProps & { index: number; onShuffle?: () => void; className?: string }) {
   const cover = COVERS[index % COVERS.length];
   return (
     <Plate
@@ -732,7 +834,7 @@ export function CoverPlate({ index, year, onShuffle, className }: { index: numbe
       caption={
         <>
           <span className="text-copper">Plate I.</span>
-          <span className="min-w-0 flex-1">{cover.caption(year)}</span>
+          <span className="min-w-0 flex-1">{cover.caption(year, span)}</span>
           {onShuffle && (
             <button
               type="button"
@@ -748,7 +850,7 @@ export function CoverPlate({ index, year, onShuffle, className }: { index: numbe
       <div className="grid">
         <AnimatePresence initial={false}>
           <motion.div key={cover.id} className="[grid-area:1/1]" initial={{ opacity: 0, scale: 1.04 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.5, ease: EASE }}>
-            <cover.Scene year={year} />
+            <cover.Scene year={year} span={span} />
           </motion.div>
         </AnimatePresence>
       </div>

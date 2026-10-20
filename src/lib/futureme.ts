@@ -8,6 +8,7 @@ import { isDockerTool, runDockerTool } from "./docker-tools";
 import { activePack } from "./packs";
 import { isTwinTool, runTwinTool, TWIN_TOOL_DEFS } from "./twin";
 import { listFiles, readFile, rememberConversation, saveFile, searchMemory } from "./memory";
+import { yearsInWords } from "./utils";
 import { writeNote } from "./vault";
 import { fetchPage, webSearch } from "./web";
 
@@ -21,8 +22,16 @@ export const ProfileSchema = z.object({
   challenges: z.string().trim().max(1000).default(""),
   values: z.string().trim().max(500).default(""),
   style: z.enum(["gentle", "direct", "strategic"]).default("direct"),
+  /** The year the dream is set in. Profiles saved before it was stored fall back to ten years after their last save. */
+  horizonYear: z.number().int().min(2000).max(2200).optional(),
 });
 export type Profile = z.infer<typeof ProfileSchema>;
+
+/** The year the future self speaks from, and how many years away that is. */
+export function horizonOf(profile: Profile, now = new Date()) {
+  const year = profile.horizonYear ?? now.getFullYear() + 10;
+  return { year, years: Math.max(1, year - now.getFullYear()) };
+}
 
 export function getProfile(db: Db): Profile | null {
   const row = db.prepare("SELECT data FROM profile WHERE id = 1").get() as { data: string } | undefined;
@@ -73,7 +82,7 @@ export async function generateStory(db: Db, provider: LlmProvider = getProvider(
     {
       role: "system",
       content:
-        "You are the user's future self, ten years from now. Write a vivid, grounded first-person letter (250-400 words) " +
+        `You are the user's future self, writing from ${horizonOf(profile).year}, ${yearsInWords(horizonOf(profile).years)} from now. Write a vivid, grounded first-person letter (250-400 words) ` +
         "describing one plausible future in which they reached their dream. Reference their real situation, resources, " +
         "challenges and values. Be honest that it took work. End with one concrete thing to start this week. No headings.",
     },
@@ -441,7 +450,7 @@ const STYLE_GUIDE: Record<Profile["style"], string> = {
 
 function systemPrompt(profile: Profile, persona?: string): string {
   return [
-    `You are ${profile.name}'s future self, ten years from now, having reached this dream: ${profile.dream}`,
+    `You are ${profile.name}'s future self in ${horizonOf(profile).year}, ${yearsInWords(horizonOf(profile).years)} from now, having reached this dream: ${profile.dream}`,
     persona && `Persona pack: ${persona}`,
     `Speak in the first person as them, from experience. ${STYLE_GUIDE[profile.style]}`,
     "Always call search_memory before answering so you use what they've told you, and mention what you remembered.",

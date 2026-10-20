@@ -182,7 +182,7 @@ describe("persona packs", () => {
     const seen: string[] = [];
     const capture: LlmProvider = { name: "capture", complete: async (messages) => (seen.push(String(messages[0].content)), { content: "Hi.", toolCalls: [] }) };
     await chat(db, "Hello", inProcessBackend(capture));
-    expect(seen[0]).toContain("Persona pack: You are the user's future self, ten years from now, as a founder");
+    expect(seen[0]).toContain("Persona pack: You are the user's future self, as a founder");
     expect(getProfile(db)!.name).toBe("Amina");
   });
 });

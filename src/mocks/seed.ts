@@ -274,7 +274,7 @@ export function seedState(anchor: number): DemoState {
       id: "mem-reflection",
       title: `Future Reflection: Hargeisa, ${horizonYear}`,
       kind: "reflection",
-      body: "An imagined letter from ten years ahead. See the Reflection page for the full scenario.",
+      body: `An imagined letter from ${horizonYear}. See the Reflection page for the full scenario.`,
       tags: ["reflection", "future-self"],
       provenance: "ai-inferred",
       source: "Generated reflection",

@@ -15,7 +15,7 @@ import { liveMemories } from "@/lib/derive";
 import { usePreferences, type DensityPref, type ModePref, type MotionPref, type ThemePref } from "@/lib/preferences";
 import { cn, pluralize } from "@/lib/utils";
 import { useWorkspaceContext } from "@/lib/workspace-store";
-import { Field, StylePicker, toProfile, toValues, useProfileForm } from "./profile-form";
+import { Field, PlanLengthField, StylePicker, toProfile, toValues, useProfileForm } from "./profile-form";
 
 const SECTIONS = [
   { id: "profile", label: "Profile" },
@@ -117,6 +117,7 @@ function ProfileSection() {
           <Field form={form} name="name" label="Name" />
           <Field form={form} name="horizonYear" label="Horizon year" />
         </div>
+        <PlanLengthField form={form} />
         <Field form={form} name="dream" label="Your ambition" multiline rows={3} />
         <Field form={form} name="current" label="Where you are now" multiline />
         <div className="grid gap-4 sm:grid-cols-2">

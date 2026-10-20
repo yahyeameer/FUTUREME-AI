@@ -11,7 +11,7 @@ import { Presence } from "@/components/brand/presence";
 import { ErrorState } from "@/components/states";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Field, StyleField, toProfile, useProfileForm, type ProfileValues } from "@/features/settings/profile-form";
+import { Field, PlanLengthField, StyleField, toProfile, useProfileForm, type ProfileValues } from "@/features/settings/profile-form";
 import { usePreferences } from "@/lib/preferences";
 import { useWorkspaceContext } from "@/lib/workspace-store";
 
@@ -155,8 +155,11 @@ function ProfileSteps() {
               <>
                 <Field form={form} name="name" label="What should FutureMe call you?" placeholder="Your first name" />
                 <Field form={form} name="dream" label="Your ambition" multiline rows={4} placeholder="e.g. Lead an applied AI lab that builds tools for farmers in the Horn of Africa." />
-                <div className="max-w-[10rem]">
-                  <Field form={form} name="horizonYear" label="By the year" />
+                <div className="grid gap-2">
+                  <div className="max-w-[10rem]">
+                    <Field form={form} name="horizonYear" label="By the year" />
+                  </div>
+                  <PlanLengthField form={form} />
                 </div>
               </>
             )}

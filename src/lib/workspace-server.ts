@@ -28,6 +28,7 @@ import { listResearch } from "./research";
 import { skillsFor } from "./skills";
 import { TEAM } from "./team-info";
 import { toolLabel } from "./tool-labels";
+import { yearsInWords } from "./utils";
 import { searchProvider } from "./web";
 import { listNotes, readNote, resolveInVault, slugify, VAULT_FOLDERS, writeNote, type Note, type VaultFolder } from "./vault";
 import type {
@@ -210,7 +211,7 @@ export function buildWorkspace(db: Db): Workspace {
     ? {
         name: p.name,
         dream: p.dream,
-        horizonYear: new Date(sqlTime(profileRow?.updated_at) ?? Date.now()).getFullYear() + 10,
+        horizonYear: p.horizonYear ?? new Date(sqlTime(profileRow?.updated_at) ?? Date.now()).getFullYear() + 10,
         current: p.current,
         resources: p.resources,
         challenges: p.challenges,
@@ -294,7 +295,7 @@ export function buildWorkspace(db: Db): Workspace {
           createdAt: sqlTime(r.created_at)!,
           aspiration: profile.dream,
           horizonYear: profile.horizonYear,
-          title: "A letter from ten years ahead",
+          title: `A letter from ${yearsInWords(Math.max(1, profile.horizonYear - new Date(sqlTime(r.created_at)!).getFullYear()))} ahead`,
           narrative: r.content.split(/\n{2,}/).map((s) => s.trim()).filter(Boolean),
           moments: [],
           shifts: [],
@@ -640,6 +641,7 @@ const ProfileInput = z.object({
   challenges: z.string().max(1000).default(""),
   values: z.array(z.string()).max(20).default([]),
   style: z.enum(["reflective", "strategic", "encouraging", "analytical"]),
+  horizonYear: z.number().int().min(2000).max(2200).optional(),
 });
 
 export function saveProfileFromUi(db: Db, input: unknown) {

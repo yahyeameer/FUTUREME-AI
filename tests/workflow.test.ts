@@ -110,4 +110,21 @@ describe("core workflow", () => {
   it("requires onboarding before chatting", async () => {
     await expect(chat(db, "hi", backend)).rejects.toThrow(/onboarding/);
   });
+
+  it("keeps the horizon year the user picked and writes the letter from it", async () => {
+    const { buildWorkspace, saveProfileFromUi } = await import("../src/lib/workspace-server");
+    const year = new Date().getFullYear() + 5;
+    saveProfileFromUi(db, { ...profile, values: ["family"], style: "reflective", horizonYear: year });
+    expect(buildWorkspace(db).profile?.horizonYear).toBe(year);
+
+    const story = await generateStory(db, mockProvider);
+    expect(story.content).toContain(`It's ${year}, Amina, five years on`);
+    expect(buildWorkspace(db).reflection?.title).toBe("A letter from five years ahead");
+  });
+
+  it("falls back to ten years ahead for profiles saved before the year was stored", async () => {
+    const { buildWorkspace } = await import("../src/lib/workspace-server");
+    saveProfile(db, profile);
+    expect(buildWorkspace(db).profile?.horizonYear).toBe(new Date().getFullYear() + 10);
+  });
 });

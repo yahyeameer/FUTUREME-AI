@@ -142,6 +142,8 @@ function Chapters({ reflection, onRegenerate, generating }: { reflection: Reflec
   const swipe = React.useRef<{ x: number; y: number } | null>(null);
 
   const year = reflection.horizonYear;
+  // How far ahead the plan reaches, counted from when the letter was written.
+  const span = Math.max(1, year - new Date(reflection.createdAt).getFullYear());
   const cover = (coverIndexFor(reflection.id, reflection.aspiration) + coverShift) % COVERS.length;
   const today = new Date().getFullYear();
   const letter = React.useMemo(() => letterParts(reflection.narrative), [reflection.narrative]);
@@ -221,7 +223,7 @@ function Chapters({ reflection, onRegenerate, generating }: { reflection: Reflec
           </div>
 
           <motion.div initial={{ opacity: 0, scale: 0.97 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.9, ease: EASE }} className="lg:row-span-2">
-            <CoverPlate index={cover} year={year} onShuffle={() => setCoverShift((n) => n + 1)} className="mx-auto max-w-[26rem]" />
+            <CoverPlate index={cover} year={year} span={span} onShuffle={() => setCoverShift((n) => n + 1)} className="mx-auto max-w-[26rem]" />
           </motion.div>
 
           <nav aria-label="In this issue" className="lg:col-start-1 lg:row-start-2">

@@ -1,4 +1,5 @@
 import type { ChatMessage, Completion, LlmProvider, ToolCall } from "./llm";
+import { yearsInWords } from "./utils";
 
 // Deterministic stand-in for the model, used in tests and when no Nebius key is configured.
 // It follows the same tool-calling protocol as the real model so the agent loop is exercised end to end.
@@ -29,15 +30,17 @@ function text(m: ChatMessage | undefined): string {
 }
 
 function story(profileJson: string): string {
-  let p: Record<string, string> = {};
+  let p: Partial<Record<"name" | "dream" | "challenges" | "values" | "resources", string>> & { horizonYear?: number } = {};
   try {
     p = JSON.parse(profileJson);
   } catch {
     // fall through with defaults
   }
   const name = p.name || "friend";
+  const now = new Date().getFullYear();
+  const year = p.horizonYear ?? now + 10;
   return [
-    `It's ten years from now, ${name}, and I'm writing to you from the life you were reaching for.`,
+    `It's ${year}, ${name}, ${yearsInWords(Math.max(1, year - now))} on, and I'm writing to you from the life you were reaching for.`,
     `${p.dream ? `${p.dream}. ` : ""}It didn't happen all at once. It happened because you kept showing up.`,
     p.challenges ? `I remember when ${p.challenges.toLowerCase()} felt like a wall. It turned out to be the first step.` : "",
     p.values ? `What carried us was what you already believed in: ${p.values}.` : "",

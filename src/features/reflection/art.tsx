@@ -2,7 +2,7 @@
 
 import { motion, useMotionValue, useReducedMotionConfig, useSpring, useTransform } from "motion/react";
 import * as React from "react";
-import { cn } from "@/lib/utils";
+import { cn, yearsInWords } from "@/lib/utils";
 
 // The plates are printed at dusk in both themes, like photographs in a magazine: they don't follow the page colours.
 export const DUSK = { night: "#0c0d0e", deep: "#17191b", ember: "#3a2a24", copper: "#c98d67", rust: "#a15f39", citron: "#c4d66a", glow: "#e9f2b0", ivory: "#f5f2ea" };
@@ -25,7 +25,7 @@ export function Plate({ children, caption, className, ...props }: React.Componen
 }
 
 /** The first cover: a sun rising over three ridges, a road running toward it, and the year in the sky. */
-export function HorizonScene({ year }: { year: number }) {
+export function HorizonScene({ year, span }: { year: number; span: number }) {
   const uid = React.useId().replace(/:/g, "");
   const reduce = useReducedMotionConfig();
   const px = useMotionValue(0);
@@ -53,7 +53,7 @@ export function HorizonScene({ year }: { year: number }) {
         py.set(0);
       }}
     >
-      <svg viewBox="0 0 400 480" className="block h-auto w-full" role="img" aria-label={`Illustration: a sun rising over the hills toward ${year}`}>
+      <svg viewBox="0 0 400 480" className="block h-auto w-full" role="img" aria-label={`Illustration: a sun rising over the hills toward ${year}, with a marker for each of ${yearsInWords(span)} along the road`}>
         <defs>
           <linearGradient id={`sky-${uid}`} x1="0" y1="0" x2="0" y2="1">
             <stop offset="0" stopColor={DUSK.night} />
@@ -85,6 +85,9 @@ export function HorizonScene({ year }: { year: number }) {
           <text x="200" y="168" textAnchor="middle" fill="none" stroke={DUSK.ivory} strokeOpacity="0.28" strokeWidth="1" style={{ fontFamily: "var(--font-display)", fontSize: 150, letterSpacing: "-0.02em" }}>
             {year}
           </text>
+          <text x="200" y="194" textAnchor="middle" fill={DUSK.ivory} fillOpacity="0.6" style={{ fontFamily: "var(--font-mono)", fontSize: 10, letterSpacing: "0.4em" }}>
+            {yearsInWords(span).toUpperCase()} OUT
+          </text>
         </motion.g>
 
         <motion.g initial={{ y: 70, opacity: 0.4 }} animate={{ y: 0, opacity: 1 }} transition={{ duration: 2.2, ease: EASE, delay: 0.2 }}>
@@ -109,6 +112,19 @@ export function HorizonScene({ year }: { year: number }) {
             animate={{ pathLength: 1 }}
             transition={{ duration: 1.6, ease: EASE, delay: 0.9 }}
           />
+          {/* A marker post for each year, crowding together toward the horizon. */}
+          {Array.from({ length: Math.max(1, Math.min(span, 20)) }, (_, i) => i).map((i, _, all) => {
+            const t = 1 - (1 - (i + 1) / all.length) ** 2;
+            const y = 476 - 92 * t;
+            const x = 262 - 59 * ((480 - y) / 99) + 10 - 7 * t;
+            const h = 14 - 11 * t;
+            return (
+              <motion.g key={i} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 1 + i * 0.08 }}>
+                <line x1={x} x2={x} y1={y} y2={y - h} stroke={DUSK.ivory} strokeOpacity="0.55" strokeWidth={1.6 - t} />
+                <circle cx={x} cy={y - h} r={2 - 1.3 * t} fill={DUSK.citron} />
+              </motion.g>
+            );
+          })}
         </motion.g>
         <text x="20" y="462" fill={DUSK.ivory} fillOpacity="0.55" style={{ fontFamily: "var(--font-mono)", fontSize: 10, letterSpacing: "0.12em" }}>
           TODAY
