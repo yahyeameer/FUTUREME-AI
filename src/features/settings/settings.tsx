@@ -22,6 +22,7 @@ const SECTIONS = [
   { id: "coaching", label: "Coaching style" },
   { id: "appearance", label: "Appearance" },
   { id: "memory", label: "Memory" },
+  { id: "decision-model", label: "Decision model" },
   { id: "data", label: "Data and privacy" },
   { id: "twin-data", label: "Voice twin data" },
 ];
@@ -62,6 +63,7 @@ export function Settings() {
           )}
           <AppearanceSection />
           {workspace && <MemorySection />}
+          {workspace && <DecisionModelSection />}
           <DataSection />
           <TwinDataSection />
         </div>
@@ -232,6 +234,64 @@ function MemorySection() {
             <Link href="/memory">Open the Memory Vault</Link>
           </Button>
         </div>
+      </div>
+    </Section>
+  );
+}
+
+/** Jev, TypeSafe's decision model, for the Future Simulator's decision check. The key never comes back to the browser. */
+function DecisionModelSection() {
+  const { workspace, run } = useWorkspaceContext();
+  const m = workspace!.platform.decisionModel;
+  const live = workspace!.runtime.mode === "live";
+  const [key, setKey] = React.useState("");
+  const [saving, setSaving] = React.useState(false);
+  const save = async (value: string | null) => {
+    setSaving(true);
+    const ok = await run((s) => s.saveDecisionKey(value), value ? "TypeSafe key saved" : "TypeSafe key removed");
+    if (ok) setKey("");
+    setSaving(false);
+  };
+  return (
+    <Section
+      id="decision-model"
+      title="Decision model"
+      description={
+        <>
+          The Future Simulator&apos;s decision check rates roads that passed FutureMe&apos;s own rules with Jev, a decision model from TypeSafe (paid per input token, about $0.042 per million). Only the text its questions need is sent, never your money figures.{" "}
+          <a href="https://docs.typesafe.ai" target="_blank" rel="noreferrer" className="text-accent-ink underline underline-offset-2">
+            TypeSafe docs
+          </a>
+        </>
+      }
+    >
+      <div className="card px-5">
+        <Row label="Status" hint={m?.configured ? `Using ${m.model}, key ${m.keySource === "env" ? "from the server's environment" : "saved in the app"} ending in ${m.keyHint}.` : "Not set up. Decision checks show the rules' order only, with no recommendation."}>
+          <span className={cn("text-[12px]", m?.configured ? "text-success" : "text-subtle")}>{m?.configured ? "Connected" : "Off"}</span>
+        </Row>
+        {live && m?.keySource !== "env" && (
+          <form
+            className="flex flex-col gap-2 py-3.5 sm:flex-row"
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (key.trim()) void save(key.trim());
+            }}
+          >
+            <label htmlFor="typesafe-key" className="sr-only">
+              TypeSafe API key
+            </label>
+            <Input id="typesafe-key" type="password" autoComplete="off" placeholder="TypeSafe API key" value={key} onChange={(e) => setKey(e.target.value)} className="sm:max-w-sm" />
+            <Button type="submit" size="md" disabled={saving || !key.trim()}>
+              {saving && <Loader2 className="animate-spin" />} Save key
+            </Button>
+            {m?.keySource === "app" && (
+              <Button type="button" variant="ghost" size="md" disabled={saving} onClick={() => save(null)}>
+                Remove
+              </Button>
+            )}
+          </form>
+        )}
+        {!live && <p className="py-3.5 text-[12.5px] text-muted-foreground">Demo mode runs in your browser and can&apos;t call Jev.</p>}
       </div>
     </Section>
   );

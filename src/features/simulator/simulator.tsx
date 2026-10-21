@@ -46,6 +46,7 @@ import { activeMilestone } from "@/lib/derive";
 import { FUNDING_LABEL, KIND_LABEL, PLACE_LABEL, SIMULATION_FRAMING, formatCost, formatSpan, money, rankPaths, type Assessment } from "@/lib/simulator-paths";
 import { cn, relativeDay } from "@/lib/utils";
 import { useWorkspace } from "@/lib/workspace-store";
+import { DecisionPanel } from "./decision-panel";
 import type { SimulatedPath, Simulation, Situation } from "@/types";
 
 const EASE = [0.2, 0.7, 0.2, 1] as const;
@@ -436,6 +437,8 @@ function Result({ simulation }: { simulation: Simulation }) {
           </div>
         </div>
       </section>
+
+      <DecisionPanel simulation={simulation} whatIf={whatIf} onCompare={compare} />
 
       <div className="lg:hidden">
         <Segmented

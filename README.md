@@ -220,6 +220,9 @@ Plus a command palette (`⌘K`, and `g` then a letter to jump), dark and light t
 <a id="memory-vault"></a>
 **Memory vault.** Lives in `data/vault` (`VAULT_DIR` to change it) and opens directly in Obsidian: `Profile`, `Goals`, `Tasks`, `Plans`, `Reflections`, `Research`, `Daily`, `Calls`, `Inbox`, `Social`, `Photos`. Optionally mirrored to Supabase so a new server restores from it ([docs/supabase.md](docs/supabase.md)).
 
+<a id="decision-layer"></a>
+**Decision layer (Jev by TypeSafe AI).** In the Future Simulator, "Check these routes" turns a set of roads into a decision. Deterministic rules do every calculation and enforce your budget, hours, risk, debt consent and living-cost runway; [Jev](https://docs.typesafe.ai) then answers narrow, typed questions (values fit, challenge fit, risk handling, a pick asked in both orders) about only the routes that passed. The result is decided, needs your review, abstained, or pending, with every fact's provenance, Jev's confidences, and its cost and latency, and it's kept as an auditable history with what you chose and how it went. Nemotron proposes the routes; it never makes the decision. Optional: set `TYPESAFE_API_KEY` (or save a key in Settings > Decision model); without it you get the rules' checks only. Details, the evaluation and its limits: [docs/decision-layer.md](docs/decision-layer.md).
+
 **Demo mode.** With no server reachable (or by choice in Settings), the whole app runs on a deterministic demo workspace in your browser, clearly labelled "Demo". Without a Nebius key, a built-in stand-in model keeps everything runnable and the UI says so.
 
 ---
@@ -244,6 +247,7 @@ ElevenLabs call ─► /api/twin/llm/v1/chat/completions ─► twin_voice agent
 - **Default runtime** (`AGENT_RUNTIME=nemotron`): the team runs in the app with all the Nemotron features above. `AGENT_RUNTIME=docker-agent` (or `DOCKER_AGENT_URL`) routes chat through Docker Agent and the MCP server instead.
 - **Every tool call is logged**, so the UI shows exactly what the agent remembered, proposed and did.
 - **Private local mode:** `docker compose -f docker-compose.yml -f docker-compose.local.yml up --build` runs the model on your own machine with Docker Model Runner, so no conversation leaves it.
+- **Two paid model providers:** Nemotron on Nebius for everything generative, and optionally Jev by TypeSafe AI for route decisions (USD 0.042 per million input tokens; a typical decision is a few thousand tokens, well under a cent).
 - **Tested:** unit and workflow tests (Vitest), and CI runs the browser end-to-end test twice (in-process and through Docker Agent), loads every agent file, pushes and pulls a persona pack, and smoke-tests the container.
 
 ---
@@ -373,6 +377,7 @@ npm run test:e2e                            # browser test of the whole loop
 - On the server, tasks can only be marked done (no in-progress or blocked status), and memories can't be archived. Demo mode has those controls.
 - Web research needs outbound internet; DuckDuckGo can rate-limit (Brave with `BRAVE_SEARCH_API_KEY` is steadier).
 - Skill run history and "mark useful" on Daily are kept in the browser, not the database.
+- The decision layer's thresholds and weights are untuned starting points, and its evaluation set is small and labelled by the implementer. Nemotron's cost estimates aren't verified unless you enter a looked-up price ([docs/decision-layer.md](docs/decision-layer.md#limitations-and-what-still-needs-real-world-validation)).
 - Single-user app: lock it with `FUTUREME_ACCESS_CODE` before putting real data on a public address.
 
 ---

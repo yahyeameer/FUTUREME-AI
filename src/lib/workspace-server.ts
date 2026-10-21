@@ -26,6 +26,8 @@ import { listNightShifts, nextRunAt, nightShiftSchedule } from "./night-shift";
 import { activePack, listPacks } from "./packs";
 import { listResearch } from "./research";
 import { getChosenRoad } from "./chosen-road";
+import { jevStatus } from "./decision/jev";
+import { listDecisions } from "./decision/store";
 import { listSimulations } from "./simulator";
 import { toPaths } from "./simulator-paths";
 import { skillsFor } from "./skills";
@@ -460,6 +462,7 @@ export function buildWorkspace(db: Db): Workspace {
       grounding: { profile: s.grounding.profile, notes: s.grounding.notes.map((p) => ({ memoryId: p, title: titleOf.get(p) ?? p })), social: s.grounding.social },
       memoryId: s.note_path ?? undefined,
       simulated: s.backend === "mock",
+      decisions: listDecisions(db, s.id).map((d) => ({ id: d.id, kind: d.kind, parentId: d.parentId, createdAt: sqlTime(d.createdAt)!, request: d.request, result: d.result, choice: d.choice ? { ...d.choice, at: sqlTime(d.choice.at)! } : null, outcome: d.outcome ? { ...d.outcome, at: sqlTime(d.outcome.at)! } : null })),
     })),
     chosenRoad: chosenRoadView(db),
     nightShifts: nightShifts.map((n) => ({
@@ -580,6 +583,7 @@ function platform(db: Db): AgentPlatform {
     nextNightShift: at ? nextRunAt(at).toISOString() : undefined,
     packs: listPacks(),
     activePack: activePack(db)?.id ?? null,
+    decisionModel: jevStatus(db),
   };
 }
 

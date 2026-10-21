@@ -187,6 +187,22 @@ export function createLiveService(): FutureMeService {
     saveSimulation: (id) => request({ action: "saveSimulation", id }),
     chooseRoad: (id, index) => request({ action: "chooseRoad", id, index }),
     clearRoad: () => request({ action: "clearRoad" }),
+    async decideRoutes(simulationId, situation, inputs) {
+      const workspace = await request({ action: "decideRoutes", id: simulationId, situation, inputs });
+      const decision = workspace.simulations?.find((s) => s.id === simulationId)?.decisions?.find((d) => d.kind === "rank_paths");
+      if (!decision) throw new Error("The decision wasn't saved.");
+      return { workspace, decision };
+    },
+    chooseDecisionRoute: (decisionId, optionId, kind, reason) => request({ action: "chooseDecisionRoute", decisionId, optionId, kind, reason }),
+    async checkAssumption(decisionId, optionId, assumption, evidence, source) {
+      const workspace = await request({ action: "checkAssumption", decisionId, optionId, assumption, evidence, source });
+      const check = workspace.simulations?.flatMap((s) => s.decisions ?? []).find((d) => d.parentId === decisionId);
+      if (!check) throw new Error("The check wasn't saved.");
+      return { workspace, check };
+    },
+    recordDecisionOutcome: (decisionId, text) => request({ action: "recordDecisionOutcome", decisionId, text }),
+    deleteDecisions: (id) => request({ action: "deleteDecisions", id }),
+    saveDecisionKey: (key) => request({ action: "saveDecisionKey", key }),
     verifyMessage: (id) => request({ action: "verifyMessage", id }),
     runResearch,
     async runNightShift() {

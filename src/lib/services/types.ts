@@ -2,6 +2,8 @@ import type {
   Mission,
   CoachingStyle,
   CouncilSession,
+  DecisionInputs,
+  DecisionView,
   NightShift,
   ResearchRun,
   DailyEdition,
@@ -60,6 +62,16 @@ export interface SimulatorService {
   clearRoad(): Promise<Workspace>;
 }
 
+/** Route decisions: the rules, then Jev (live mode only), with the person's choice and how it went. */
+export interface DecisionService {
+  decideRoutes(simulationId: string, situation: Situation | null, inputs: DecisionInputs): Promise<{ workspace: Workspace; decision: DecisionView }>;
+  chooseDecisionRoute(decisionId: string, optionId: string | null, kind: "accepted" | "rejected", reason?: string): Promise<Workspace>;
+  checkAssumption(decisionId: string, optionId: string, assumption: string, evidence: string, source?: string): Promise<{ workspace: Workspace; check: DecisionView }>;
+  recordDecisionOutcome(decisionId: string, text: string): Promise<Workspace>;
+  deleteDecisions(simulationId: string): Promise<Workspace>;
+  saveDecisionKey(key: string | null): Promise<Workspace>;
+}
+
 export interface DailyService {
   publishEdition(): Promise<{ workspace: Workspace; edition: DailyEdition }>;
 }
@@ -91,6 +103,7 @@ export interface FutureMeService
     MemoryService,
     ReflectionService,
     SimulatorService,
+    DecisionService,
     DailyService,
     SkillService,
     AgentTeamService {
