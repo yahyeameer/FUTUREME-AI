@@ -1,5 +1,7 @@
 import type { FutureMeService } from "@/lib/services/types";
 import { skillDef, skillsFor } from "@/lib/skills";
+import { emptyMeta, type DecisionResult } from "@/lib/decision/contract";
+import { buildRouteRequest, rulesOnlyResult } from "@/lib/decision/request";
 import { activeMilestone, liveMemories, nextStep } from "@/lib/derive";
 import { checkClaims, standInBrief, VOICES } from "@/lib/mock-llm";
 import { SIMULATION_FRAMING, formatCost, formatSpan, normalizeSituation, rankPaths, standInSimulation, toPaths } from "@/lib/simulator-paths";
@@ -455,6 +457,64 @@ export function createDemoService(): FutureMeService {
     async clearRoad() {
       state.chosenRoad = null;
       return commit();
+    },
+
+    // Demo mode has no Jev, so a decision here is only the rules' half: every check and calculation, no selection.
+    async decideRoutes(simulationId, rawSituation, inputs) {
+      const s = state.simulations?.find((x) => x.id === simulationId);
+      if (!s) throw new Error("That simulation no longer exists.");
+      const situation = normalizeSituation(rawSituation) ?? s.situation;
+      if (!situation) throw new Error("Add your starting point first, so the routes can be checked against it.");
+      const p = state.profile!;
+      const input = { simulationId: 0, goal: s.goal, paths: s.paths, situation, original: s.situation, extras: inputs, profile: { dream: p.dream, values: p.values.join(", "), challenges: p.challenges }, memory: [] };
+      const { request, checks } = buildRouteRequest(input, `demo-${Date.now()}`);
+      const result = rulesOnlyResult(request, checks);
+      result.reasons.push("Demo mode can't reach Jev. Run FutureMe live with a TypeSafe key to get a recommendation.");
+      const decision = { id: request.decisionId, kind: "rank_paths" as const, parentId: null, createdAt: now(), request, result, choice: null, outcome: null };
+      (s.decisions ??= []).unshift(decision);
+      return { workspace: commit(), decision };
+    },
+
+    async chooseDecisionRoute(decisionId, optionId, kind, reason) {
+      const d = state.simulations?.flatMap((x) => x.decisions ?? []).find((x) => x.id === decisionId);
+      if (!d) throw new Error("That decision no longer exists.");
+      const selected = (d.result as DecisionResult).selectedOptionId;
+      d.choice = { optionId, kind: kind === "rejected" ? "rejected" : optionId === selected ? "accepted" : "override", reason: reason?.trim() || null, at: now() };
+      return commit();
+    },
+
+    async checkAssumption(decisionId, optionId, assumption) {
+      const s = state.simulations?.find((x) => x.decisions?.some((d) => d.id === decisionId));
+      if (!s) throw new Error("That decision no longer exists.");
+      const check = {
+        id: id("check"),
+        kind: "branch_condition" as const,
+        parentId: decisionId,
+        createdAt: now(),
+        request: { decisionId, optionId, assumption, evidence: "", source: null },
+        result: { decisionId, optionId, assumption, outcome: "no_evidence" as const, producer: "rules" as const, probability: null, relevance: null, switchTo: null, reasons: ["Demo mode can't reach Jev, so this assumption wasn't checked."], meta: emptyMeta() },
+        choice: null,
+        outcome: null,
+      };
+      s.decisions!.unshift(check);
+      return { workspace: commit(), check };
+    },
+
+    async recordDecisionOutcome(decisionId, text) {
+      const d = state.simulations?.flatMap((x) => x.decisions ?? []).find((x) => x.id === decisionId);
+      if (!d) throw new Error("That decision no longer exists.");
+      d.outcome = { text: text.trim(), at: now() };
+      return commit();
+    },
+
+    async deleteDecisions(simulationId) {
+      const s = state.simulations?.find((x) => x.id === simulationId);
+      if (s) s.decisions = [];
+      return commit();
+    },
+
+    async saveDecisionKey() {
+      throw new Error("Keys are saved on the server. Run FutureMe live to add a TypeSafe key.");
     },
 
     async saveCouncil(sessionId) {

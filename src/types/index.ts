@@ -1,6 +1,8 @@
 // Shared domain types for the FutureMe frontend.
 // Both the demo service (browser) and the live service (Next.js API over SQLite + the Markdown vault) produce these.
 
+import type { BranchResult, DecisionRequest, DecisionResult } from "@/lib/decision/contract";
+
 export type ServiceMode = "demo" | "live";
 
 /** Tone of the future-self conversation. Changes how FutureMe speaks, not who it is. */
@@ -254,6 +256,37 @@ export interface Simulation {
   /** Set once the comparison was saved to the vault. */
   memoryId?: string;
   simulated: boolean;
+  /** Decision checks on these routes, newest first (see src/lib/decision). */
+  decisions?: DecisionView[];
+}
+
+// ---------- Decision layer (rules + Jev) ----------
+
+export interface DecisionView {
+  id: string;
+  kind: "rank_paths" | "branch_condition";
+  /** For a branch check: the route decision it belongs to. */
+  parentId: string | null;
+  createdAt: string;
+  request: DecisionRequest | BranchRequestView;
+  result: DecisionResult | BranchResult;
+  choice: { optionId: string | null; kind: "accepted" | "override" | "rejected"; reason: string | null; at: string } | null;
+  outcome: { text: string; at: string } | null;
+}
+
+export interface BranchRequestView {
+  decisionId: string;
+  optionId: string;
+  assumption: string;
+  evidence: string;
+  source: string | null;
+}
+
+/** What the person adds for a decision on top of their starting point. */
+export interface DecisionInputs {
+  monthlyCosts: number | null;
+  allowDebt: boolean;
+  verifiedPrices: { optionId: string; amount: number; currency: string; sourceUrl: string; retrievedAt: string }[];
 }
 
 /** The road the user chose in the simulator. Every agent reads it with their profile. */
@@ -493,6 +526,8 @@ export interface AgentPlatform {
   nextNightShift?: string;
   packs: Pack[];
   activePack: string | null;
+  /** Jev (TypeSafe) for route decisions. Never the key itself. */
+  decisionModel?: { configured: boolean; keySource: "env" | "app" | null; keyHint: string | null; model: string };
 }
 
 // ---------- Docker MCP tools ----------

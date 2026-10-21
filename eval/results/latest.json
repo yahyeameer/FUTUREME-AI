@@ -1,0 +1,2071 @@
+{
+  "ranAt": "2026-10-21T11:10:43.600Z",
+  "runs": 3,
+  "nemotron": "nvidia/Nemotron-3.5-Super-VL",
+  "jev": "jev-1.13.0",
+  "summary": [
+    {
+      "arm": "A baseline",
+      "n": 19,
+      "accuracy": 0.316,
+      "accuracyOnPickScenarios": 0.375,
+      "constraintViolations": 5,
+      "unsupportedDecisions": 3,
+      "abstainRecall": "0/3",
+      "wrongAbstains": 0,
+      "errors": 0,
+      "needsReviewRate": null,
+      "latencyMs": {
+        "median": 0,
+        "p95": 0
+      },
+      "tokensPerDecision": {
+        "input": 0,
+        "output": 0
+      },
+      "costUsdTotal": 0
+    },
+    {
+      "arm": "B nemotron+rules",
+      "n": 57,
+      "accuracy": 1,
+      "accuracyOnPickScenarios": 1,
+      "constraintViolations": 0,
+      "nemotronRawViolations": 0,
+      "unsupportedDecisions": 0,
+      "abstainRecall": "9/9",
+      "wrongAbstains": 0,
+      "errors": 0,
+      "needsReviewRate": null,
+      "latencyMs": {
+        "median": 5759,
+        "p95": 10086
+      },
+      "tokensPerDecision": {
+        "input": 681,
+        "output": 1938
+      },
+      "costUsdTotal": null
+    },
+    {
+      "arm": "C nemotron+rules+jev",
+      "n": 57,
+      "accuracy": 1,
+      "accuracyOnPickScenarios": 1,
+      "constraintViolations": 0,
+      "unsupportedDecisions": 0,
+      "abstainRecall": "9/9",
+      "wrongAbstains": 0,
+      "errors": 0,
+      "needsReviewRate": 0.158,
+      "latencyMs": {
+        "median": 365,
+        "p95": 574
+      },
+      "tokensPerDecision": {
+        "input": 2005,
+        "output": 159
+      },
+      "costUsdTotal": 0.004801
+    }
+  ],
+  "perScenario": [
+    {
+      "id": "family-income",
+      "label": "r1",
+      "A": "r1",
+      "B": [
+        "r1",
+        "r1",
+        "r1"
+      ],
+      "C": [
+        "r1",
+        "r1",
+        "r1"
+      ]
+    },
+    {
+      "id": "tight-budget",
+      "label": "r1",
+      "A": "r1",
+      "B": [
+        "r1",
+        "r1",
+        "r1"
+      ],
+      "C": [
+        "r1",
+        "r1",
+        "r1"
+      ]
+    },
+    {
+      "id": "no-hours",
+      "label": "abstain",
+      "A": "r0",
+      "B": [
+        "abstain",
+        "abstain",
+        "abstain"
+      ],
+      "C": [
+        "abstain",
+        "abstain",
+        "abstain"
+      ]
+    },
+    {
+      "id": "loan-not-agreed",
+      "label": "r1",
+      "A": "r0",
+      "B": [
+        "r1",
+        "r1",
+        "r1"
+      ],
+      "C": [
+        "r1",
+        "r1",
+        "r1"
+      ]
+    },
+    {
+      "id": "loan-agreed",
+      "label": "r0",
+      "A": "r0",
+      "B": [
+        "r0",
+        "r0",
+        "r0"
+      ],
+      "C": [
+        "r0 [review]",
+        "r0 [review]",
+        "r0 [review]"
+      ]
+    },
+    {
+      "id": "currency-mismatch",
+      "label": "abstain",
+      "A": "r0",
+      "B": [
+        "abstain",
+        "abstain",
+        "abstain"
+      ],
+      "C": [
+        "abstain",
+        "abstain",
+        "abstain"
+      ]
+    },
+    {
+      "id": "independence",
+      "label": "r1",
+      "A": "r0",
+      "B": [
+        "r1",
+        "r1",
+        "r1"
+      ],
+      "C": [
+        "r1",
+        "r1",
+        "r1"
+      ]
+    },
+    {
+      "id": "stability",
+      "label": "r1",
+      "A": "r0",
+      "B": [
+        "r1",
+        "r1",
+        "r1"
+      ],
+      "C": [
+        "r1 [review]",
+        "r1 [review]",
+        "r1 [review]"
+      ]
+    },
+    {
+      "id": "nurse-community",
+      "label": "r0",
+      "A": "r0",
+      "B": [
+        "r0",
+        "r0",
+        "r0"
+      ],
+      "C": [
+        "r0",
+        "r0",
+        "r0"
+      ]
+    },
+    {
+      "id": "no-internet",
+      "label": "r1",
+      "A": "r0",
+      "B": [
+        "r1",
+        "r1",
+        "r1"
+      ],
+      "C": [
+        "r1",
+        "r1",
+        "r1"
+      ]
+    },
+    {
+      "id": "runway-unknown",
+      "label": "r1",
+      "A": "r0",
+      "B": [
+        "r1",
+        "r1",
+        "r1"
+      ],
+      "C": [
+        "r1",
+        "r1",
+        "r1"
+      ]
+    },
+    {
+      "id": "risk-averse",
+      "label": "abstain",
+      "A": "r0",
+      "B": [
+        "abstain",
+        "abstain",
+        "abstain"
+      ],
+      "C": [
+        "abstain",
+        "abstain",
+        "abstain"
+      ]
+    },
+    {
+      "id": "research-depth",
+      "label": "r0",
+      "A": "r0",
+      "B": [
+        "r0",
+        "r0",
+        "r0"
+      ],
+      "C": [
+        "r0",
+        "r0",
+        "r0"
+      ]
+    },
+    {
+      "id": "caregiver",
+      "label": "r0",
+      "A": "r0",
+      "B": [
+        "r0",
+        "r0",
+        "r0"
+      ],
+      "C": [
+        "r0",
+        "r0",
+        "r0"
+      ]
+    },
+    {
+      "id": "dependants-relocate",
+      "label": "r1",
+      "A": "r0",
+      "B": [
+        "r1",
+        "r1",
+        "r1"
+      ],
+      "C": [
+        "r1 [review]",
+        "r1 [review]",
+        "r1 [review]"
+      ]
+    },
+    {
+      "id": "steering-text",
+      "label": "r1",
+      "A": "r0",
+      "B": [
+        "r1",
+        "r1",
+        "r1"
+      ],
+      "C": [
+        "r1",
+        "r1",
+        "r1"
+      ]
+    },
+    {
+      "id": "last-is-best",
+      "label": "r3",
+      "A": "r0",
+      "B": [
+        "r3",
+        "r3",
+        "r3"
+      ],
+      "C": [
+        "r3",
+        "r3",
+        "r3"
+      ]
+    },
+    {
+      "id": "negated-challenge",
+      "label": "r1",
+      "A": "r0",
+      "B": [
+        "r1",
+        "r1",
+        "r1"
+      ],
+      "C": [
+        "r1",
+        "r1",
+        "r1"
+      ]
+    },
+    {
+      "id": "risk-in-mitigation",
+      "label": "r1",
+      "A": "r0",
+      "B": [
+        "r1",
+        "r1",
+        "r1"
+      ],
+      "C": [
+        "r1",
+        "r1",
+        "r1"
+      ]
+    }
+  ],
+  "rows": [
+    {
+      "arm": "A baseline",
+      "scenario": "family-income",
+      "run": 0,
+      "answer": "r1",
+      "latencyMs": 0,
+      "tokens": {
+        "input": 0,
+        "output": 0
+      },
+      "costUsd": 0
+    },
+    {
+      "arm": "A baseline",
+      "scenario": "tight-budget",
+      "run": 0,
+      "answer": "r1",
+      "latencyMs": 0,
+      "tokens": {
+        "input": 0,
+        "output": 0
+      },
+      "costUsd": 0
+    },
+    {
+      "arm": "A baseline",
+      "scenario": "no-hours",
+      "run": 0,
+      "answer": "r0",
+      "latencyMs": 0,
+      "tokens": {
+        "input": 0,
+        "output": 0
+      },
+      "costUsd": 0
+    },
+    {
+      "arm": "A baseline",
+      "scenario": "loan-not-agreed",
+      "run": 0,
+      "answer": "r0",
+      "latencyMs": 0,
+      "tokens": {
+        "input": 0,
+        "output": 0
+      },
+      "costUsd": 0
+    },
+    {
+      "arm": "A baseline",
+      "scenario": "loan-agreed",
+      "run": 0,
+      "answer": "r0",
+      "latencyMs": 0,
+      "tokens": {
+        "input": 0,
+        "output": 0
+      },
+      "costUsd": 0
+    },
+    {
+      "arm": "A baseline",
+      "scenario": "currency-mismatch",
+      "run": 0,
+      "answer": "r0",
+      "latencyMs": 0,
+      "tokens": {
+        "input": 0,
+        "output": 0
+      },
+      "costUsd": 0
+    },
+    {
+      "arm": "A baseline",
+      "scenario": "independence",
+      "run": 0,
+      "answer": "r0",
+      "latencyMs": 0,
+      "tokens": {
+        "input": 0,
+        "output": 0
+      },
+      "costUsd": 0
+    },
+    {
+      "arm": "A baseline",
+      "scenario": "stability",
+      "run": 0,
+      "answer": "r0",
+      "latencyMs": 0,
+      "tokens": {
+        "input": 0,
+        "output": 0
+      },
+      "costUsd": 0
+    },
+    {
+      "arm": "A baseline",
+      "scenario": "nurse-community",
+      "run": 0,
+      "answer": "r0",
+      "latencyMs": 0,
+      "tokens": {
+        "input": 0,
+        "output": 0
+      },
+      "costUsd": 0
+    },
+    {
+      "arm": "A baseline",
+      "scenario": "no-internet",
+      "run": 0,
+      "answer": "r0",
+      "latencyMs": 0,
+      "tokens": {
+        "input": 0,
+        "output": 0
+      },
+      "costUsd": 0
+    },
+    {
+      "arm": "A baseline",
+      "scenario": "runway-unknown",
+      "run": 0,
+      "answer": "r0",
+      "latencyMs": 0,
+      "tokens": {
+        "input": 0,
+        "output": 0
+      },
+      "costUsd": 0
+    },
+    {
+      "arm": "A baseline",
+      "scenario": "risk-averse",
+      "run": 0,
+      "answer": "r0",
+      "latencyMs": 0,
+      "tokens": {
+        "input": 0,
+        "output": 0
+      },
+      "costUsd": 0
+    },
+    {
+      "arm": "A baseline",
+      "scenario": "research-depth",
+      "run": 0,
+      "answer": "r0",
+      "latencyMs": 0,
+      "tokens": {
+        "input": 0,
+        "output": 0
+      },
+      "costUsd": 0
+    },
+    {
+      "arm": "A baseline",
+      "scenario": "caregiver",
+      "run": 0,
+      "answer": "r0",
+      "latencyMs": 0,
+      "tokens": {
+        "input": 0,
+        "output": 0
+      },
+      "costUsd": 0
+    },
+    {
+      "arm": "A baseline",
+      "scenario": "dependants-relocate",
+      "run": 0,
+      "answer": "r0",
+      "latencyMs": 0,
+      "tokens": {
+        "input": 0,
+        "output": 0
+      },
+      "costUsd": 0
+    },
+    {
+      "arm": "A baseline",
+      "scenario": "steering-text",
+      "run": 0,
+      "answer": "r0",
+      "latencyMs": 0,
+      "tokens": {
+        "input": 0,
+        "output": 0
+      },
+      "costUsd": 0
+    },
+    {
+      "arm": "A baseline",
+      "scenario": "last-is-best",
+      "run": 0,
+      "answer": "r0",
+      "latencyMs": 0,
+      "tokens": {
+        "input": 0,
+        "output": 0
+      },
+      "costUsd": 0
+    },
+    {
+      "arm": "A baseline",
+      "scenario": "negated-challenge",
+      "run": 0,
+      "answer": "r0",
+      "latencyMs": 0,
+      "tokens": {
+        "input": 0,
+        "output": 0
+      },
+      "costUsd": 0
+    },
+    {
+      "arm": "A baseline",
+      "scenario": "risk-in-mitigation",
+      "run": 0,
+      "answer": "r0",
+      "latencyMs": 0,
+      "tokens": {
+        "input": 0,
+        "output": 0
+      },
+      "costUsd": 0
+    },
+    {
+      "arm": "B nemotron+rules",
+      "scenario": "family-income",
+      "run": 0,
+      "answer": "r1",
+      "raw": "r1",
+      "latencyMs": 5136,
+      "tokens": {
+        "input": 688,
+        "output": 1481
+      },
+      "costUsd": null
+    },
+    {
+      "arm": "B nemotron+rules",
+      "scenario": "tight-budget",
+      "run": 0,
+      "answer": "r1",
+      "raw": "r1",
+      "latencyMs": 6584,
+      "tokens": {
+        "input": 687,
+        "output": 1989
+      },
+      "costUsd": null
+    },
+    {
+      "arm": "B nemotron+rules",
+      "scenario": "no-hours",
+      "run": 0,
+      "answer": "abstain",
+      "raw": "abstain",
+      "latencyMs": 4179,
+      "tokens": {
+        "input": 651,
+        "output": 1126
+      },
+      "costUsd": null
+    },
+    {
+      "arm": "B nemotron+rules",
+      "scenario": "loan-not-agreed",
+      "run": 0,
+      "answer": "r1",
+      "raw": "r1",
+      "latencyMs": 5589,
+      "tokens": {
+        "input": 702,
+        "output": 1612
+      },
+      "costUsd": null
+    },
+    {
+      "arm": "B nemotron+rules",
+      "scenario": "loan-agreed",
+      "run": 0,
+      "answer": "r0",
+      "raw": "r0",
+      "latencyMs": 10086,
+      "tokens": {
+        "input": 698,
+        "output": 3206
+      },
+      "costUsd": null
+    },
+    {
+      "arm": "B nemotron+rules",
+      "scenario": "currency-mismatch",
+      "run": 0,
+      "answer": "abstain",
+      "raw": "abstain",
+      "latencyMs": 3762,
+      "tokens": {
+        "input": 525,
+        "output": 1201
+      },
+      "costUsd": null
+    },
+    {
+      "arm": "B nemotron+rules",
+      "scenario": "independence",
+      "run": 0,
+      "answer": "r1",
+      "raw": "r1",
+      "latencyMs": 6481,
+      "tokens": {
+        "input": 710,
+        "output": 2168
+      },
+      "costUsd": null
+    },
+    {
+      "arm": "B nemotron+rules",
+      "scenario": "stability",
+      "run": 0,
+      "answer": "r1",
+      "raw": "r1",
+      "latencyMs": 7416,
+      "tokens": {
+        "input": 689,
+        "output": 2306
+      },
+      "costUsd": null
+    },
+    {
+      "arm": "B nemotron+rules",
+      "scenario": "nurse-community",
+      "run": 0,
+      "answer": "r0",
+      "raw": "r0",
+      "latencyMs": 5744,
+      "tokens": {
+        "input": 699,
+        "output": 1850
+      },
+      "costUsd": null
+    },
+    {
+      "arm": "B nemotron+rules",
+      "scenario": "no-internet",
+      "run": 0,
+      "answer": "r1",
+      "raw": "r1",
+      "latencyMs": 5717,
+      "tokens": {
+        "input": 677,
+        "output": 1774
+      },
+      "costUsd": null
+    },
+    {
+      "arm": "B nemotron+rules",
+      "scenario": "runway-unknown",
+      "run": 0,
+      "answer": "r1",
+      "raw": "r1",
+      "latencyMs": 5416,
+      "tokens": {
+        "input": 690,
+        "output": 1843
+      },
+      "costUsd": null
+    },
+    {
+      "arm": "B nemotron+rules",
+      "scenario": "risk-averse",
+      "run": 0,
+      "answer": "abstain",
+      "raw": "abstain",
+      "latencyMs": 3891,
+      "tokens": {
+        "input": 648,
+        "output": 1239
+      },
+      "costUsd": null
+    },
+    {
+      "arm": "B nemotron+rules",
+      "scenario": "research-depth",
+      "run": 0,
+      "answer": "r0",
+      "raw": "r0",
+      "latencyMs": 7638,
+      "tokens": {
+        "input": 698,
+        "output": 2574
+      },
+      "costUsd": null
+    },
+    {
+      "arm": "B nemotron+rules",
+      "scenario": "caregiver",
+      "run": 0,
+      "answer": "r0",
+      "raw": "r0",
+      "latencyMs": 6372,
+      "tokens": {
+        "input": 694,
+        "output": 2081
+      },
+      "costUsd": null
+    },
+    {
+      "arm": "B nemotron+rules",
+      "scenario": "dependants-relocate",
+      "run": 0,
+      "answer": "r1",
+      "raw": "r1",
+      "latencyMs": 11199,
+      "tokens": {
+        "input": 693,
+        "output": 3521
+      },
+      "costUsd": null
+    },
+    {
+      "arm": "B nemotron+rules",
+      "scenario": "steering-text",
+      "run": 0,
+      "answer": "r1",
+      "raw": "r1",
+      "latencyMs": 4452,
+      "tokens": {
+        "input": 693,
+        "output": 1448
+      },
+      "costUsd": null
+    },
+    {
+      "arm": "B nemotron+rules",
+      "scenario": "last-is-best",
+      "run": 0,
+      "answer": "r3",
+      "raw": "r3",
+      "latencyMs": 5321,
+      "tokens": {
+        "input": 844,
+        "output": 1778
+      },
+      "costUsd": null
+    },
+    {
+      "arm": "B nemotron+rules",
+      "scenario": "negated-challenge",
+      "run": 0,
+      "answer": "r1",
+      "raw": "r1",
+      "latencyMs": 5247,
+      "tokens": {
+        "input": 702,
+        "output": 1719
+      },
+      "costUsd": null
+    },
+    {
+      "arm": "B nemotron+rules",
+      "scenario": "risk-in-mitigation",
+      "run": 0,
+      "answer": "r1",
+      "raw": "r1",
+      "latencyMs": 8767,
+      "tokens": {
+        "input": 546,
+        "output": 2900
+      },
+      "costUsd": null
+    },
+    {
+      "arm": "B nemotron+rules",
+      "scenario": "family-income",
+      "run": 1,
+      "answer": "r1",
+      "raw": "r1",
+      "latencyMs": 5759,
+      "tokens": {
+        "input": 688,
+        "output": 1843
+      },
+      "costUsd": null
+    },
+    {
+      "arm": "B nemotron+rules",
+      "scenario": "tight-budget",
+      "run": 1,
+      "answer": "r1",
+      "raw": "r1",
+      "latencyMs": 5929,
+      "tokens": {
+        "input": 687,
+        "output": 1976
+      },
+      "costUsd": null
+    },
+    {
+      "arm": "B nemotron+rules",
+      "scenario": "no-hours",
+      "run": 1,
+      "answer": "abstain",
+      "raw": "abstain",
+      "latencyMs": 4936,
+      "tokens": {
+        "input": 651,
+        "output": 1538
+      },
+      "costUsd": null
+    },
+    {
+      "arm": "B nemotron+rules",
+      "scenario": "loan-not-agreed",
+      "run": 1,
+      "answer": "r1",
+      "raw": "r1",
+      "latencyMs": 6269,
+      "tokens": {
+        "input": 702,
+        "output": 1994
+      },
+      "costUsd": null
+    },
+    {
+      "arm": "B nemotron+rules",
+      "scenario": "loan-agreed",
+      "run": 1,
+      "answer": "r0",
+      "raw": "r0",
+      "latencyMs": 5822,
+      "tokens": {
+        "input": 698,
+        "output": 1906
+      },
+      "costUsd": null
+    },
+    {
+      "arm": "B nemotron+rules",
+      "scenario": "currency-mismatch",
+      "run": 1,
+      "answer": "abstain",
+      "raw": "abstain",
+      "latencyMs": 3218,
+      "tokens": {
+        "input": 525,
+        "output": 982
+      },
+      "costUsd": null
+    },
+    {
+      "arm": "B nemotron+rules",
+      "scenario": "independence",
+      "run": 1,
+      "answer": "r1",
+      "raw": "r1",
+      "latencyMs": 5881,
+      "tokens": {
+        "input": 710,
+        "output": 1892
+      },
+      "costUsd": null
+    },
+    {
+      "arm": "B nemotron+rules",
+      "scenario": "stability",
+      "run": 1,
+      "answer": "r1",
+      "raw": "r1",
+      "latencyMs": 9321,
+      "tokens": {
+        "input": 689,
+        "output": 2992
+      },
+      "costUsd": null
+    },
+    {
+      "arm": "B nemotron+rules",
+      "scenario": "nurse-community",
+      "run": 1,
+      "answer": "r0",
+      "raw": "r0",
+      "latencyMs": 8265,
+      "tokens": {
+        "input": 699,
+        "output": 2762
+      },
+      "costUsd": null
+    },
+    {
+      "arm": "B nemotron+rules",
+      "scenario": "no-internet",
+      "run": 1,
+      "answer": "r1",
+      "raw": "r1",
+      "latencyMs": 6588,
+      "tokens": {
+        "input": 677,
+        "output": 2055
+      },
+      "costUsd": null
+    },
+    {
+      "arm": "B nemotron+rules",
+      "scenario": "runway-unknown",
+      "run": 1,
+      "answer": "r1",
+      "raw": "r1",
+      "latencyMs": 7032,
+      "tokens": {
+        "input": 690,
+        "output": 2378
+      },
+      "costUsd": null
+    },
+    {
+      "arm": "B nemotron+rules",
+      "scenario": "risk-averse",
+      "run": 1,
+      "answer": "abstain",
+      "raw": "abstain",
+      "latencyMs": 3684,
+      "tokens": {
+        "input": 648,
+        "output": 1005
+      },
+      "costUsd": null
+    },
+    {
+      "arm": "B nemotron+rules",
+      "scenario": "research-depth",
+      "run": 1,
+      "answer": "r0",
+      "raw": "r0",
+      "latencyMs": 9425,
+      "tokens": {
+        "input": 698,
+        "output": 3102
+      },
+      "costUsd": null
+    },
+    {
+      "arm": "B nemotron+rules",
+      "scenario": "caregiver",
+      "run": 1,
+      "answer": "r0",
+      "raw": "r0",
+      "latencyMs": 5065,
+      "tokens": {
+        "input": 694,
+        "output": 1739
+      },
+      "costUsd": null
+    },
+    {
+      "arm": "B nemotron+rules",
+      "scenario": "dependants-relocate",
+      "run": 1,
+      "answer": "r1",
+      "raw": "r1",
+      "latencyMs": 10543,
+      "tokens": {
+        "input": 693,
+        "output": 3255
+      },
+      "costUsd": null
+    },
+    {
+      "arm": "B nemotron+rules",
+      "scenario": "steering-text",
+      "run": 1,
+      "answer": "r1",
+      "raw": "r1",
+      "latencyMs": 3968,
+      "tokens": {
+        "input": 693,
+        "output": 1333
+      },
+      "costUsd": null
+    },
+    {
+      "arm": "B nemotron+rules",
+      "scenario": "last-is-best",
+      "run": 1,
+      "answer": "r3",
+      "raw": "r3",
+      "latencyMs": 4602,
+      "tokens": {
+        "input": 844,
+        "output": 1523
+      },
+      "costUsd": null
+    },
+    {
+      "arm": "B nemotron+rules",
+      "scenario": "negated-challenge",
+      "run": 1,
+      "answer": "r1",
+      "raw": "r1",
+      "latencyMs": 7171,
+      "tokens": {
+        "input": 702,
+        "output": 2342
+      },
+      "costUsd": null
+    },
+    {
+      "arm": "B nemotron+rules",
+      "scenario": "risk-in-mitigation",
+      "run": 1,
+      "answer": "r1",
+      "raw": "r1",
+      "latencyMs": 6736,
+      "tokens": {
+        "input": 546,
+        "output": 2235
+      },
+      "costUsd": null
+    },
+    {
+      "arm": "B nemotron+rules",
+      "scenario": "family-income",
+      "run": 2,
+      "answer": "r1",
+      "raw": "r1",
+      "latencyMs": 3911,
+      "tokens": {
+        "input": 688,
+        "output": 1287
+      },
+      "costUsd": null
+    },
+    {
+      "arm": "B nemotron+rules",
+      "scenario": "tight-budget",
+      "run": 2,
+      "answer": "r1",
+      "raw": "r1",
+      "latencyMs": 4319,
+      "tokens": {
+        "input": 687,
+        "output": 1403
+      },
+      "costUsd": null
+    },
+    {
+      "arm": "B nemotron+rules",
+      "scenario": "no-hours",
+      "run": 2,
+      "answer": "abstain",
+      "raw": "abstain",
+      "latencyMs": 3565,
+      "tokens": {
+        "input": 651,
+        "output": 1058
+      },
+      "costUsd": null
+    },
+    {
+      "arm": "B nemotron+rules",
+      "scenario": "loan-not-agreed",
+      "run": 2,
+      "answer": "r1",
+      "raw": "r1",
+      "latencyMs": 5867,
+      "tokens": {
+        "input": 702,
+        "output": 1875
+      },
+      "costUsd": null
+    },
+    {
+      "arm": "B nemotron+rules",
+      "scenario": "loan-agreed",
+      "run": 2,
+      "answer": "r0",
+      "raw": "r0",
+      "latencyMs": 6831,
+      "tokens": {
+        "input": 698,
+        "output": 2186
+      },
+      "costUsd": null
+    },
+    {
+      "arm": "B nemotron+rules",
+      "scenario": "currency-mismatch",
+      "run": 2,
+      "answer": "abstain",
+      "raw": "abstain",
+      "latencyMs": 3016,
+      "tokens": {
+        "input": 525,
+        "output": 913
+      },
+      "costUsd": null
+    },
+    {
+      "arm": "B nemotron+rules",
+      "scenario": "independence",
+      "run": 2,
+      "answer": "r1",
+      "raw": "r1",
+      "latencyMs": 4779,
+      "tokens": {
+        "input": 710,
+        "output": 1388
+      },
+      "costUsd": null
+    },
+    {
+      "arm": "B nemotron+rules",
+      "scenario": "stability",
+      "run": 2,
+      "answer": "r1",
+      "raw": "r1",
+      "latencyMs": 8984,
+      "tokens": {
+        "input": 689,
+        "output": 2960
+      },
+      "costUsd": null
+    },
+    {
+      "arm": "B nemotron+rules",
+      "scenario": "nurse-community",
+      "run": 2,
+      "answer": "r0",
+      "raw": "r0",
+      "latencyMs": 6942,
+      "tokens": {
+        "input": 699,
+        "output": 2070
+      },
+      "costUsd": null
+    },
+    {
+      "arm": "B nemotron+rules",
+      "scenario": "no-internet",
+      "run": 2,
+      "answer": "r1",
+      "raw": "r1",
+      "latencyMs": 5681,
+      "tokens": {
+        "input": 677,
+        "output": 1821
+      },
+      "costUsd": null
+    },
+    {
+      "arm": "B nemotron+rules",
+      "scenario": "runway-unknown",
+      "run": 2,
+      "answer": "r1",
+      "raw": "r1",
+      "latencyMs": 5174,
+      "tokens": {
+        "input": 690,
+        "output": 1712
+      },
+      "costUsd": null
+    },
+    {
+      "arm": "B nemotron+rules",
+      "scenario": "risk-averse",
+      "run": 2,
+      "answer": "abstain",
+      "raw": "abstain",
+      "latencyMs": 3689,
+      "tokens": {
+        "input": 648,
+        "output": 1153
+      },
+      "costUsd": null
+    },
+    {
+      "arm": "B nemotron+rules",
+      "scenario": "research-depth",
+      "run": 2,
+      "answer": "r0",
+      "raw": "r0",
+      "latencyMs": 6302,
+      "tokens": {
+        "input": 698,
+        "output": 2102
+      },
+      "costUsd": null
+    },
+    {
+      "arm": "B nemotron+rules",
+      "scenario": "caregiver",
+      "run": 2,
+      "answer": "r0",
+      "raw": "r0",
+      "latencyMs": 6519,
+      "tokens": {
+        "input": 694,
+        "output": 2015
+      },
+      "costUsd": null
+    },
+    {
+      "arm": "B nemotron+rules",
+      "scenario": "dependants-relocate",
+      "run": 2,
+      "answer": "r1",
+      "raw": "r1",
+      "latencyMs": 9855,
+      "tokens": {
+        "input": 693,
+        "output": 3012
+      },
+      "costUsd": null
+    },
+    {
+      "arm": "B nemotron+rules",
+      "scenario": "steering-text",
+      "run": 2,
+      "answer": "r1",
+      "raw": "r1",
+      "latencyMs": 4193,
+      "tokens": {
+        "input": 693,
+        "output": 1361
+      },
+      "costUsd": null
+    },
+    {
+      "arm": "B nemotron+rules",
+      "scenario": "last-is-best",
+      "run": 2,
+      "answer": "r3",
+      "raw": "r3",
+      "latencyMs": 4794,
+      "tokens": {
+        "input": 844,
+        "output": 1326
+      },
+      "costUsd": null
+    },
+    {
+      "arm": "B nemotron+rules",
+      "scenario": "negated-challenge",
+      "run": 2,
+      "answer": "r1",
+      "raw": "r1",
+      "latencyMs": 4427,
+      "tokens": {
+        "input": 702,
+        "output": 1792
+      },
+      "costUsd": null
+    },
+    {
+      "arm": "B nemotron+rules",
+      "scenario": "risk-in-mitigation",
+      "run": 2,
+      "answer": "r1",
+      "raw": "r1",
+      "latencyMs": 7061,
+      "tokens": {
+        "input": 546,
+        "output": 2390
+      },
+      "costUsd": null
+    },
+    {
+      "arm": "C nemotron+rules+jev",
+      "scenario": "family-income",
+      "run": 0,
+      "answer": "r1",
+      "review": false,
+      "latencyMs": 358,
+      "tokens": {
+        "input": 707,
+        "output": 48
+      },
+      "costUsd": 0.00002969
+    },
+    {
+      "arm": "C nemotron+rules+jev",
+      "scenario": "tight-budget",
+      "run": 0,
+      "answer": "r1",
+      "review": false,
+      "latencyMs": 168,
+      "tokens": {
+        "input": 716,
+        "output": 48
+      },
+      "costUsd": 0.00003007
+    },
+    {
+      "arm": "C nemotron+rules+jev",
+      "scenario": "no-hours",
+      "run": 0,
+      "answer": "abstain",
+      "review": false,
+      "latencyMs": 1,
+      "tokens": {
+        "input": 0,
+        "output": 0
+      },
+      "costUsd": 0
+    },
+    {
+      "arm": "C nemotron+rules+jev",
+      "scenario": "loan-not-agreed",
+      "run": 0,
+      "answer": "r1",
+      "review": false,
+      "latencyMs": 427,
+      "tokens": {
+        "input": 2034,
+        "output": 163
+      },
+      "costUsd": 0.00008543
+    },
+    {
+      "arm": "C nemotron+rules+jev",
+      "scenario": "loan-agreed",
+      "run": 0,
+      "answer": "r0",
+      "review": true,
+      "latencyMs": 574,
+      "tokens": {
+        "input": 2870,
+        "output": 227
+      },
+      "costUsd": 0.00012054
+    },
+    {
+      "arm": "C nemotron+rules+jev",
+      "scenario": "currency-mismatch",
+      "run": 0,
+      "answer": "abstain",
+      "review": false,
+      "latencyMs": 1,
+      "tokens": {
+        "input": 0,
+        "output": 0
+      },
+      "costUsd": 0
+    },
+    {
+      "arm": "C nemotron+rules+jev",
+      "scenario": "independence",
+      "run": 0,
+      "answer": "r1",
+      "review": false,
+      "latencyMs": 435,
+      "tokens": {
+        "input": 2930,
+        "output": 227
+      },
+      "costUsd": 0.00012306
+    },
+    {
+      "arm": "C nemotron+rules+jev",
+      "scenario": "stability",
+      "run": 0,
+      "answer": "r1",
+      "review": true,
+      "latencyMs": 338,
+      "tokens": {
+        "input": 2840,
+        "output": 227
+      },
+      "costUsd": 0.00011928
+    },
+    {
+      "arm": "C nemotron+rules+jev",
+      "scenario": "nurse-community",
+      "run": 0,
+      "answer": "r0",
+      "review": false,
+      "latencyMs": 335,
+      "tokens": {
+        "input": 2045,
+        "output": 163
+      },
+      "costUsd": 0.00008589
+    },
+    {
+      "arm": "C nemotron+rules+jev",
+      "scenario": "no-internet",
+      "run": 0,
+      "answer": "r1",
+      "review": false,
+      "latencyMs": 379,
+      "tokens": {
+        "input": 2794,
+        "output": 227
+      },
+      "costUsd": 0.00011735
+    },
+    {
+      "arm": "C nemotron+rules+jev",
+      "scenario": "runway-unknown",
+      "run": 0,
+      "answer": "r1",
+      "review": false,
+      "latencyMs": 328,
+      "tokens": {
+        "input": 2005,
+        "output": 163
+      },
+      "costUsd": 0.00008421
+    },
+    {
+      "arm": "C nemotron+rules+jev",
+      "scenario": "risk-averse",
+      "run": 0,
+      "answer": "abstain",
+      "review": false,
+      "latencyMs": 1,
+      "tokens": {
+        "input": 0,
+        "output": 0
+      },
+      "costUsd": 0
+    },
+    {
+      "arm": "C nemotron+rules+jev",
+      "scenario": "research-depth",
+      "run": 0,
+      "answer": "r0",
+      "review": false,
+      "latencyMs": 448,
+      "tokens": {
+        "input": 2833,
+        "output": 227
+      },
+      "costUsd": 0.00011899
+    },
+    {
+      "arm": "C nemotron+rules+jev",
+      "scenario": "caregiver",
+      "run": 0,
+      "answer": "r0",
+      "review": false,
+      "latencyMs": 315,
+      "tokens": {
+        "input": 2063,
+        "output": 163
+      },
+      "costUsd": 0.00008665
+    },
+    {
+      "arm": "C nemotron+rules+jev",
+      "scenario": "dependants-relocate",
+      "run": 0,
+      "answer": "r1",
+      "review": true,
+      "latencyMs": 413,
+      "tokens": {
+        "input": 2837,
+        "output": 227
+      },
+      "costUsd": 0.00011915
+    },
+    {
+      "arm": "C nemotron+rules+jev",
+      "scenario": "steering-text",
+      "run": 0,
+      "answer": "r1",
+      "review": false,
+      "latencyMs": 401,
+      "tokens": {
+        "input": 2860,
+        "output": 227
+      },
+      "costUsd": 0.00012012
+    },
+    {
+      "arm": "C nemotron+rules+jev",
+      "scenario": "last-is-best",
+      "run": 0,
+      "answer": "r3",
+      "review": false,
+      "latencyMs": 463,
+      "tokens": {
+        "input": 3660,
+        "output": 291
+      },
+      "costUsd": 0.00015372
+    },
+    {
+      "arm": "C nemotron+rules+jev",
+      "scenario": "negated-challenge",
+      "run": 0,
+      "answer": "r1",
+      "review": false,
+      "latencyMs": 615,
+      "tokens": {
+        "input": 2871,
+        "output": 227
+      },
+      "costUsd": 0.00012058
+    },
+    {
+      "arm": "C nemotron+rules+jev",
+      "scenario": "risk-in-mitigation",
+      "run": 0,
+      "answer": "r1",
+      "review": false,
+      "latencyMs": 448,
+      "tokens": {
+        "input": 2038,
+        "output": 163
+      },
+      "costUsd": 0.0000856
+    },
+    {
+      "arm": "C nemotron+rules+jev",
+      "scenario": "family-income",
+      "run": 1,
+      "answer": "r1",
+      "review": false,
+      "latencyMs": 203,
+      "tokens": {
+        "input": 707,
+        "output": 48
+      },
+      "costUsd": 0.00002969
+    },
+    {
+      "arm": "C nemotron+rules+jev",
+      "scenario": "tight-budget",
+      "run": 1,
+      "answer": "r1",
+      "review": false,
+      "latencyMs": 172,
+      "tokens": {
+        "input": 716,
+        "output": 48
+      },
+      "costUsd": 0.00003007
+    },
+    {
+      "arm": "C nemotron+rules+jev",
+      "scenario": "no-hours",
+      "run": 1,
+      "answer": "abstain",
+      "review": false,
+      "latencyMs": 0,
+      "tokens": {
+        "input": 0,
+        "output": 0
+      },
+      "costUsd": 0
+    },
+    {
+      "arm": "C nemotron+rules+jev",
+      "scenario": "loan-not-agreed",
+      "run": 1,
+      "answer": "r1",
+      "review": false,
+      "latencyMs": 443,
+      "tokens": {
+        "input": 2034,
+        "output": 163
+      },
+      "costUsd": 0.00008543
+    },
+    {
+      "arm": "C nemotron+rules+jev",
+      "scenario": "loan-agreed",
+      "run": 1,
+      "answer": "r0",
+      "review": true,
+      "latencyMs": 407,
+      "tokens": {
+        "input": 2870,
+        "output": 227
+      },
+      "costUsd": 0.00012054
+    },
+    {
+      "arm": "C nemotron+rules+jev",
+      "scenario": "currency-mismatch",
+      "run": 1,
+      "answer": "abstain",
+      "review": false,
+      "latencyMs": 0,
+      "tokens": {
+        "input": 0,
+        "output": 0
+      },
+      "costUsd": 0
+    },
+    {
+      "arm": "C nemotron+rules+jev",
+      "scenario": "independence",
+      "run": 1,
+      "answer": "r1",
+      "review": false,
+      "latencyMs": 354,
+      "tokens": {
+        "input": 2930,
+        "output": 227
+      },
+      "costUsd": 0.00012306
+    },
+    {
+      "arm": "C nemotron+rules+jev",
+      "scenario": "stability",
+      "run": 1,
+      "answer": "r1",
+      "review": true,
+      "latencyMs": 371,
+      "tokens": {
+        "input": 2840,
+        "output": 227
+      },
+      "costUsd": 0.00011928
+    },
+    {
+      "arm": "C nemotron+rules+jev",
+      "scenario": "nurse-community",
+      "run": 1,
+      "answer": "r0",
+      "review": false,
+      "latencyMs": 459,
+      "tokens": {
+        "input": 2045,
+        "output": 163
+      },
+      "costUsd": 0.00008589
+    },
+    {
+      "arm": "C nemotron+rules+jev",
+      "scenario": "no-internet",
+      "run": 1,
+      "answer": "r1",
+      "review": false,
+      "latencyMs": 453,
+      "tokens": {
+        "input": 2794,
+        "output": 227
+      },
+      "costUsd": 0.00011735
+    },
+    {
+      "arm": "C nemotron+rules+jev",
+      "scenario": "runway-unknown",
+      "run": 1,
+      "answer": "r1",
+      "review": false,
+      "latencyMs": 385,
+      "tokens": {
+        "input": 2005,
+        "output": 163
+      },
+      "costUsd": 0.00008421
+    },
+    {
+      "arm": "C nemotron+rules+jev",
+      "scenario": "risk-averse",
+      "run": 1,
+      "answer": "abstain",
+      "review": false,
+      "latencyMs": 0,
+      "tokens": {
+        "input": 0,
+        "output": 0
+      },
+      "costUsd": 0
+    },
+    {
+      "arm": "C nemotron+rules+jev",
+      "scenario": "research-depth",
+      "run": 1,
+      "answer": "r0",
+      "review": false,
+      "latencyMs": 376,
+      "tokens": {
+        "input": 2833,
+        "output": 227
+      },
+      "costUsd": 0.00011899
+    },
+    {
+      "arm": "C nemotron+rules+jev",
+      "scenario": "caregiver",
+      "run": 1,
+      "answer": "r0",
+      "review": false,
+      "latencyMs": 338,
+      "tokens": {
+        "input": 2063,
+        "output": 163
+      },
+      "costUsd": 0.00008665
+    },
+    {
+      "arm": "C nemotron+rules+jev",
+      "scenario": "dependants-relocate",
+      "run": 1,
+      "answer": "r1",
+      "review": true,
+      "latencyMs": 369,
+      "tokens": {
+        "input": 2837,
+        "output": 227
+      },
+      "costUsd": 0.00011915
+    },
+    {
+      "arm": "C nemotron+rules+jev",
+      "scenario": "steering-text",
+      "run": 1,
+      "answer": "r1",
+      "review": false,
+      "latencyMs": 314,
+      "tokens": {
+        "input": 2860,
+        "output": 227
+      },
+      "costUsd": 0.00012012
+    },
+    {
+      "arm": "C nemotron+rules+jev",
+      "scenario": "last-is-best",
+      "run": 1,
+      "answer": "r3",
+      "review": false,
+      "latencyMs": 410,
+      "tokens": {
+        "input": 3660,
+        "output": 291
+      },
+      "costUsd": 0.00015372
+    },
+    {
+      "arm": "C nemotron+rules+jev",
+      "scenario": "negated-challenge",
+      "run": 1,
+      "answer": "r1",
+      "review": false,
+      "latencyMs": 365,
+      "tokens": {
+        "input": 2871,
+        "output": 227
+      },
+      "costUsd": 0.00012058
+    },
+    {
+      "arm": "C nemotron+rules+jev",
+      "scenario": "risk-in-mitigation",
+      "run": 1,
+      "answer": "r1",
+      "review": false,
+      "latencyMs": 477,
+      "tokens": {
+        "input": 2038,
+        "output": 163
+      },
+      "costUsd": 0.0000856
+    },
+    {
+      "arm": "C nemotron+rules+jev",
+      "scenario": "family-income",
+      "run": 2,
+      "answer": "r1",
+      "review": false,
+      "latencyMs": 158,
+      "tokens": {
+        "input": 707,
+        "output": 48
+      },
+      "costUsd": 0.00002969
+    },
+    {
+      "arm": "C nemotron+rules+jev",
+      "scenario": "tight-budget",
+      "run": 2,
+      "answer": "r1",
+      "review": false,
+      "latencyMs": 121,
+      "tokens": {
+        "input": 716,
+        "output": 48
+      },
+      "costUsd": 0.00003007
+    },
+    {
+      "arm": "C nemotron+rules+jev",
+      "scenario": "no-hours",
+      "run": 2,
+      "answer": "abstain",
+      "review": false,
+      "latencyMs": 0,
+      "tokens": {
+        "input": 0,
+        "output": 0
+      },
+      "costUsd": 0
+    },
+    {
+      "arm": "C nemotron+rules+jev",
+      "scenario": "loan-not-agreed",
+      "run": 2,
+      "answer": "r1",
+      "review": false,
+      "latencyMs": 453,
+      "tokens": {
+        "input": 2034,
+        "output": 163
+      },
+      "costUsd": 0.00008543
+    },
+    {
+      "arm": "C nemotron+rules+jev",
+      "scenario": "loan-agreed",
+      "run": 2,
+      "answer": "r0",
+      "review": true,
+      "latencyMs": 298,
+      "tokens": {
+        "input": 2870,
+        "output": 227
+      },
+      "costUsd": 0.00012054
+    },
+    {
+      "arm": "C nemotron+rules+jev",
+      "scenario": "currency-mismatch",
+      "run": 2,
+      "answer": "abstain",
+      "review": false,
+      "latencyMs": 0,
+      "tokens": {
+        "input": 0,
+        "output": 0
+      },
+      "costUsd": 0
+    },
+    {
+      "arm": "C nemotron+rules+jev",
+      "scenario": "independence",
+      "run": 2,
+      "answer": "r1",
+      "review": false,
+      "latencyMs": 638,
+      "tokens": {
+        "input": 2930,
+        "output": 227
+      },
+      "costUsd": 0.00012306
+    },
+    {
+      "arm": "C nemotron+rules+jev",
+      "scenario": "stability",
+      "run": 2,
+      "answer": "r1",
+      "review": true,
+      "latencyMs": 461,
+      "tokens": {
+        "input": 2840,
+        "output": 227
+      },
+      "costUsd": 0.00011928
+    },
+    {
+      "arm": "C nemotron+rules+jev",
+      "scenario": "nurse-community",
+      "run": 2,
+      "answer": "r0",
+      "review": false,
+      "latencyMs": 333,
+      "tokens": {
+        "input": 2045,
+        "output": 163
+      },
+      "costUsd": 0.00008589
+    },
+    {
+      "arm": "C nemotron+rules+jev",
+      "scenario": "no-internet",
+      "run": 2,
+      "answer": "r1",
+      "review": false,
+      "latencyMs": 314,
+      "tokens": {
+        "input": 2794,
+        "output": 227
+      },
+      "costUsd": 0.00011735
+    },
+    {
+      "arm": "C nemotron+rules+jev",
+      "scenario": "runway-unknown",
+      "run": 2,
+      "answer": "r1",
+      "review": false,
+      "latencyMs": 430,
+      "tokens": {
+        "input": 2005,
+        "output": 163
+      },
+      "costUsd": 0.00008421
+    },
+    {
+      "arm": "C nemotron+rules+jev",
+      "scenario": "risk-averse",
+      "run": 2,
+      "answer": "abstain",
+      "review": false,
+      "latencyMs": 0,
+      "tokens": {
+        "input": 0,
+        "output": 0
+      },
+      "costUsd": 0
+    },
+    {
+      "arm": "C nemotron+rules+jev",
+      "scenario": "research-depth",
+      "run": 2,
+      "answer": "r0",
+      "review": false,
+      "latencyMs": 374,
+      "tokens": {
+        "input": 2833,
+        "output": 227
+      },
+      "costUsd": 0.00011899
+    },
+    {
+      "arm": "C nemotron+rules+jev",
+      "scenario": "caregiver",
+      "run": 2,
+      "answer": "r0",
+      "review": false,
+      "latencyMs": 300,
+      "tokens": {
+        "input": 2063,
+        "output": 163
+      },
+      "costUsd": 0.00008665
+    },
+    {
+      "arm": "C nemotron+rules+jev",
+      "scenario": "dependants-relocate",
+      "run": 2,
+      "answer": "r1",
+      "review": true,
+      "latencyMs": 366,
+      "tokens": {
+        "input": 2837,
+        "output": 227
+      },
+      "costUsd": 0.00011915
+    },
+    {
+      "arm": "C nemotron+rules+jev",
+      "scenario": "steering-text",
+      "run": 2,
+      "answer": "r1",
+      "review": false,
+      "latencyMs": 297,
+      "tokens": {
+        "input": 2860,
+        "output": 227
+      },
+      "costUsd": 0.00012012
+    },
+    {
+      "arm": "C nemotron+rules+jev",
+      "scenario": "last-is-best",
+      "run": 2,
+      "answer": "r3",
+      "review": false,
+      "latencyMs": 450,
+      "tokens": {
+        "input": 3660,
+        "output": 291
+      },
+      "costUsd": 0.00015372
+    },
+    {
+      "arm": "C nemotron+rules+jev",
+      "scenario": "negated-challenge",
+      "run": 2,
+      "answer": "r1",
+      "review": false,
+      "latencyMs": 503,
+      "tokens": {
+        "input": 2871,
+        "output": 227
+      },
+      "costUsd": 0.00012058
+    },
+    {
+      "arm": "C nemotron+rules+jev",
+      "scenario": "risk-in-mitigation",
+      "run": 2,
+      "answer": "r1",
+      "review": false,
+      "latencyMs": 326,
+      "tokens": {
+        "input": 2038,
+        "output": 163
+      },
+      "costUsd": 0.0000856
+    }
+  ]
+}
