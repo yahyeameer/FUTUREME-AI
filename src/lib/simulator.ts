@@ -3,7 +3,7 @@ import { profileContext } from "./council";
 import { getChosenRoad, setChosenRoad, withChosenRoad, type ChosenRoadRecord } from "./chosen-road";
 import type { Db } from "./db";
 import { getProfile } from "./futureme";
-import { getProvider, type LlmProvider } from "./llm";
+import { getProvider, type ChatMessage, type LlmProvider, type ReasoningMode } from "./llm";
 import { searchMemory } from "./memory";
 import { SIMULATE_MARKER } from "./mock-llm";
 import {
@@ -12,6 +12,7 @@ import {
   MAX_PATHS,
   PLACE_LABEL,
   SIMULATION_FRAMING,
+  SIMULATION_MAX_TOKENS,
   SIMULATION_SCHEMA,
   formatCost,
   formatSpan,
@@ -61,7 +62,7 @@ export const SIMULATOR_INSTRUCTION = [
   "So: write every route as a conditional (\"if you take this route and these assumptions hold\"). Never say what will happen to the user, never promise a job, income, admission or success, and give time and cost as honest ranges rather than single numbers.",
   "Cover the space of routes, not three variations of one. Mix how they learn (self-study, formal education such as university or an accredited program, bootcamp, apprenticeship, paid work combined with study, other), how it is paid for (savings, income, employer, scholarship, loan, free) and where (where they live, remote, moving away). For a career or skill goal always include a self-study route, a formal education route and a route that combines paid work with study. Include routes that fit a tight budget or little time, not only ideal ones.",
   "Be realistic about where they live: what programs, employers, remote work, payments and visas are actually open to someone there. Price every route in the user's currency when one is given (USD otherwise), as honest ranges, with a short note on what drives the cost.",
-  "For each route give: time in months (min and max), cost range, weekly hours, whether they can keep earning on it (keeps_income), its risk level, fit_score (0-100, how realistic this route is for this person where they live, before money and time, which the app checks itself), prerequisites, up to four risks each with a mitigation, the assumptions the scenario depends on, up to three first steps for this month, and a short fit note on how it matches or strains what the user shared.",
+  "For each route give: time in months (min and max), cost range, weekly hours, whether they can keep earning on it (keeps_income), its risk level, fit_score (0-100, how realistic this route is for this person where they live, before money and time, which the app checks itself), prerequisites, up to three risks each with a mitigation, the assumptions the scenario depends on, up to three first steps for this month, and a short fit note on how it matches or strains what the user shared. Keep every text field to one short sentence so all the roads fit in one reply.",
   "Ground the routes in the user's profile, notes and accounts below. Quote a note's title when you lean on it. Don't invent facts about the user; when something important is missing, say in the assumptions what you assumed.",
   "End with what all the routes share as unknowns, and one or two sentences on how to choose between them by testing assumptions, not by trusting the forecast.",
 ].join("\n");
@@ -122,15 +123,17 @@ export async function simulatePaths(db: Db, rawGoal: string, rawSituation: unkno
   const situation = normalizeSituation(rawSituation);
   const { context, input, grounding } = simulationContext(db, goal, situation);
 
-  const res = await provider.complete(
-    [
-      { role: "system", content: `${SIMULATOR_INSTRUCTION}\n\n${context}` },
-      { role: "user", content: `${SIMULATE_MARKER} ${JSON.stringify(input)}` },
-    ],
-    undefined,
-    { reasoning: "on", schema: SIMULATION_SCHEMA },
-  );
-  const result = normalizeSimulation(parseJsonReply(res.content ?? ""), goal);
+  const messages: ChatMessage[] = [
+    { role: "system", content: `${SIMULATOR_INSTRUCTION}\n\n${context}` },
+    { role: "user", content: `${SIMULATE_MARKER} ${JSON.stringify(input)}` },
+  ];
+  const ask = async (reasoning: ReasoningMode) => {
+    const res = await provider.complete(messages, undefined, { reasoning, schema: SIMULATION_SCHEMA, maxTokens: SIMULATION_MAX_TOKENS });
+    return res.truncated ? null : normalizeSimulation(parseJsonReply(res.content ?? ""), goal);
+  };
+  // Planning thinks first. If the thinking leaves no room for the roads (the reply is cut off) or the reply isn't
+  // usable, plan once more without it rather than fail: the schema still holds the answer to the same shape.
+  const result = (await ask("on")) ?? (await ask("off"));
   if (!result) throw new Error("The simulator didn't return at least three usable routes. Try again.");
 
   const info = db

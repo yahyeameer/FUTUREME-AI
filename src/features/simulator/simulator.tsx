@@ -859,7 +859,7 @@ function History({ simulations, current, onPick }: { simulations: Simulation[]; 
             ? "Demo mode fills in template roads in your browser. No model is called."
             : workspace.runtime.simulated
               ? "The stand-in model fills in template roads. Add a Nebius key to explore with Nemotron."
-              : `Nemotron (${workspace.runtime.model}) explores with reasoning on and returns JSON that must follow a fixed schema: 6 to 12 roads, each with ranges and assumptions.`}
+              : `Nemotron (${workspace.runtime.model}) explores with reasoning on and returns JSON that must follow a fixed schema: 6 to 10 roads, each with ranges and assumptions.`}
         </p>
       </RailSection>
     </div>
