@@ -6,6 +6,7 @@ import * as React from "react";
 import { toast } from "sonner";
 import { PageFrame, RailSection } from "@/components/layout/page-frame";
 import { PageHeader, SectionHeading } from "@/components/layout/page-header";
+import { VoiceWave } from "@/components/motion/voice-wave";
 import { EmptyState, ErrorState } from "@/components/states";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -93,6 +94,7 @@ export function Twin() {
   return (
     <PageFrame rail={<Rules state={state} />} railTitle="Twin rules">
       <Header
+        speaking={hasVoice}
         actions={
           <label className="flex items-center gap-2.5 rounded-full border border-border bg-surface px-3 py-1.5 text-[12.5px]">
             <Switch checked={!state.twin.paused} onCheckedChange={(on) => act(() => post({ action: "setPaused", paused: !on }), on ? "Twin resumed" : "Twin paused. Nothing can be proposed or approved.")} aria-label="Twin active" />
@@ -136,14 +138,30 @@ export function Twin() {
   );
 }
 
-function Header({ actions }: { actions?: React.ReactNode }) {
+function Header({ actions, speaking = false }: { actions?: React.ReactNode; speaking?: boolean }) {
   return (
-    <PageHeader
-      eyebrow="Voice twin"
-      title="Your twin, in your own voice"
-      description="It speaks for you only to people you add, says it's your AI twin every time, and every call, email or promise waits for your yes."
-      actions={actions}
-    />
+    <>
+      <PageHeader
+        eyebrow="Voice twin"
+        title="Your twin, in your own voice"
+        description="It speaks for you only to people you add, says it's your AI twin every time, and every call, email or promise waits for your yes."
+        actions={actions}
+      />
+      <div data-spotlight className="card group/voice relative mt-7 flex items-center gap-5 overflow-hidden px-5 py-4">
+        <div aria-hidden className="aurora opacity-60" />
+        <span aria-hidden className="relative flex size-14 shrink-0 items-center justify-center">
+          <span className="absolute inset-0 animate-orbit rounded-full border border-dashed border-accent/50 [animation-duration:20s] group-hover/voice:[animation-duration:4s]" />
+          <span className={cn("absolute inset-1.5 rounded-full border border-accent/40", speaking && "pulse-ring")} />
+          <span className="relative flex size-9 items-center justify-center rounded-full border border-white/60 bg-[linear-gradient(140deg,var(--accent-wash),var(--copper-wash))] text-accent-ink shadow-[inset_0_1px_0_rgb(255_255_255/0.5)] transition-transform duration-500 group-hover/voice:scale-110 dark:border-white/15">
+            <AudioLines className="size-4" />
+          </span>
+        </span>
+        <div className="relative min-w-0 flex-1">
+          <p className="t-label">{speaking ? "Your voice is ready" : "Your voice, from the future"}</p>
+          <VoiceWave live={speaking} className="mt-1 w-full justify-between" bars={44} />
+        </div>
+      </div>
+    </>
   );
 }
 
@@ -217,9 +235,9 @@ function VoiceSection({ state, act }: { state: TwinState; act: Act }) {
 
 function Step({ n, title, done, children }: { n: number; title: string; done: boolean; children: React.ReactNode }) {
   return (
-    <li className="rounded-2xl border border-border bg-surface p-4 shadow-card sm:p-5">
+    <li className="card group/step p-4 transition-shadow duration-300 hover:shadow-[var(--shadow-lift),var(--glow-accent)] sm:p-5">
       <div className="flex items-center gap-3">
-        <span aria-hidden className={cn("flex size-7 shrink-0 items-center justify-center rounded-full border text-[12px] font-medium", done ? "border-success/30 bg-success-wash text-success" : "border-border-strong text-muted-foreground")}>
+        <span aria-hidden className={cn("flex size-7 shrink-0 items-center justify-center rounded-full border text-[12px] font-medium transition-[transform,box-shadow] duration-300 group-hover/step:scale-110 group-hover/step:shadow-[0_0_14px_-2px_var(--accent)]", done ? "border-success/30 bg-success-wash text-success" : "border-border-strong text-muted-foreground")}>
           {done ? <Check className="size-3.5" /> : n}
         </span>
         <h3 className="text-[14px] font-medium">{title}</h3>

@@ -1,4 +1,5 @@
 import { parseJsonReply, runAgent, type AgentName } from "./agents";
+import { SCHEMAS } from "./nemotron";
 import { profileContext, runCouncil } from "./council";
 import type { Db } from "./db";
 import { getProfile, type DelegateRequest, type SpawnRequest } from "./futureme";
@@ -91,7 +92,7 @@ export async function runSubAgent(db: Db, task: SubTask, opts: { missionId?: num
       usedTools = c.citations.length ? ["search_memory"] : [];
       backend = c.backend;
     } else if (task.kind === "delegate") {
-      const run = await runAgent(db, "researcher", [{ role: "user", content: `${RESEARCH_MARKER} Topic: ${task.task}` }], { runId: id });
+      const run = await runAgent(db, "researcher", [{ role: "user", content: `${RESEARCH_MARKER} Topic: ${task.task}` }], { runId: id, schema: SCHEMAS.research });
       const opened = new Set(run.events.flatMap((e) => e.citations));
       const parsed = parseJsonReply<{ summary?: unknown; findings?: { point?: unknown; url?: unknown }[] }>(run.reply);
       const findings = (parsed?.findings ?? []).filter((f): f is { point: string; url: string } => typeof f.point === "string" && typeof f.url === "string");

@@ -76,6 +76,7 @@ const KIND_BY_FOLDER: Record<string, MemoryKind> = {
   Tasks: "task",
   Daily: "daily",
   Research: "note",
+  Social: "experience",
 };
 
 const FOLDER_BY_KIND: Record<MemoryKind, VaultFolder> = {
@@ -106,6 +107,10 @@ function sourceOf(note: Note, provenance: Provenance): string {
       return "FutureMe Daily";
     case "Research":
       return "Web research summary";
+    case "Social": {
+      const from = { linkedin: "LinkedIn", x: "X", facebook: "Facebook" }[String(note.data.source)];
+      return from ? `Imported from your ${from} data` : "Built from your imported accounts";
+    }
     case "Reflections":
       return provenance === "ai-inferred" ? "Generated reflection" : "Approved from a conversation";
     default:
@@ -174,6 +179,16 @@ function readMemories(goalIdByNote: Map<string, string>, goalIdByTitle: Map<stri
 // ---------- Snapshot ----------
 
 const sqlTime = (t: string | null | undefined) => (t ? (t.includes("T") ? t : `${t.replace(" ", "T")}Z`) : undefined);
+
+// Photos go to the model only when it can see them: Nemotron's VL models on Nebius, in the app's own agent loop.
+function visionCapable(): boolean {
+  if (process.env.DOCKER_AGENT_URL) return false;
+  try {
+    return /nebius:.*-VL/i.test(getProvider().name);
+  } catch {
+    return false;
+  }
+}
 
 function runtime(): Workspace["runtime"] {
   let model = "unknown";
@@ -312,7 +327,7 @@ export function buildWorkspace(db: Db): Workspace {
   // The approval ids each reply recorded (null for replies saved before replies kept them).
   const proposedBy = new Map<string, string[] | null>();
   const conversation: Message[] = (
-    db.prepare("SELECT id, role, content, citations, tools, approvals, verification, created_at FROM messages ORDER BY id DESC LIMIT 60").all() as {
+    db.prepare("SELECT id, role, content, citations, tools, approvals, verification, reasoning, image, created_at FROM messages ORDER BY id DESC LIMIT 60").all() as {
       id: number;
       role: "user" | "assistant";
       content: string;
@@ -320,6 +335,8 @@ export function buildWorkspace(db: Db): Workspace {
       tools: string | null;
       approvals: string | null;
       verification: string | null;
+      reasoning: string | null;
+      image: string | null;
       created_at: string;
     }[]
   )
@@ -345,6 +362,8 @@ export function buildWorkspace(db: Db): Workspace {
             }))
           : undefined,
         verification: m.verification ? JSON.parse(m.verification) : undefined,
+        reasoning: m.reasoning ?? undefined,
+        image: m.image ? `/api/photo?path=${encodeURIComponent(m.image)}` : undefined,
       };
     });
 
@@ -403,6 +422,7 @@ export function buildWorkspace(db: Db): Workspace {
       packs: true,
       delegation: true,
       missions: true,
+      vision: visionCapable(),
     },
     profile,
     milestones,

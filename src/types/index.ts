@@ -150,6 +150,10 @@ export interface Message {
   verification?: Verification;
   /** Handoffs the future self made while writing this reply (ids into Workspace.runs). */
   runIds?: string[];
+  /** How Nemotron reasoned its way to this reply, when reasoning was on. */
+  reasoning?: string;
+  /** A photo the user sent with this message (a URL the browser can show). */
+  image?: string;
 }
 
 export type ClaimStatus = "supported" | "unverified" | "opinion";
@@ -172,6 +176,10 @@ export type RichBlock =
 export type TurnEvent =
   | { type: "tool"; tool: ToolCall }
   | { type: "delta"; text: string }
+  /** Nemotron's reasoning, streamed while it thinks. */
+  | { type: "reasoning"; text: string }
+  /** The text streamed so far led into tool calls and isn't part of the reply. */
+  | { type: "reset" }
   | { type: "done"; message: Message; workspace: Workspace }
   | { type: "error"; error: string };
 
@@ -481,6 +489,8 @@ export interface Capabilities {
   /** The future self can hand tasks to teammates and helpers mid-conversation. */
   delegation: boolean;
   missions: boolean;
+  /** Photos can go with a message (the model sees images: Nemotron-3.5-Super-VL). Optional for older snapshots. */
+  vision?: boolean;
 }
 
 export interface Runtime {

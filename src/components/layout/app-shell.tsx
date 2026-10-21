@@ -114,7 +114,7 @@ function SidebarContents({ collapsed, onNavigate }: { collapsed: boolean; onNavi
   return (
     <>
       <div className={cn("flex h-14 items-center gap-2 px-4", collapsed && "justify-center px-0")}>
-        <Link href="/" onClick={onNavigate} className="flex items-center gap-2 rounded-md outline-offset-4" aria-label="FutureMe home">
+        <Link href="/" onClick={onNavigate} className="group/brand flex items-center gap-2 rounded-md outline-offset-4" aria-label="FutureMe home">
           <Mark />
           {!collapsed && <Wordmark />}
         </Link>
@@ -235,7 +235,7 @@ function MobileBar() {
             </div>
           </SheetContent>
         </Sheet>
-        <Link href="/" className="flex items-center gap-2" aria-label="FutureMe home">
+        <Link href="/" className="group/brand flex items-center gap-2" aria-label="FutureMe home">
           <Mark />
           <Wordmark />
         </Link>

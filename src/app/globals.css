@@ -246,6 +246,41 @@
   50% { box-shadow: 0 0 0 5px transparent; }
 }
 
+@keyframes ticker {
+  to { transform: translateX(-50%); }
+}
+
+@keyframes travel {
+  from { offset-distance: 0%; opacity: 0; }
+  15% { opacity: 1; }
+  85% { opacity: 1; }
+  to { offset-distance: 100%; opacity: 0; }
+}
+
+@keyframes dash-flow {
+  to { stroke-dashoffset: -16; }
+}
+
+@keyframes title-in {
+  from { opacity: 0; transform: translateY(14px); filter: blur(8px); letter-spacing: 0.02em; }
+  to { opacity: 1; transform: none; filter: none; }
+}
+
+@keyframes step-lit {
+  0%, 22%, 100% { box-shadow: var(--shadow-card); border-color: var(--border); }
+  8% { box-shadow: 0 0 0 4px var(--accent-wash), 0 0 20px -2px var(--accent); border-color: var(--accent); }
+}
+
+@keyframes wave {
+  0%, 100% { transform: scaleY(0.35); }
+  50% { transform: scaleY(1); }
+}
+
+@keyframes settle {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: none; }
+}
+
 @keyframes caret {
   to {
     visibility: hidden;
@@ -363,20 +398,27 @@
   /* Raised surfaces: the default container for content. */
   /* --mx/--my are set by the pointer (see SpotlightTracker), so the light follows the cursor. */
   .card {
+    /* Layers: the pointer's light inside, the fill, then the border, which also catches the pointer's light at its edge. */
+    --card-bg: var(--surface);
     background:
-      radial-gradient(420px circle at var(--mx, -100%) var(--my, -100%), var(--spot), transparent 45%),
-      var(--surface);
-    border: 1px solid var(--border);
+      radial-gradient(420px circle at var(--mx, -100%) var(--my, -100%), var(--spot), transparent 45%) padding-box,
+      linear-gradient(var(--card-bg), var(--card-bg)) padding-box,
+      radial-gradient(220px circle at var(--mx, -100%) var(--my, -100%), var(--spot-edge), transparent 70%) border-box,
+      linear-gradient(var(--border), var(--border)) border-box;
+    border: 1px solid transparent;
     border-radius: calc(var(--radius) + 8px);
     box-shadow: var(--shadow-card);
-    transition: border-color 0.3s;
   }
+  /* Cards you can act on lift and lean toward the pointer (--px/--py, -0.5 to 0.5, from SpotlightTracker). */
   .card-hover {
-    transition: transform 0.25s cubic-bezier(0.2, 0.7, 0.2, 1), box-shadow 0.25s, border-color 0.25s;
+    transition: transform 0.35s cubic-bezier(0.2, 0.7, 0.2, 1), box-shadow 0.25s, border-color 0.25s;
+    transform-style: preserve-3d;
   }
   .card-hover:hover {
-    transform: translateY(-3px);
+    transform: perspective(900px) rotateX(calc(var(--py, 0) * -5deg)) rotateY(calc(var(--px, 0) * 5deg)) translateY(-3px);
     box-shadow: var(--shadow-lift), var(--glow-accent);
+  }
+  .card-hover:not(.card):hover {
     border-color: var(--border-strong);
   }
 
@@ -515,6 +557,115 @@
     background-clip: text;
     color: transparent;
     animation: shimmer 6s ease-in-out infinite;
+  }
+
+  /* ---------- Chat ---------- */
+  /* A future-self reply reads as writing at rest. On hover a glass panel lifts behind it, lit where the pointer is
+     (--mx/--my come from SpotlightTracker via [data-spotlight]). */
+  .reply {
+    position: relative;
+    isolation: isolate;
+    margin-inline: -1rem;
+    padding: 0.875rem 1rem 0.75rem 3.75rem;
+    border: 1px solid transparent;
+    border-radius: 1.25rem;
+    transition: background-color 0.35s, border-color 0.35s, box-shadow 0.35s, transform 0.35s cubic-bezier(0.2, 0.7, 0.2, 1);
+  }
+  .reply::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    border-radius: inherit;
+    background: radial-gradient(380px circle at var(--mx, 30%) var(--my, 20%), var(--spot), transparent 60%);
+    opacity: 0;
+    transition: opacity 0.35s;
+    pointer-events: none;
+  }
+  .reply:hover {
+    background: var(--glass);
+    border-color: var(--glass-border);
+    box-shadow: var(--shadow-float);
+    -webkit-backdrop-filter: blur(14px) saturate(1.2);
+    backdrop-filter: blur(14px) saturate(1.2);
+    transform: translateY(-2px);
+  }
+  .reply:hover::before {
+    opacity: 1;
+  }
+
+  /* A just-arrived reply: one band of light passes over it, and what came with it (chips, cards) settles in. */
+  .reply-enter::after {
+    content: "";
+    position: absolute;
+    inset: 0 auto 0 0;
+    width: 45%;
+    border-radius: inherit;
+    background: linear-gradient(90deg, transparent, color-mix(in oklab, var(--accent) 22%, transparent), transparent);
+    transform: translateX(-120%) skewX(-18deg);
+    animation: sheen 1.4s cubic-bezier(0.2, 0.7, 0.2, 1) 0.15s both;
+    pointer-events: none;
+  }
+  .reply-enter .reply-settle > * {
+    animation: settle 0.55s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+  }
+  .reply-enter .reply-settle > :nth-child(2) { animation-delay: 0.08s; }
+  .reply-enter .reply-settle > :nth-child(3) { animation-delay: 0.16s; }
+  .reply-enter .reply-settle > :nth-child(4) { animation-delay: 0.24s; }
+  .reply-enter .reply-settle > :nth-child(n + 5) { animation-delay: 0.32s; }
+
+  /* The avatar's halo: a turning ring of citron and copper, shown on hover and while the reply is being written. */
+  .halo::before {
+    content: "";
+    position: absolute;
+    inset: -3px;
+    z-index: -1;
+    border-radius: 9999px;
+    background: conic-gradient(from 0deg, var(--accent), transparent 35%, var(--copper) 65%, transparent 85%, var(--accent));
+    box-shadow: 0 0 14px -3px var(--accent);
+    opacity: 0.35;
+    transition: opacity 0.35s;
+    animation: orbit 3s linear infinite;
+  }
+  .reply:hover .halo::before,
+  .halo[data-busy]::before {
+    opacity: 1;
+  }
+
+  /* Reply text: the opening line leads, a citron rule marks the paragraph under the pointer, and bold phrases get a
+     highlighter stroke when the reply is hovered. */
+  .reply-prose > * {
+    position: relative;
+  }
+  .reply-prose > *::before {
+    content: "";
+    position: absolute;
+    top: 0.3em;
+    bottom: 0.3em;
+    left: -0.9rem;
+    width: 2px;
+    border-radius: 2px;
+    background: linear-gradient(var(--accent), var(--copper));
+    transform: scaleY(0);
+    transform-origin: top;
+    transition: transform 0.35s cubic-bezier(0.2, 0.7, 0.2, 1);
+  }
+  .reply-prose > *:hover::before {
+    transform: scaleY(1);
+  }
+  .reply-prose > p:first-child {
+    font-size: 1.08em;
+    line-height: 1.62;
+    color: var(--foreground);
+    font-weight: 450;
+  }
+  .reply-prose strong {
+    background: linear-gradient(90deg, color-mix(in oklab, var(--accent) 45%, transparent), color-mix(in oklab, var(--copper) 30%, transparent)) no-repeat 0 90% / 0% 40%;
+    border-radius: 2px;
+    transition: background-size 0.6s cubic-bezier(0.2, 0.7, 0.2, 1);
+  }
+  .reply:hover .reply-prose strong {
+    background-size: 100% 40%;
   }
 
   .hairline {

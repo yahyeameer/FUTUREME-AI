@@ -27,7 +27,7 @@ FutureMe ships as one Docker image that runs the Next.js app and the Docker Agen
 ## Checks after deploying
 
 - `/daily` shows a FutureMe Daily issue when `SEED_DEMO=1`.
-- `docker compose logs futureme` shows `Listening on 127.0.0.1:8083` from Docker Agent and the Next.js ready line.
+- `docker compose logs futureme` shows `Agent runtime: Nemotron, in the app` and the Next.js ready line (with `AGENT_RUNTIME=docker-agent`, `Listening on 127.0.0.1:8083` from Docker Agent instead).
 - The Agent page shows the night shift's next run time. `docker compose exec futureme npm run night-shift` runs it once.
 - A chat message on `/future-self` shows "remembered …" tags under the reply, which proves the agent called the memory tool.
 

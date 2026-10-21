@@ -16,6 +16,8 @@ export const SUBTASK_MARKER = "[subtask]";
 export const SUPERVISE_MARKER = "[supervise]";
 export const MISSION_PLAN_MARKER = "[mission-plan]";
 export const MISSION_REPORT_MARKER = "[mission-report]";
+/** A side-by-side answer with tools off, with and without the persona from imported accounts. */
+export const COMPARE_MARKER = "[compare]";
 
 let callCounter = 0;
 const call = (name: string, args: unknown): ToolCall => ({
@@ -25,8 +27,10 @@ const call = (name: string, args: unknown): ToolCall => ({
 });
 
 function text(m: ChatMessage | undefined): string {
-  if (!m || typeof m.content !== "string") return "";
-  return m.content;
+  if (!m?.content) return "";
+  if (typeof m.content === "string") return m.content;
+  // A message with a photo: the stand-in reads only its text.
+  return m.content.map((p) => ("text" in p ? p.text : "")).join(" ");
 }
 
 function story(profileJson: string): string {
@@ -276,6 +280,24 @@ function mockMissionReport(userText: string): Completion {
   };
 }
 
+// Without the persona the stand-in only knows the profile; with it, it uses the first role and quote it was given.
+function mockCompare(system: string): Completion {
+  const dream = system.match(/having reached this dream: (.+)/)?.[1] ?? "the life you wanted";
+  const now = system.match(/^- Now: (.+)$/m)?.[1];
+  const quote = system.match(/^- In their words: "([^"]+)"/m)?.[1];
+  const topics = system.match(/^- Posts most about: (.+)$/m)?.[1];
+  if (!now && !quote) {
+    return { content: `I'm proud of where we ended up: ${dream.toLowerCase()} Focus on one small step this week. What's stopping you from starting?`, toolCalls: [] };
+  }
+  const parts = [
+    now ? `Back when you were ${now}, I didn't see how it all connected.` : "",
+    topics ? `You were already writing about ${topics.split(", ").slice(0, 3).join(", ")}; that was the thread.` : "",
+    quote ? `Remember when you wrote "${quote.slice(0, 120)}"? Keep that energy.` : "",
+    "Pick the one project that uses what you already know and ship it this month. What would you post about it?",
+  ];
+  return { content: parts.filter(Boolean).join(" "), toolCalls: [] };
+}
+
 export const mockProvider: LlmProvider = {
   name: "mock",
   async complete(messages, tools): Promise<Completion> {
@@ -304,6 +326,7 @@ export const mockProvider: LlmProvider = {
     if (userText.startsWith(SUPERVISE_MARKER)) return mockSupervise(userText);
     if (userText.startsWith(MISSION_PLAN_MARKER)) return mockMissionPlan(userText);
     if (userText.startsWith(MISSION_REPORT_MARKER)) return mockMissionReport(userText);
+    if (userText.startsWith(COMPARE_MARKER)) return mockCompare(text(messages[0]));
     // Handoffs: research goes to the researcher, comparisons to a helper the future self creates.
     const wantsResearch = /\b(look up|find out|research (?:on|about|into)|do some research)\b/i.test(userText);
     const wantsHelper = /\b(compare|pros and cons|trade-?offs?|weigh up)\b/i.test(userText);
