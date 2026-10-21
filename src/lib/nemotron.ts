@@ -1,4 +1,5 @@
 import type { JsonSchemaSpec, ReasoningMode } from "./llm";
+import { SIMULATION_SCHEMA } from "./simulator-paths";
 
 // How FutureMe uses NVIDIA Nemotron on Nebius Token Factory beyond plain chat:
 // - Reasoning per agent: the agents that plan, judge or merge think first; quick voices and live calls answer straight away.
@@ -50,5 +51,7 @@ export const SCHEMAS = {
   missionReport: { name: "mission_report", schema: obj({ report: str, next_step: str, plan: PLAN }, ["report", "next_step"]) },
   nightShift: { name: "morning_brief", schema: obj({ brief: str, focus: { type: "array", maxItems: 3, items: { type: "integer" } }, watch_out: { type: ["string", "null"] } }) },
   research: { name: "research", schema: obj({ summary: str, findings: { type: "array", maxItems: 8, items: obj({ point: str, url: str }) } }) },
+  // The Future Simulator plans with reasoning on (see simulator.ts); its schema lives with the rest of its shape.
+  simulation: SIMULATION_SCHEMA,
   dailyEditorial: { name: "daily_editorial", schema: obj({ headline: str, lead: str, editor_note: str }) },
 } satisfies Record<string, JsonSchemaSpec>;

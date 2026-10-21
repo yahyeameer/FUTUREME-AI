@@ -8,6 +8,7 @@ import { activeMilestone, milestoneStatuses, nextStep, pendingApprovals, progres
 import { relativeDay } from "@/lib/utils";
 import { useWorkspace } from "@/lib/workspace-store";
 import { DueLabel } from "@/features/roadmap/task-row";
+import { ChosenRoadCard } from "@/features/simulator/chosen-road";
 
 /** What FutureMe is working from, separated into what you confirmed and what's only suggested. */
 export function FutureSelfContext() {
@@ -34,6 +35,12 @@ export function FutureSelfContext() {
           <p className="mt-1.5 flex items-center gap-1.5 t-meta">
             <Badge tone="neutral">Confirmed</Badge> by {profile.horizonYear}
           </p>
+        </RailSection>
+      )}
+
+      {workspace.chosenRoad && (
+        <RailSection title="Chosen road">
+          <ChosenRoadCard compact />
         </RailSection>
       )}
 

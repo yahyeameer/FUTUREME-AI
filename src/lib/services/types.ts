@@ -8,6 +8,8 @@ import type {
   MemoryDraft,
   PlanProposal,
   Profile,
+  Simulation,
+  Situation,
   SkillRun,
   TaskPatch,
   TurnEvent,
@@ -49,6 +51,15 @@ export interface ReflectionService {
   generateReflection(): Promise<Workspace>;
 }
 
+/** Three conditional routes to one goal, compared side by side. */
+export interface SimulatorService {
+  simulatePaths(goal: string, situation: Situation | null): Promise<{ workspace: Workspace; simulation: Simulation }>;
+  saveSimulation(simulationId: string): Promise<Workspace>;
+  /** Makes one road the user's chosen road, which every agent then reasons with. */
+  chooseRoad(simulationId: string, index: number): Promise<Workspace>;
+  clearRoad(): Promise<Workspace>;
+}
+
 export interface DailyService {
   publishEdition(): Promise<{ workspace: Workspace; edition: DailyEdition }>;
 }
@@ -79,6 +90,7 @@ export interface FutureMeService
     RoadmapService,
     MemoryService,
     ReflectionService,
+    SimulatorService,
     DailyService,
     SkillService,
     AgentTeamService {

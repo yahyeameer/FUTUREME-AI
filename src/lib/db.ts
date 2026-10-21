@@ -76,6 +76,16 @@ CREATE TABLE IF NOT EXISTS councils (
   note_path TEXT,
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
+CREATE TABLE IF NOT EXISTS simulations (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  goal TEXT NOT NULL,
+  result TEXT NOT NULL,
+  situation TEXT,
+  grounding TEXT NOT NULL,
+  backend TEXT NOT NULL,
+  note_path TEXT,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
 CREATE TABLE IF NOT EXISTS night_shifts (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   trigger TEXT NOT NULL,

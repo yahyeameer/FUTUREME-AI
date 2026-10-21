@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowLeft, ArrowRight, ArrowUpRight, BookmarkPlus, Check, Clock, Flag, Loader2, MessageCircle, Mountain, Quote, RefreshCw } from "lucide-react";
+import { ArrowLeft, ArrowRight, ArrowUpRight, BookmarkPlus, Check, Clock, Flag, Loader2, MessageCircle, Mountain, Quote, RefreshCw, Split } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import Link from "next/link";
 import * as React from "react";
@@ -710,6 +710,11 @@ function Finale({
           <Button asChild variant="secondary" size="lg">
             <Link href="/future-self">
               <MessageCircle /> Chat with your future
+            </Link>
+          </Button>
+          <Button asChild variant="ghost" size="lg">
+            <Link href="/simulator">
+              <Split /> Explore roads
             </Link>
           </Button>
           <Button asChild variant="ghost" size="lg">

@@ -1,6 +1,6 @@
 "use client";
 
-import { AlertTriangle, CalendarClock, Check, ChevronDown, Plus } from "lucide-react";
+import { AlertTriangle, CalendarClock, Check, ChevronDown, Plus, Split } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
@@ -12,6 +12,7 @@ import { EmptyState } from "@/components/states";
 import { Button } from "@/components/ui/button";
 import { ApprovalCard } from "@/features/assistant/approval-card";
 import { MemoryPreview } from "@/features/memory/memory-preview";
+import { ChosenRoadCard } from "@/features/simulator/chosen-road";
 import { blockedTasks, milestoneStatuses, pendingApprovals, progressOf, sortedMilestones, tasksFor, upcomingDeadlines } from "@/lib/derive";
 import { cn, formatDate, pluralize } from "@/lib/utils";
 import { useWorkspace } from "@/lib/workspace-store";
@@ -34,11 +35,18 @@ export function Roadmap() {
         eyebrow="Life Roadmap"
         title="From your dream to this week"
         actions={
-          <Button asChild variant="secondary">
-            <Link href={`/future-self?prompt=${encodeURIComponent("Help me plan my next milestone, in small steps.")}`}>
-              <Plus /> Plan a milestone
-            </Link>
-          </Button>
+          <>
+            <Button asChild variant="ghost">
+              <Link href={`/simulator?goal=${encodeURIComponent(profile.dream.slice(0, 300))}`}>
+                <Split /> Explore roads
+              </Link>
+            </Button>
+            <Button asChild variant="secondary">
+              <Link href={`/future-self?prompt=${encodeURIComponent("Help me plan my next milestone, in small steps.")}`}>
+                <Plus /> Plan a milestone
+              </Link>
+            </Button>
+          </>
         }
       />
 
@@ -68,6 +76,8 @@ export function Roadmap() {
           <span className="mt-1 font-mono text-[8px] tracking-[0.18em]">ON THE ROAD</span>
         </ProgressDial>
       </section>
+
+      <ChosenRoadCard className="mt-5" />
 
       {plans.length > 0 && (
         <section className="mt-8">

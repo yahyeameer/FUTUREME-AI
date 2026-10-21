@@ -178,6 +178,15 @@ export function createLiveService(): FutureMeService {
       return { workspace, session };
     },
     saveCouncil: (id) => request({ action: "saveCouncil", id }),
+    async simulatePaths(goal, situation) {
+      const workspace = await request({ action: "simulatePaths", goal, situation });
+      const simulation = workspace.simulations?.find((s) => s.goal === goal.trim());
+      if (!simulation) throw new Error("The simulation wasn't saved.");
+      return { workspace, simulation };
+    },
+    saveSimulation: (id) => request({ action: "saveSimulation", id }),
+    chooseRoad: (id, index) => request({ action: "chooseRoad", id, index }),
+    clearRoad: () => request({ action: "clearRoad" }),
     verifyMessage: (id) => request({ action: "verifyMessage", id }),
     runResearch,
     async runNightShift() {

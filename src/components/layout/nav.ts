@@ -1,4 +1,4 @@
-import { AtSign, AudioLines, BookOpenText, Bot, CircleDot, Home, Library, Newspaper, Rocket, Route, Settings, Sparkles, Users } from "lucide-react";
+import { AtSign, AudioLines, BookOpenText, Bot, CircleDot, Home, Library, Newspaper, Rocket, Route, Settings, Sparkles, Split, Users } from "lucide-react";
 
 export const NAV = [
   { href: "/", label: "Home", icon: Home, shortcut: "G H" },
@@ -8,6 +8,7 @@ export const NAV = [
   { href: "/missions", label: "Missions", icon: Rocket, shortcut: "G I" },
   { href: "/twin", label: "Voice Twin", icon: AudioLines, shortcut: "G T" },
   { href: "/roadmap", label: "Life Roadmap", icon: Route, shortcut: "G R" },
+  { href: "/simulator", label: "Future Simulator", icon: Split, shortcut: "G P" },
   { href: "/memory", label: "Memory Vault", icon: Library, shortcut: "G M" },
   { href: "/connections", label: "Connected Accounts", icon: AtSign, shortcut: "G O" },
   { href: "/daily", label: "FutureMe Daily", icon: Newspaper, shortcut: "G D" },
