@@ -9,6 +9,7 @@ import type {
   PlanProposal,
   Profile,
   Simulation,
+  Situation,
   SkillRun,
   TaskPatch,
   TurnEvent,
@@ -52,7 +53,7 @@ export interface ReflectionService {
 
 /** Three conditional routes to one goal, compared side by side. */
 export interface SimulatorService {
-  simulatePaths(goal: string): Promise<{ workspace: Workspace; simulation: Simulation }>;
+  simulatePaths(goal: string, situation: Situation | null): Promise<{ workspace: Workspace; simulation: Simulation }>;
   saveSimulation(simulationId: string): Promise<Workspace>;
 }
 

@@ -453,6 +453,7 @@ export function buildWorkspace(db: Db): Workspace {
       goal: s.goal,
       createdAt: sqlTime(s.created_at)!,
       paths: toPaths(s.result.paths),
+      situation: s.situation,
       sharedUnknowns: s.result.shared_unknowns,
       howToChoose: s.result.how_to_choose,
       grounding: { profile: s.grounding.profile, notes: s.grounding.notes.map((p) => ({ memoryId: p, title: titleOf.get(p) ?? p })), social: s.grounding.social },

@@ -201,14 +201,36 @@ export interface Reflection {
 
 // ---------- Future Simulator ----------
 
+/** Where the person starts from. Every route is rated against it. */
+export interface Situation {
+  /** City and country, in their words. */
+  location: string;
+  /** ISO code, e.g. USD or KES. Routes are priced in it. */
+  currency: string;
+  monthlyIncome: number;
+  savings: number;
+  /** Hours a week they can give the goal. */
+  hoursPerWeek: number;
+  /** People who rely on their income. */
+  dependents: number;
+  risk: "low" | "medium" | "high";
+}
+
 /** One route to a goal: a conditional scenario that holds only if its assumptions do. */
 export interface SimulatedPath {
   name: string;
-  kind: "self_study" | "formal_education" | "work_and_study" | "other";
+  kind: "self_study" | "formal_education" | "work_and_study" | "bootcamp" | "apprenticeship" | "other";
+  funding: "savings" | "income" | "employer" | "scholarship" | "loan" | "free";
+  place: "local" | "remote" | "relocate";
   summary: string;
   months: { min: number; max: number };
   cost: { min: number; max: number; currency: string; note: string };
   hoursPerWeek: number;
+  /** Whether they can keep earning on this route. */
+  keepsIncome: boolean;
+  riskLevel: "low" | "medium" | "high";
+  /** The model's 0–100 view of how realistic the route is for them where they live. */
+  fitScore: number;
   prerequisites: string[];
   risks: { risk: string; mitigation: string }[];
   assumptions: string[];
@@ -221,7 +243,10 @@ export interface Simulation {
   id: string;
   goal: string;
   createdAt: string;
+  /** Every route the simulator found, in the model's order. The page ranks them against `situation`. */
   paths: SimulatedPath[];
+  /** The starting point it was run with; null for runs without one. */
+  situation: Situation | null;
   sharedUnknowns: string[];
   howToChoose: string;
   /** What the simulator read: the profile, matching notes, and the persona from imported accounts. */

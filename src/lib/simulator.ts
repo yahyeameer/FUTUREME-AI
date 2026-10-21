@@ -5,16 +5,35 @@ import { getProfile } from "./futureme";
 import { getProvider, type LlmProvider } from "./llm";
 import { searchMemory } from "./memory";
 import { SIMULATE_MARKER } from "./mock-llm";
-import { SIMULATION_FRAMING, SIMULATION_SCHEMA, normalizeSimulation, type RawSimulation, type SimulationInput } from "./simulator-paths";
+import {
+  FUNDING_LABEL,
+  KIND_LABEL,
+  MAX_PATHS,
+  PLACE_LABEL,
+  SIMULATION_FRAMING,
+  SIMULATION_SCHEMA,
+  formatCost,
+  formatSpan,
+  money,
+  normalizeSimulation,
+  normalizeSituation,
+  rankPaths,
+  toPaths,
+  type RawSimulation,
+  type SimulationInput,
+} from "./simulator-paths";
 import { past } from "./social/persona";
 import { PLATFORM_NAMES } from "./social/parse";
 import { getPersona } from "./social/store";
 import { writeNote } from "./vault";
+import type { Situation } from "@/types";
 
-// The Future Simulator: one goal, three clearly different routes, compared side by side. Nemotron plans it with
-// reasoning on and a JSON schema, grounded in the profile, the notes that match the goal and the imported persona.
-// Each route is a conditional scenario, never a forecast of the person's life. Nothing is saved to the vault unless the
-// user asks.
+// The Future Simulator: one goal, many clearly different routes, rated against the person's real starting point
+// (where they live, income, savings, free hours, dependants, risk) so the best fits can be compared side by side.
+// Nemotron looks wide with reasoning on and a JSON schema, grounded in the profile, the notes that match the goal and
+// the imported persona; the rating itself is deterministic (simulator-paths.ts), so the page can re-rate as the user
+// changes their situation. Each route is a conditional scenario, never a forecast of the person's life. Nothing is
+// saved to the vault unless the user asks.
 
 export interface SimulationGrounding {
   profile: boolean;
@@ -28,6 +47,7 @@ export interface SimulationRecord {
   id: number;
   goal: string;
   result: RawSimulation;
+  situation: Situation | null;
   grounding: SimulationGrounding;
   backend: string;
   note_path: string | null;
@@ -35,17 +55,18 @@ export interface SimulationRecord {
 }
 
 export const SIMULATOR_INSTRUCTION = [
-  "You are FutureMe's Future Simulator. The user names a goal; you lay out exactly three plausible, clearly different routes to it, so they can compare them side by side.",
+  `You are FutureMe's Future Simulator. The user names a goal; you look wide and lay out between 6 and ${MAX_PATHS} plausible, clearly different routes to it. The app rates every route against the user's starting point and shows the best fits side by side, with the rest listed.`,
   `Framing, which is not optional: ${SIMULATION_FRAMING}`,
   "So: write every route as a conditional (\"if you take this route and these assumptions hold\"). Never say what will happen to the user, never promise a job, income, admission or success, and give time and cost as honest ranges rather than single numbers.",
-  "Make the three routes differ in approach, not just in pace. For a career or skill goal, use a self-study route, a formal education route (university or an accredited program) and a route that combines paid work with study, unless the goal clearly calls for other routes.",
-  "For each route give: time in months (min and max), cost as a range in the currency that fits where the user lives (USD if unknown) with a short note on what drives it, weekly hours, prerequisites, up to four risks each with a mitigation, the assumptions the scenario depends on, up to three first steps for this month, and a short fit note on how it matches or strains what the user shared.",
+  "Cover the space of routes, not three variations of one. Mix how they learn (self-study, formal education such as university or an accredited program, bootcamp, apprenticeship, paid work combined with study, other), how it is paid for (savings, income, employer, scholarship, loan, free) and where (where they live, remote, moving away). For a career or skill goal always include a self-study route, a formal education route and a route that combines paid work with study. Include routes that fit a tight budget or little time, not only ideal ones.",
+  "Be realistic about where they live: what programs, employers, remote work, payments and visas are actually open to someone there. Price every route in the user's currency when one is given (USD otherwise), as honest ranges, with a short note on what drives the cost.",
+  "For each route give: time in months (min and max), cost range, weekly hours, whether they can keep earning on it (keeps_income), its risk level, fit_score (0-100, how realistic this route is for this person where they live, before money and time, which the app checks itself), prerequisites, up to four risks each with a mitigation, the assumptions the scenario depends on, up to three first steps for this month, and a short fit note on how it matches or strains what the user shared.",
   "Ground the routes in the user's profile, notes and accounts below. Quote a note's title when you lean on it. Don't invent facts about the user; when something important is missing, say in the assumptions what you assumed.",
-  "End with what all three routes share as unknowns, and one or two sentences on how to choose between them by testing assumptions, not by trusting the forecast.",
+  "End with what all the routes share as unknowns, and one or two sentences on how to choose between them by testing assumptions, not by trusting the forecast.",
 ].join("\n");
 
 /** What the simulator knows about the user for this goal. */
-export function simulationContext(db: Db, goal: string) {
+export function simulationContext(db: Db, goal: string, situation: Situation | null = null) {
   const profile = getProfile(db);
   if (!profile) throw new Error("Complete onboarding first.");
   const hits = searchMemory(db, `${goal} ${profile.dream}`, 5).filter((h) => h.note.folder !== "Conversations");
@@ -65,6 +86,20 @@ export function simulationContext(db: Db, goal: string) {
       ].filter((l): l is string => !!l),
     );
   }
+  if (situation) {
+    lines.push(
+      "Their starting point, as they gave it:",
+      ...[
+        situation.location && `- Lives in: ${situation.location}`,
+        `- Currency: ${situation.currency}`,
+        `- Monthly income: ${money(situation.monthlyIncome, situation.currency)}`,
+        `- Savings: ${money(situation.savings, situation.currency)}`,
+        `- Hours a week for this goal: ${situation.hoursPerWeek}`,
+        `- People who rely on their income: ${situation.dependents}`,
+        `- Risk they can take: ${situation.risk}`,
+      ].filter((l): l is string => !!l),
+    );
+  }
   const input: SimulationInput = {
     goal,
     name: profile.name,
@@ -73,16 +108,18 @@ export function simulationContext(db: Db, goal: string) {
     challenges: profile.challenges,
     notes: hits.map((h) => h.note.title),
     role: persona?.now ?? null,
+    situation,
   };
   const grounding: SimulationGrounding = { profile: true, notes: hits.map((h) => h.note.path), social: persona ? persona.sources.map((s) => PLATFORM_NAMES[s]) : [] };
   return { context: lines.join("\n"), input, grounding };
 }
 
-export async function simulatePaths(db: Db, rawGoal: string, provider: LlmProvider = getProvider()): Promise<SimulationRecord> {
+export async function simulatePaths(db: Db, rawGoal: string, rawSituation: unknown = null, provider: LlmProvider = getProvider()): Promise<SimulationRecord> {
   const goal = rawGoal.trim();
   if (goal.length < 5) throw new Error("Describe the goal in a few words.");
   if (goal.length > 300) throw new Error("Keep the goal under 300 characters.");
-  const { context, input, grounding } = simulationContext(db, goal);
+  const situation = normalizeSituation(rawSituation);
+  const { context, input, grounding } = simulationContext(db, goal, situation);
 
   const res = await provider.complete(
     [
@@ -93,11 +130,11 @@ export async function simulatePaths(db: Db, rawGoal: string, provider: LlmProvid
     { reasoning: "on", schema: SIMULATION_SCHEMA },
   );
   const result = normalizeSimulation(parseJsonReply(res.content ?? ""), goal);
-  if (!result) throw new Error("The simulator didn't return three usable paths. Try again.");
+  if (!result) throw new Error("The simulator didn't return at least three usable routes. Try again.");
 
   const info = db
-    .prepare("INSERT INTO simulations (goal, result, grounding, backend) VALUES (?, ?, ?, ?)")
-    .run(goal, JSON.stringify(result), JSON.stringify(grounding), provider.name);
+    .prepare("INSERT INTO simulations (goal, result, situation, grounding, backend) VALUES (?, ?, ?, ?, ?)")
+    .run(goal, JSON.stringify(result), situation ? JSON.stringify(situation) : null, JSON.stringify(grounding), provider.name);
   return getSimulation(db, Number(info.lastInsertRowid))!;
 }
 
@@ -116,23 +153,30 @@ export function saveSimulation(db: Db, id: number): string {
   if (!s) throw new Error(`No simulation #${id}.`);
   if (s.note_path) return s.note_path;
   const r = s.result;
+  const sit = s.situation;
+  const paths = toPaths(r.paths);
   const body = [
     `**Goal:** ${r.goal}`,
     `> ${SIMULATION_FRAMING}`,
-    ...r.paths.map((p) =>
-      [
-        `## ${p.name}`,
+    sit &&
+      `## Starting point\n\n${[sit.location && `- Lives in ${sit.location}`, `- Income ${money(sit.monthlyIncome, sit.currency)} a month, savings ${money(sit.savings, sit.currency)}`, `- ${sit.hoursPerWeek} hours a week, ${sit.dependents} relying on the income, ${sit.risk} risk`].filter(Boolean).join("\n")}`,
+    ...rankPaths(paths, sit).map(({ index, assessment: a }, rank) => {
+      const p = paths[index];
+      return [
+        `## ${rank + 1}. ${p.name}${sit ? ` (fit ${a.score}/100)` : ""}`,
+        `*${KIND_LABEL[p.kind]} · ${FUNDING_LABEL[p.funding]} · ${PLACE_LABEL[p.place]}*`,
         p.summary,
-        `- **Time:** ${p.months_min}–${p.months_max} months, about ${p.hours_per_week} hours a week`,
-        `- **Cost:** ${p.currency} ${p.cost_min}–${p.cost_max}${p.cost_note ? ` (${p.cost_note})` : ""}`,
+        `- **Time:** ${formatSpan(p.months)}, about ${p.hoursPerWeek} hours a week`,
+        `- **Cost:** ${formatCost(p.cost)}${p.cost.note ? ` (${p.cost.note})` : ""}`,
+        a.concerns.length && `**What gets in the way**\n\n${a.concerns.map((x) => `- ${x}`).join("\n")}`,
         p.prerequisites.length && `**Prerequisites**\n\n${p.prerequisites.map((x) => `- ${x}`).join("\n")}`,
         p.risks.length && `**Risks**\n\n${p.risks.map((x) => `- ${x.risk}${x.mitigation ? `: ${x.mitigation}` : ""}`).join("\n")}`,
         `**Holds only if**\n\n${p.assumptions.map((x) => `- ${x}`).join("\n")}`,
-        p.first_steps.length && `**First steps**\n\n${p.first_steps.map((x) => `- ${x}`).join("\n")}`,
+        p.firstSteps.length && `**First steps**\n\n${p.firstSteps.map((x) => `- ${x}`).join("\n")}`,
       ]
         .filter(Boolean)
-        .join("\n\n"),
-    ),
+        .join("\n\n");
+    }),
     r.shared_unknowns.length && `## Unknowns on every route\n\n${r.shared_unknowns.map((x) => `- ${x}`).join("\n")}`,
     r.how_to_choose && `## How to choose\n\n${r.how_to_choose}`,
   ]
@@ -147,6 +191,7 @@ interface RawRow {
   id: number;
   goal: string;
   result: string;
+  situation: string | null;
   grounding: string;
   backend: string;
   note_path: string | null;
@@ -154,5 +199,5 @@ interface RawRow {
 }
 
 function toRecord(r: RawRow): SimulationRecord {
-  return { id: r.id, goal: r.goal, result: JSON.parse(r.result), grounding: JSON.parse(r.grounding), backend: r.backend, note_path: r.note_path, created_at: r.created_at };
+  return { id: r.id, goal: r.goal, result: JSON.parse(r.result), situation: r.situation ? JSON.parse(r.situation) : null, grounding: JSON.parse(r.grounding), backend: r.backend, note_path: r.note_path, created_at: r.created_at };
 }

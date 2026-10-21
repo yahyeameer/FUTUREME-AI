@@ -2,7 +2,7 @@ import type { FutureMeService } from "@/lib/services/types";
 import { skillDef, skillsFor } from "@/lib/skills";
 import { activeMilestone, liveMemories, nextStep } from "@/lib/derive";
 import { checkClaims, standInBrief, VOICES } from "@/lib/mock-llm";
-import { SIMULATION_FRAMING, formatCost, formatSpan, standInSimulation, toPaths } from "@/lib/simulator-paths";
+import { SIMULATION_FRAMING, formatCost, formatSpan, normalizeSituation, rankPaths, standInSimulation, toPaths } from "@/lib/simulator-paths";
 import { ruleChecks, verdictOf } from "@/lib/supervisor-rules";
 import { PACKS, TEAM } from "@/lib/team-info";
 import type {
@@ -398,19 +398,21 @@ export function createDemoService(): FutureMeService {
       return { workspace: commit(), session };
     },
 
-    async simulatePaths(goal) {
+    async simulatePaths(goal, rawSituation) {
       if (!state.profile) throw new Error("Complete onboarding first.");
       const g = goal.trim();
       if (g.length < 5) throw new Error("Describe the goal in a few words.");
       await wait(1800);
       const hits = searchDemo(state, `${g} ${state.profile.dream}`);
       const p = state.profile;
-      const raw = standInSimulation({ goal: g, name: p.name, current: p.current, resources: p.resources, challenges: p.challenges, notes: hits.map((m) => m.title) });
+      const situation = normalizeSituation(rawSituation);
+      const raw = standInSimulation({ goal: g, name: p.name, current: p.current, resources: p.resources, challenges: p.challenges, notes: hits.map((m) => m.title), situation });
       const simulation: Simulation = {
         id: id("sim"),
         goal: raw.goal,
         createdAt: now(),
         paths: toPaths(raw.paths),
+        situation,
         sharedUnknowns: raw.shared_unknowns,
         howToChoose: raw.how_to_choose,
         grounding: { profile: true, notes: hits.map((m) => ({ memoryId: m.id, title: m.title })), social: [] },
@@ -427,7 +429,7 @@ export function createDemoService(): FutureMeService {
         const body = [
           `**Goal:** ${s.goal}`,
           `> ${SIMULATION_FRAMING}`,
-          ...s.paths.map((x) => `## ${x.name}\n\n${x.summary}\n\n- **Time:** ${formatSpan(x.months)}\n- **Cost:** ${formatCost(x.cost)}\n\n**Holds only if**\n\n${x.assumptions.map((a) => `- ${a}`).join("\n")}`),
+          ...rankPaths(s.paths, s.situation).map(({ index }) => s.paths[index]).map((x) => `## ${x.name}\n\n${x.summary}\n\n- **Time:** ${formatSpan(x.months)}\n- **Cost:** ${formatCost(x.cost)}\n\n**Holds only if**\n\n${x.assumptions.map((a) => `- ${a}`).join("\n")}`),
         ].join("\n\n");
         const mem = addMemory({ title: `Simulation: ${s.goal.slice(0, 80)}`, kind: "reflection", tags: ["simulation", "imagined"], body }, "Saved from the Future Simulator", "ai-inferred");
         s.memoryId = mem.id;
