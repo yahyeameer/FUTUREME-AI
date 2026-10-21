@@ -1,7 +1,8 @@
 // The voice twin's scheduler: places scheduled calls to the user's own phone (Call From the Future, Promise Keeper)
 // files finished call transcripts in the vault, and deletes third-party transcripts and mail after the retention period.
 //   npm run twin-scheduler            run once now
-//   npm run twin-scheduler -- --loop  every 30 seconds; the container does this when ELEVENLABS_API_KEY is set
+//   npm run twin-scheduler -- --loop  every 30 seconds; the container does this unless TWIN_SCHEDULER=off
+// The ElevenLabs key is read on every run, so a key added in the app is picked up without a restart.
 import { openDb } from "../src/lib/db";
 import { getMailApi } from "../src/lib/mail";
 import { dialDueCalls, syncCalls } from "../src/lib/twin-calls";
@@ -10,11 +11,17 @@ import { getVoiceApi } from "../src/lib/voice";
 
 const INTERVAL_MS = 30_000;
 const db = openDb();
-const api = getVoiceApi();
 const mail = getMailApi();
+let skipped = false;
 
 async function once() {
-  if (!api) return console.log("Twin scheduler skipped: ELEVENLABS_API_KEY isn't set.");
+  const api = getVoiceApi(db);
+  if (!api) {
+    if (!skipped) console.log("Twin scheduler waiting: there's no ElevenLabs key yet.");
+    skipped = true;
+    return;
+  }
+  skipped = false;
   const dialled = await dialDueCalls(db, api);
   const filed = await syncCalls(db, api);
   const purged = await purgeExpired(db, api, mail);

@@ -68,14 +68,14 @@ describe("voice cloning with consent", () => {
     const result = await verifyConsent(db, api, id, audio());
     expect(result.verified).toBe(false);
     expect(result.missing).toEqual(expect.arrayContaining([code[2], "agree"]));
-    await expect(createInstantClone(db, api, [])).rejects.toThrow(/consent/);
+    await expect(createInstantClone(db, [], { elevenlabs: api })).rejects.toThrow(/consent/);
   });
 
   it("clones from the consent recording itself, then upgrades to a professional voice", async () => {
     expect((await consent()).verified).toBe(true);
-    await createInstantClone(db, api, [audio("sample.webm")]);
+    await createInstantClone(db, [audio("sample.webm")], { elevenlabs: api });
     expect(activeVoice(db)).toMatchObject({ kind: "instant", voice_id: "ivc-1" });
-    await expect(createInstantClone(db, api, [])).rejects.toThrow(/already/);
+    await expect(createInstantClone(db, [], { elevenlabs: api })).rejects.toThrow(/already/);
 
     await startProfessionalClone(db, api);
     await verifyProfessional(db, api, audio("captcha.webm"));
@@ -91,7 +91,7 @@ describe("voice cloning with consent", () => {
 
   it("revoking deletes the voice at ElevenLabs and every recording", async () => {
     await consent();
-    await createInstantClone(db, api, [audio("sample.webm")]);
+    await createInstantClone(db, [audio("sample.webm")], { elevenlabs: api });
     expect(fs.readdirSync(process.env.TWIN_DATA_DIR!)).toHaveLength(2);
     await revokeVoice(db, api);
     expect(requests).toContainEqual({ method: "DELETE", url: "https://el.test/v1/voices/ivc-1" });

@@ -3,6 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 import type { Db } from "./db";
 import { getTwinSetting, ownerName, setTwinSetting } from "./twin";
+import { chosenEngine, engineConfig, ENGINES, engineReady, enginesSnapshot, mergedConfig, OpenAISpeech, OpenRouterVoice, QWEN_CLONE_MODEL, QwenVoice, type EngineId, type EngineInput, type Speech } from "./voice-engines";
 
 // The voice twin's voice (Phase 1). Only the signed-in user's own voice is cloned:
 //   1. They read a consent phrase with three random code words aloud, live. ElevenLabs speech-to-text must hear all
@@ -10,6 +11,8 @@ import { getTwinSetting, ownerName, setTwinSetting } from "./twin";
 //   2. That same recording is the first sample of the clone, so the voice that consented is the voice that is cloned.
 //   3. An instant clone comes first. The professional clone adds ElevenLabs' own voice CAPTCHA before training.
 //   4. Revoking deletes every voice and the call agent at ElevenLabs, and every recording here.
+// The voice can also be cloned with another engine (OpenRouter or Qwen, see voice-engines.ts). The same consent comes
+// first; calls still need an ElevenLabs voice.
 
 export interface AudioInput {
   data: Uint8Array;
@@ -121,6 +124,11 @@ export class ElevenLabs {
     }
   }
 
+  /** Your voices and ElevenLabs' premade ones. Also how a key is checked. */
+  async listVoices(): Promise<{ voice_id: string; name?: string; category?: string }[]> {
+    return ((await (await this.call("/v1/voices")).json()) as { voices?: { voice_id: string; name?: string; category?: string }[] }).voices ?? [];
+  }
+
   async speak(voiceId: string, text: string): Promise<ArrayBuffer> {
     return (await this.call(`/v1/text-to-speech/${encodeURIComponent(voiceId)}?output_format=mp3_44100_128`, this.json({ text, model_id: TTS_MODEL }))).arrayBuffer();
   }
@@ -190,9 +198,29 @@ function toBlob(a: AudioInput): Blob {
   return new Blob([new Uint8Array(a.data)], { type: a.type || "application/octet-stream" });
 }
 
-export function getVoiceApi(): ElevenLabs | null {
-  const key = process.env.ELEVENLABS_API_KEY;
+/** ElevenLabs, with the key from the environment or the one saved in the app. */
+export function getVoiceApi(db: Db): ElevenLabs | null {
+  const key = engineConfig(db, "elevenlabs").key;
   return key ? new ElevenLabs(key) : null;
+}
+
+function openRouter(db: Db): OpenRouterVoice | null {
+  const key = engineConfig(db, "openrouter").key;
+  return key ? new OpenRouterVoice(key) : null;
+}
+
+function qwen(db: Db): QwenVoice | null {
+  const c = engineConfig(db, "qwen");
+  return c.key ? new QwenVoice(c.key, fetch, c.baseUrl) : null;
+}
+
+export interface Transcriber {
+  transcribe(audio: AudioInput): Promise<string>;
+}
+
+/** Who hears the consent phrase: ElevenLabs if it has a key, else OpenRouter's Whisper. */
+export function getTranscriber(db: Db): Transcriber | null {
+  return getVoiceApi(db) ?? openRouter(db);
 }
 
 // ---------- Storage ----------
@@ -259,7 +287,7 @@ export function startConsent(db: Db): { id: number; phrase: string } {
 const words = (s: string) => s.toLowerCase().replace(/[^\p{L}\p{N}\s]/gu, " ").split(/\s+/).filter(Boolean);
 
 /** Transcribes the recording and checks the code words and "agree" were spoken. */
-export async function verifyConsent(db: Db, api: ElevenLabs, consentId: number, audio: AudioInput) {
+export async function verifyConsent(db: Db, api: Transcriber, consentId: number, audio: AudioInput) {
   const row = db.prepare("SELECT * FROM consents WHERE id = ?").get(consentId) as ConsentRow | undefined;
   if (!row || row.status !== "pending") throw new Error("Start a new consent recording.");
   const age = db.prepare("SELECT (julianday('now') - julianday(?)) * 1440 AS minutes").get(row.created_at) as { minutes: number };
@@ -291,7 +319,11 @@ function verifiedConsent(db: Db): ConsentRow | undefined {
 
 interface VoiceRow {
   id: number;
+  /** The engine that holds the voice. */
+  provider: EngineId;
   voice_id: string;
+  /** The model a Qwen voice was enrolled for. */
+  model: string | null;
   kind: "instant" | "professional";
   status: "ready" | "needs_captcha" | "training" | "failed";
   consent_id: number;
@@ -310,16 +342,41 @@ export function activeVoice(db: Db): VoiceRow | undefined {
   return pro?.status === "ready" ? pro : voiceOf(db, "instant");
 }
 
-/** Clones the voice from the consent recording plus up to five extra samples the user records. */
-export async function createInstantClone(db: Db, api: ElevenLabs, samples: AudioInput[]) {
+/**
+ * Clones the voice with the chosen engine, from the consent recording plus up to five extra samples.
+ *   ElevenLabs  an instant clone from every recording.
+ *   Qwen        the consent recording is enrolled as a Qwen voice.
+ *   OpenRouter  nothing is enrolled: the consent recording and what was heard in it go with each request.
+ */
+export async function createInstantClone(db: Db, samples: AudioInput[], clients: { elevenlabs?: ElevenLabs | null; qwen?: QwenVoice | null } = {}) {
   const consent = verifiedConsent(db);
   if (!consent?.recording_path) throw new Error("Record your consent phrase first.");
   if (voices(db).length) throw new Error("You already have a voice. Delete it first to start over.");
   if (samples.length > MAX_SAMPLES) throw new Error(`Add at most ${MAX_SAMPLES} samples.`);
+  const engine = chosenEngine(db);
+  if (!ENGINES[engine].clones) throw new Error(`${ENGINES[engine].label} engines speak with preset voices only. Pick ElevenLabs, OpenRouter or Qwen to clone your voice.`);
+  const el = clients.elevenlabs !== undefined ? clients.elevenlabs : getVoiceApi(db);
+  const qw = clients.qwen !== undefined ? clients.qwen : qwen(db);
+  if (engine === "elevenlabs" ? !el : engine === "qwen" ? !qw : !engineReady(db, engine)) throw new Error(`Save a ${ENGINES[engine].label} key first.`);
   samples.forEach(checkAudio);
-  const files = [consent.recording_path, ...samples.map((s, i) => saveAudio(s, `sample-${i + 1}`))];
-  const voiceId = await api.createInstantVoice(`${ownerName(db)} (FutureMe twin)`, files.map(loadAudio));
-  db.prepare("INSERT INTO voice_profiles (voice_id, kind, status, consent_id, samples) VALUES (?, 'instant', 'ready', ?, ?)").run(voiceId, consent.id, JSON.stringify(files));
+  // Only ElevenLabs learns from extra samples; the others clone from the consent recording alone.
+  const extra = engine === "elevenlabs" ? samples : [];
+  const files = [consent.recording_path, ...extra.map((s, i) => saveAudio(s, `sample-${i + 1}`))];
+  const name = `${ownerName(db)} (FutureMe twin)`;
+  let voiceId: string;
+  let model: string | null = null;
+  if (engine === "elevenlabs") voiceId = await el!.createInstantVoice(name, files.map(loadAudio));
+  else if (engine === "qwen") {
+    voiceId = await qw!.enroll(loadAudio(consent.recording_path), "futureme");
+    model = QWEN_CLONE_MODEL;
+  } else voiceId = "references";
+  db.prepare("INSERT INTO voice_profiles (provider, voice_id, model, kind, status, consent_id, samples) VALUES (?, ?, ?, 'instant', 'ready', ?, ?)").run(
+    engine,
+    voiceId,
+    model,
+    consent.id,
+    JSON.stringify(files),
+  );
   return voiceId;
 }
 
@@ -327,6 +384,7 @@ export async function createInstantClone(db: Db, api: ElevenLabs, samples: Audio
 export async function startProfessionalClone(db: Db, api: ElevenLabs, language = "en") {
   const instant = voiceOf(db, "instant");
   if (!instant) throw new Error("Create your instant voice first.");
+  if (instant.provider !== "elevenlabs") throw new Error("Professional voices are made by ElevenLabs. Your voice is cloned with another engine.");
   if (voiceOf(db, "professional")) throw new Error("A professional voice is already in progress.");
   const voiceId = await api.createProfessionalVoice(`${ownerName(db)} (FutureMe twin)`, language);
   const files = JSON.parse(instant.samples) as string[];
@@ -375,7 +433,9 @@ export async function refreshProfessional(db: Db, api: ElevenLabs) {
 export async function revokeVoice(db: Db, api: ElevenLabs | null) {
   const rows = voices(db);
   const agentId = getTwinSetting(db, "agent_id");
-  if ((rows.length || agentId) && !api) throw new Error("ELEVENLABS_API_KEY is needed to delete the voice at ElevenLabs.");
+  if ((rows.some((v) => v.provider === "elevenlabs") || agentId) && !api) throw new Error("An ElevenLabs key is needed to delete the voice at ElevenLabs.");
+  const q = rows.some((v) => v.provider === "qwen") ? qwen(db) : null;
+  if (rows.some((v) => v.provider === "qwen") && !q) throw new Error("A Qwen key is needed to delete your voice at Qwen.");
   // The phone and browser agent speaks with this voice, so it goes too.
   if (agentId) {
     await api!.deleteAgent(agentId);
@@ -383,7 +443,8 @@ export async function revokeVoice(db: Db, api: ElevenLabs | null) {
     setTwinSetting(db, "agent_hash", null);
   }
   for (const v of rows) {
-    await api!.deleteVoice(v.voice_id);
+    if (v.provider === "elevenlabs") await api!.deleteVoice(v.voice_id);
+    else if (v.provider === "qwen") await q!.deleteVoice(v.voice_id);
     db.prepare("DELETE FROM voice_profiles WHERE id = ?").run(v.id);
   }
   const files = (db.prepare("SELECT recording_path FROM consents WHERE recording_path IS NOT NULL").all() as { recording_path: string }[]).map((r) => r.recording_path);
@@ -394,11 +455,51 @@ export async function revokeVoice(db: Db, api: ElevenLabs | null) {
   ).run();
 }
 
-export async function previewVoice(db: Db, api: ElevenLabs, text?: string): Promise<ArrayBuffer> {
+const PREVIEW_LINE = "Hey, it's me. You, a few years from now. I still remember the day you decided to build this.";
+
+/** Speaks in the user's cloned voice, with whichever engine holds it. */
+async function speakAs(db: Db, voice: VoiceRow, text: string, config = engineConfig(db, voice.provider)): Promise<Speech> {
+  if (!config.key) throw new Error(`Your voice is cloned with ${ENGINES[voice.provider].label}, which has no key saved.`);
+  if (voice.provider === "elevenlabs") return { audio: await new ElevenLabs(config.key).speak(voice.voice_id, text), type: "audio/mpeg" };
+  if (voice.provider === "qwen") return new QwenVoice(config.key, fetch, config.baseUrl).speak(text, { model: voice.model ?? QWEN_CLONE_MODEL, voice: voice.voice_id });
+  const consent = db.prepare("SELECT recording_path, transcript FROM consents WHERE id = ?").get(voice.consent_id) as { recording_path: string | null; transcript: string | null } | undefined;
+  if (!consent?.recording_path) throw new Error("Your consent recording is gone, so this voice can't speak. Delete it and start again.");
+  return new OpenRouterVoice(config.key).speak(text, { model: config.model, references: [{ audio: loadAudio(consent.recording_path), transcript: consent.transcript ?? undefined }] });
+}
+
+export async function previewVoice(db: Db, text?: string): Promise<Speech> {
   const voice = activeVoice(db);
   if (!voice || voice.status !== "ready") throw new Error("You don't have a voice yet.");
-  const line = text?.trim() || "Hey, it's me. You, a few years from now. I still remember the day you decided to build this.";
-  return api.speak(voice.voice_id, line.slice(0, 300));
+  return speakAs(db, voice, (text?.trim() || PREVIEW_LINE).slice(0, 300));
+}
+
+/**
+ * Checks an engine's key and settings (typed in the form, or saved) by speaking a line. If this engine holds the
+ * user's cloned voice and no preset voice is named, it speaks in their voice; otherwise in a preset voice.
+ */
+export async function testEngine(db: Db, input: EngineInput & { text?: string }): Promise<Speech & { ownVoice: boolean }> {
+  const c = mergedConfig(db, input);
+  const info = ENGINES[input.engine];
+  const text = (input.text?.trim() || "Hi, this is a test of your FutureMe voice.").slice(0, 200);
+  if (info.keyRequired && !c.key) throw new Error(`Paste a ${info.label} key to test.`);
+  const mine = activeVoice(db);
+  if (mine?.status === "ready" && mine.provider === input.engine && !c.voice) return { ...(await speakAs(db, mine, text, c)), ownVoice: true };
+  switch (input.engine) {
+    case "elevenlabs": {
+      const api = new ElevenLabs(c.key!);
+      const all = await api.listVoices();
+      const preset = all.find((v) => v.category === "premade") ?? all[0];
+      if (!preset) throw new Error("ElevenLabs accepted the key but has no voice to test with.");
+      return { audio: await api.speak(preset.voice_id, text), type: "audio/mpeg", ownVoice: false };
+    }
+    case "openrouter":
+      return { ...(await new OpenRouterVoice(c.key!).speak(text, { model: c.model, voice: c.voice || undefined })), ownVoice: false };
+    case "qwen":
+      return { ...(await new QwenVoice(c.key!, fetch, c.baseUrl).speak(text, { model: c.model, voice: c.voice || "Cherry" })), ownVoice: false };
+    case "openai":
+      if (!c.baseUrl || !c.model) throw new Error("Add your server's base URL and model.");
+      return { ...(await new OpenAISpeech(c.baseUrl, c.key, fetch).speak(text, { model: c.model, voice: c.voice || undefined })), ownVoice: false };
+  }
 }
 
 // ---------- Snapshot for the Twin page ----------
@@ -408,10 +509,16 @@ export function voiceSnapshot(db: Db) {
     | Omit<ConsentRow, "code" | "recording_path">
     | undefined;
   const active = activeVoice(db);
+  const engine = active?.provider ?? chosenEngine(db);
   return {
-    configured: !!process.env.ELEVENLABS_API_KEY,
+    /** The engine that holds the voice (or will clone it) is set up. */
+    configured: engineReady(db, engine),
+    engine,
+    /** The consent phrase can be checked: ElevenLabs or OpenRouter has a key. */
+    canConsent: !!getTranscriber(db),
     consent: consent ?? null,
-    voices: voices(db).map((v) => ({ id: v.id, kind: v.kind, status: v.status, samples: (JSON.parse(v.samples) as string[]).length, createdAt: v.created_at })),
-    active: active ? { kind: active.kind, status: active.status } : null,
+    voices: voices(db).map((v) => ({ id: v.id, kind: v.kind, provider: v.provider, status: v.status, samples: (JSON.parse(v.samples) as string[]).length, createdAt: v.created_at })),
+    active: active ? { kind: active.kind, status: active.status, provider: active.provider } : null,
+    engines: enginesSnapshot(db),
   };
 }

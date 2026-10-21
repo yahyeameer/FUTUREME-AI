@@ -153,6 +153,8 @@ function agentConfig(db: Db, voiceId: string, publicUrl: string) {
 export async function ensureTwinAgent(db: Db, api: ElevenLabs): Promise<string> {
   const voice = activeVoice(db);
   if (!voice || voice.status !== "ready") throw new Error("Clone your voice first.");
+  // Calls run on ElevenLabs' agents, which can only speak with an ElevenLabs voice.
+  if (voice.provider !== "elevenlabs") throw new Error("Calls run on ElevenLabs, but your voice is cloned with another engine. Delete your voice and clone it with ElevenLabs to call.");
   const { publicUrl } = callsConfig();
   if (!publicUrl) throw new Error("Set TWIN_PUBLIC_URL to this app's public https address so ElevenLabs can reach your future self.");
   const config = agentConfig(db, voice.voice_id, publicUrl);
@@ -463,7 +465,7 @@ export async function scheduleSelfCall(db: Db, api: ElevenLabs | null, input: un
   const now = Date.now();
   if (s.at && s.at.getTime() < now - 60_000) throw new Error("Pick a time in the future.");
   if (s.at && s.at.getTime() > now + 60 * 86_400_000) throw new Error("Pick a time in the next 60 days.");
-  if (!s.at && !api) throw new Error("Phone calls need ELEVENLABS_API_KEY on the server.");
+  if (!s.at && !api) throw new Error("Phone calls need an ElevenLabs key.");
   const call = insertCall(db, {
     direction: "self",
     mode: s.mode,

@@ -4,6 +4,7 @@ import { getTwinSetting, TWIN_APPROVAL_KINDS } from "./twin";
 import { retentionDays, usage } from "./twin-guard";
 import { deleteNote } from "./vault";
 import { revokeVoice, type ElevenLabs } from "./voice";
+import { isEngineSetting } from "./voice-engines";
 
 // The twin's data rights (Phase 4).
 //   Retention  what other people said (calls with contacts and callers, mail the twin received) is deleted after
@@ -74,7 +75,7 @@ export function exportTwinData(db: Db) {
     exportedAt: new Date().toISOString(),
     retentionDays: retentionDays(),
     usageThisMonth: usage(db),
-    settings: Object.fromEntries((all("SELECT key, value FROM twin_settings") as { key: string; value: string }[]).filter((s) => !PRIVATE_SETTINGS.has(s.key)).map((s) => [s.key, s.value])),
+    settings: Object.fromEntries((all("SELECT key, value FROM twin_settings") as { key: string; value: string }[]).filter((s) => !PRIVATE_SETTINGS.has(s.key) && !s.key.startsWith("engine_key:")).map((s) => [s.key, s.value])),
     contacts: all("SELECT * FROM contacts ORDER BY id"),
     consents: omit(all("SELECT * FROM consents ORDER BY id"), ["code", "recording_path"]),
     voices: omit(all("SELECT * FROM voice_profiles ORDER BY id"), ["samples"]),
@@ -91,11 +92,11 @@ export function exportTwinData(db: Db) {
 /**
  * Deletes everything the twin holds. At ElevenLabs: every call's conversation, the agent and the voices. At AgentMail:
  * every message the twin received. Here: recordings, call and email notes, and all twin tables. The rest of
- * FutureMe (goals, memories, other notes) is untouched.
+ * FutureMe (goals, memories, other notes) and the voice engine keys are untouched.
  */
 export async function deleteTwinData(db: Db, voice: ElevenLabs | null, mail: AgentMail | null) {
   const convs = (db.prepare("SELECT conversation_id FROM calls WHERE conversation_id IS NOT NULL").all() as { conversation_id: string }[]).map((r) => r.conversation_id);
-  if (convs.length && !voice) throw new Error("ELEVENLABS_API_KEY is needed to delete your calls at ElevenLabs.");
+  if (convs.length && !voice) throw new Error("An ElevenLabs key is needed to delete your calls at ElevenLabs.");
   for (const id of convs) await voice!.deleteConversation(id);
   // The agent, the voices, the consent recordings and samples.
   await revokeVoice(db, voice);
@@ -113,7 +114,11 @@ export async function deleteTwinData(db: Db, voice: ElevenLabs | null, mail: Age
   for (const n of notes) deleteNote(n.note_path);
   db.transaction(() => {
     db.prepare(`DELETE FROM approvals WHERE kind IN (${TWIN_APPROVAL_KINDS.map(() => "?").join(", ")})`).run(...TWIN_APPROVAL_KINDS);
-    for (const table of ["calls", "email_threads", "contacts", "twin_flags", "voice_profiles", "consents", "twin_settings"]) db.prepare(`DELETE FROM ${table}`).run();
+    for (const table of ["calls", "email_threads", "contacts", "twin_flags", "voice_profiles", "consents"]) db.prepare(`DELETE FROM ${table}`).run();
+    // Provider keys and the engine choice are setup, not data about anyone, so they stay.
+    for (const { key } of db.prepare("SELECT key FROM twin_settings").all() as { key: string }[]) {
+      if (!isEngineSetting(key)) db.prepare("DELETE FROM twin_settings WHERE key = ?").run(key);
+    }
   })();
   return { conversations: convs.length, emails: received.length, notes: notes.length };
 }

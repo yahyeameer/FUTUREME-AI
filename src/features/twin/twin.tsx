@@ -18,6 +18,7 @@ import { useWorkspaceContext } from "@/lib/workspace-store";
 import type { TwinState } from "@/app/api/twin/state";
 import { post, upload, type Act } from "./api";
 import { EmailSection } from "./email";
+import { EngineSection } from "./engines";
 import { ReviewSection } from "./review";
 import { TalkSection } from "./talk";
 import { recordingFile, useRecorder, type Recording } from "./use-recorder";
@@ -114,7 +115,14 @@ export function Twin() {
         </p>
       )}
       <div className="mt-8 space-y-12">
-        {hasVoice ? <TalkSection state={state} act={act} onState={setState} /> : <VoiceSection state={state} act={act} />}
+        {hasVoice ? (
+          <TalkSection state={state} act={act} onState={setState} />
+        ) : (
+          <>
+            <VoiceSection state={state} act={act} />
+            <EngineSection state={state} act={act} />
+          </>
+        )}
         <section aria-labelledby="queue-h">
           <SectionHeading id="queue-h">Waiting for you{pending.length ? ` · ${pending.length}` : ""}</SectionHeading>
           {state.twin.approvals.length ? (
@@ -133,6 +141,7 @@ export function Twin() {
         <EmailSection state={state} act={act} />
         <Contacts state={state} act={act} />
         {hasVoice && <VoiceSection state={state} act={act} />}
+        {hasVoice && <EngineSection state={state} act={act} />}
       </div>
     </PageFrame>
   );
@@ -172,6 +181,7 @@ function VoiceSection({ state, act }: { state: TwinState; act: Act }) {
   const [confirmDelete, setConfirmDelete] = React.useState(false);
   const hasVoice = v.voices.length > 0;
   const consented = v.consent?.status === "verified";
+  const engine = v.engines.engines.find((e) => e.id === v.engine)!;
 
   return (
     <section aria-labelledby="voice-h">
@@ -189,30 +199,36 @@ function VoiceSection({ state, act }: { state: TwinState; act: Act }) {
       </SectionHeading>
       {!v.configured ? (
         <EmptyState icon={AudioLines} title="Voice cloning isn't set up">
-          Add ELEVENLABS_API_KEY to the server&apos;s environment and restart FutureMe. Your recordings go only to ElevenLabs.
+          Add a key for a voice engine below, test it, and pick it for your voice. Your recordings go only to the engine you pick.
         </EmptyState>
       ) : (
         <ol className="space-y-3">
           <Step n={1} title="Say yes, in your own voice" done={consented || hasVoice}>
-            {!hasVoice && !consented && <ConsentStep state={state} act={act} />}
+            {!hasVoice && !consented && (v.canConsent ? <ConsentStep state={state} act={act} /> : <p className="text-[13px] text-muted-foreground">Checking your consent phrase needs an ElevenLabs or OpenRouter key, which hears what you read. Add one under Voice engine.</p>)}
             {(consented || hasVoice) && <p className="text-[13px] text-muted-foreground">Consent recorded. That recording is also the first sample of your voice, so only the voice that agreed can be cloned.</p>}
           </Step>
           <Step n={2} title="Create your voice" done={hasVoice}>
-            {consented && !hasVoice ? <SamplesStep act={act} /> : <p className="text-[13px] text-muted-foreground">{hasVoice ? "Your instant voice is ready." : "Comes after your consent recording."}</p>}
+            {consented && !hasVoice ? (
+              <SamplesStep act={act} engine={engine} />
+            ) : (
+              <p className="text-[13px] text-muted-foreground">{hasVoice ? `Your voice is ready, cloned with ${engine.label}.` : "Comes after your consent recording."}</p>
+            )}
           </Step>
           <Step n={3} title="Hear yourself" done={false}>
             {v.active?.status === "ready" ? <Preview /> : <p className="text-[13px] text-muted-foreground">Once your voice exists, play a line from your future self.</p>}
           </Step>
-          <Step n={4} title="Upgrade to a professional voice" done={v.active?.kind === "professional"}>
-            <ProfessionalStep state={state} act={act} />
-          </Step>
+          {v.engine === "elevenlabs" && (
+            <Step n={4} title="Upgrade to a professional voice" done={v.active?.kind === "professional"}>
+              <ProfessionalStep state={state} act={act} />
+            </Step>
+          )}
         </ol>
       )}
       <Dialog open={confirmDelete} onOpenChange={setConfirmDelete}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Delete your voice?</DialogTitle>
-            <DialogDescription>This deletes every clone of your voice at ElevenLabs and every recording on this server, and withdraws your consent. You can start again later.</DialogDescription>
+            <DialogDescription>This deletes every clone of your voice at {engine.label} and every recording on this server, and withdraws your consent. You can start again later.</DialogDescription>
           </DialogHeader>
           <DialogFooter>
             <Button variant="ghost" onClick={() => setConfirmDelete(false)}>
@@ -337,7 +353,8 @@ const PROMPTS = [
   "Describe the place you grew up.",
 ];
 
-function SamplesStep({ act }: { act: Act }) {
+function SamplesStep({ act, engine }: { act: Act; engine: { id: string; label: string } }) {
+  const withSamples = engine.id === "elevenlabs";
   const [samples, setSamples] = React.useState<Recording[]>([]);
   const [busy, setBusy] = React.useState(false);
   const seconds = samples.reduce((n, s) => n + s.seconds, 0);
@@ -354,7 +371,13 @@ function SamplesStep({ act }: { act: Act }) {
   return (
     <div className="space-y-3">
       <p className="text-[13px] text-muted-foreground">
-        Talk naturally for about a minute in total. More clean audio makes a closer voice. Prompt: <span className="text-foreground">{PROMPTS[samples.length % PROMPTS.length]}</span>
+        {withSamples ? (
+          <>
+            Talk naturally for about a minute in total. More clean audio makes a closer voice. Prompt: <span className="text-foreground">{PROMPTS[samples.length % PROMPTS.length]}</span>
+          </>
+        ) : (
+          `${engine.label} clones from your consent recording alone, so there's nothing more to record.`
+        )}
       </p>
       {samples.length > 0 && (
         <ul className="space-y-2">
@@ -370,13 +393,15 @@ function SamplesStep({ act }: { act: Act }) {
         </ul>
       )}
       <div className="flex flex-wrap items-center gap-3">
-        {samples.length < 5 && <RecordButton onRecorded={(r) => setSamples((x) => [...x, r])} label={samples.length ? "Record another" : "Record a sample"} busy={busy} />}
+        {withSamples && samples.length < 5 && <RecordButton onRecorded={(r) => setSamples((x) => [...x, r])} label={samples.length ? "Record another" : "Record a sample"} busy={busy} />}
         <Button variant="primary" onClick={create} disabled={busy}>
           {busy ? <Loader2 className="animate-spin" /> : <AudioLines />} Create my voice
         </Button>
-        <span className="text-[12px] text-muted-foreground">
-          {pluralize(samples.length, "sample")} · {seconds}s, plus your consent recording
-        </span>
+        {withSamples && (
+          <span className="text-[12px] text-muted-foreground">
+            {pluralize(samples.length, "sample")} · {seconds}s, plus your consent recording
+          </span>
+        )}
       </div>
     </div>
   );

@@ -31,15 +31,26 @@ Plus a command palette (`⌘K`, and `g` then `h/f/a/t/c/i/r/m/d/s` to jump), dar
 
 The twin is your future self speaking for you, in your own voice. Phases 0 to 4 are built: the guardrails, your voice, talking to your twin in the browser or on your own phone, reaching your contacts by phone and email once you approve, and the safeguards for running it on a public address.
 
-**Your voice (ElevenLabs).** Needs `ELEVENLABS_API_KEY` on the server.
+**Voice engine.** Under "Voice engine" on `/twin` you paste a key, press Test to hear a line, and pick the engine that clones and speaks your voice. Keys are encrypted on the server (AES-256-GCM, with `FUTUREME_SECRET` or a random `secret.key` made next to the database) and only their last four characters are ever shown. A key set in the server's environment wins over one saved in the app.
 
-1. You read a consent phrase with three random code words aloud, within ten minutes. ElevenLabs speech-to-text must hear every code word and "agree", so an old recording of someone else can't pass.
-2. That same recording is the first sample of an instant clone, plus up to five samples you record. The voice that agreed is the voice that's cloned.
+| Engine | Key | Clones your voice | Calls |
+| --- | --- | --- | --- |
+| ElevenLabs | `ELEVENLABS_API_KEY` or the app | Instant and professional clones | Yes |
+| OpenRouter | `OPENROUTER_API_KEY` or the app | With a model that clones from reference audio, such as `fish-audio/s2.1-pro` or `bytedance-seed/seed-audio-1-0`. Nothing is enrolled: your consent recording goes with each request. Other models use preset voices. | No |
+| Qwen TTS (Alibaba Cloud Model Studio) | `DASHSCOPE_API_KEY` or the app | Your consent recording is enrolled for `qwen3-tts-vc` | No |
+| Self-hosted | Optional | No, preset voices. Any OpenAI-style `/audio/speech` server: an open model you run on Nebius, vLLM or your own machine (Qwen3-TTS, Kokoro, Orpheus) | No |
+
+Phone and browser calls run on ElevenLabs' agents, so they need a voice cloned with ElevenLabs. Checking the consent phrase needs ElevenLabs or OpenRouter (Whisper). Recordings are converted to WAV in the browser so every engine accepts them. Nebius AI Studio doesn't serve speech models itself; host one on Nebius and use Self-hosted.
+
+**Your voice.**
+
+1. You read a consent phrase with three random code words aloud, within ten minutes. Speech-to-text must hear every code word and "agree", so an old recording of someone else can't pass.
+2. That same recording is the first sample of the clone (with ElevenLabs, plus up to five samples you record). The voice that agreed is the voice that's cloned.
 3. "Hear yourself" plays a line in your cloned voice.
 4. The professional upgrade trains a closer voice from the same recordings after you read ElevenLabs' own verification CAPTCHA aloud. When it's ready, the instant clone is deleted, so one voice remains.
-5. "Delete my voice" deletes every clone at ElevenLabs and every recording on the server, and withdraws the consent.
+5. "Delete my voice" deletes every clone at its engine and every recording on the server, and withdraws the consent. To switch engines, delete your voice and clone it again.
 
-Recordings are kept in `data/voice/` (or `TWIN_DATA_DIR`) and go only to ElevenLabs.
+Recordings are kept in `data/voice/` (or `TWIN_DATA_DIR`) and go only to the engine you picked.
 
 **Guardrails.** A `twin` agent in `agents/futureme.yaml` gets `search_memory` plus three propose-only MCP tools: `propose_call`, `propose_email` and `propose_commitment`. Each creates a pending approval (`outbound_call`, `send_email`, `commitment`) shown on `/twin`, never in the plan and memory queue.
 
@@ -60,7 +71,7 @@ Recordings are kept in `data/voice/` (or `TWIN_DATA_DIR`) and go only to ElevenL
   - **Promise Keeper:** your future self calls about one open task. If you say you did it, its `confirm_task_done` tool marks that task done (it works only for that call's own task, during the call); if not, you pick the next small step together.
 - Every call opens with a fixed line saying it's an AI and, on the phone, that it's recorded. Pausing the twin stops replies mid-call and stops dialling.
 - When a call ends, its transcript and ElevenLabs' summary (marked as written by AI) are filed in the vault under `Calls/` and linked from the call log on `/twin`.
-- `scripts/twin-scheduler.ts --loop` dials scheduled calls and files transcripts every 30 seconds. The Docker image runs it when `ELEVENLABS_API_KEY` is set (`TWIN_SCHEDULER=off` disables it); locally, run `npm run twin-scheduler -- --loop`.
+- `scripts/twin-scheduler.ts --loop` dials scheduled calls and files transcripts every 30 seconds. The Docker image always runs it and it waits until there's an ElevenLabs key (`TWIN_SCHEDULER=off` disables it); locally, run `npm run twin-scheduler -- --loop`.
 
 **Reach your contacts.** Calls need `ELEVENLABS_PHONE_NUMBER_ID`; email needs `AGENTMAIL_API_KEY`.
 

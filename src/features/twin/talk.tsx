@@ -39,7 +39,11 @@ export function TalkSection({ state, act, onState }: { state: TwinState; act: Ac
   return (
     <section aria-labelledby="talk-h" id="talk" className="scroll-mt-24">
       <SectionHeading id="talk-h">Talk to your future self</SectionHeading>
-      {!c.ready.publicUrl ? (
+      {state.voice.active && state.voice.active.provider !== "elevenlabs" ? (
+        <EmptyState icon={PhoneCall} title="Calls run on ElevenLabs">
+          Your voice is cloned with another engine, which can play your voice but can&apos;t hold a live call. To call, delete your voice and clone it with ElevenLabs. You can still hear your voice under Your voice.
+        </EmptyState>
+      ) : !c.ready.publicUrl ? (
         <EmptyState icon={PhoneCall} title="Calls need a public address">
           ElevenLabs runs the voice and asks this server what your future self says next. Set TWIN_PUBLIC_URL to FutureMe&apos;s public https address and restart.
         </EmptyState>
