@@ -199,6 +199,38 @@ export interface Reflection {
   path?: string;
 }
 
+// ---------- Future Simulator ----------
+
+/** One route to a goal: a conditional scenario that holds only if its assumptions do. */
+export interface SimulatedPath {
+  name: string;
+  kind: "self_study" | "formal_education" | "work_and_study" | "other";
+  summary: string;
+  months: { min: number; max: number };
+  cost: { min: number; max: number; currency: string; note: string };
+  hoursPerWeek: number;
+  prerequisites: string[];
+  risks: { risk: string; mitigation: string }[];
+  assumptions: string[];
+  firstSteps: string[];
+  /** Why this route might or might not suit the user, from what they've shared. */
+  fit: string;
+}
+
+export interface Simulation {
+  id: string;
+  goal: string;
+  createdAt: string;
+  paths: SimulatedPath[];
+  sharedUnknowns: string[];
+  howToChoose: string;
+  /** What the simulator read: the profile, matching notes, and the persona from imported accounts. */
+  grounding: { profile: boolean; notes: Citation[]; social: string[] };
+  /** Set once the comparison was saved to the vault. */
+  memoryId?: string;
+  simulated: boolean;
+}
+
 // ---------- FutureMe Daily ----------
 
 export interface SourceRef {
@@ -520,6 +552,8 @@ export interface Workspace {
   skillRuns: SkillRun[];
   platform: AgentPlatform;
   councils: CouncilSession[];
+  /** Future Simulator runs, newest first. Optional for snapshots saved before the simulator existed. */
+  simulations?: Simulation[];
   nightShifts: NightShift[];
   research: ResearchRun[];
   /** Live only: the Docker MCP Gateway's tools. Absent in demo mode. */

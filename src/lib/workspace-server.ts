@@ -25,6 +25,8 @@ import { getProvider, LOCAL_LLM_URL } from "./llm";
 import { listNightShifts, nextRunAt, nightShiftSchedule } from "./night-shift";
 import { activePack, listPacks } from "./packs";
 import { listResearch } from "./research";
+import { listSimulations } from "./simulator";
+import { toPaths } from "./simulator-paths";
 import { skillsFor } from "./skills";
 import { TEAM } from "./team-info";
 import { toolLabel } from "./tool-labels";
@@ -445,6 +447,17 @@ export function buildWorkspace(db: Db): Workspace {
       citations: c.citations.map((p) => ({ memoryId: p, title: titleOf.get(p) ?? p })),
       memoryId: c.note_path ?? undefined,
       simulated: false,
+    })),
+    simulations: listSimulations(db).map((s) => ({
+      id: String(s.id),
+      goal: s.goal,
+      createdAt: sqlTime(s.created_at)!,
+      paths: toPaths(s.result.paths),
+      sharedUnknowns: s.result.shared_unknowns,
+      howToChoose: s.result.how_to_choose,
+      grounding: { profile: s.grounding.profile, notes: s.grounding.notes.map((p) => ({ memoryId: p, title: titleOf.get(p) ?? p })), social: s.grounding.social },
+      memoryId: s.note_path ?? undefined,
+      simulated: s.backend === "mock",
     })),
     nightShifts: nightShifts.map((n) => ({
       id: String(n.id),

@@ -1,6 +1,6 @@
 "use client";
 
-import { AlertTriangle, CalendarClock, Check, ChevronDown, Plus } from "lucide-react";
+import { AlertTriangle, CalendarClock, Check, ChevronDown, Plus, Split } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
@@ -34,11 +34,18 @@ export function Roadmap() {
         eyebrow="Life Roadmap"
         title="From your dream to this week"
         actions={
-          <Button asChild variant="secondary">
-            <Link href={`/future-self?prompt=${encodeURIComponent("Help me plan my next milestone, in small steps.")}`}>
-              <Plus /> Plan a milestone
-            </Link>
-          </Button>
+          <>
+            <Button asChild variant="ghost">
+              <Link href={`/simulator?goal=${encodeURIComponent(profile.dream.slice(0, 300))}`}>
+                <Split /> Compare three paths
+              </Link>
+            </Button>
+            <Button asChild variant="secondary">
+              <Link href={`/future-self?prompt=${encodeURIComponent("Help me plan my next milestone, in small steps.")}`}>
+                <Plus /> Plan a milestone
+              </Link>
+            </Button>
+          </>
         }
       />
 

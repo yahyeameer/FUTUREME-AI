@@ -208,7 +208,8 @@ function ProfileMenu({ collapsed, onNavigate }: { collapsed: boolean; onNavigate
   );
 }
 
-const TABS = [NAV[0], NAV[1], NAV[6], NAV[7]] as const;
+const tab = (href: string) => NAV.find((n) => n.href === href)!;
+const TABS = [tab("/"), tab("/future-self"), tab("/roadmap"), tab("/memory")] as const;
 
 function MobileBar() {
   const [open, setOpen] = React.useState(false);

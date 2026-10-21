@@ -8,6 +8,7 @@ import { runNightShift } from "@/lib/night-shift";
 import { setActivePack } from "@/lib/packs";
 import { runResearch } from "@/lib/research";
 import { db } from "@/lib/server-db";
+import { saveSimulation, simulatePaths } from "@/lib/simulator";
 import { verifyMessage } from "@/lib/verify";
 import {
   buildWorkspace,
@@ -50,6 +51,8 @@ const Action = z.discriminatedUnion("action", [
   z.object({ action: z.literal("setPack"), id: z.string().max(80).nullable() }),
   z.object({ action: z.literal("decideDockerTool"), id: z.coerce.number().int(), decision: z.enum(["approve", "reject"]) }),
   z.object({ action: z.literal("startMission"), goal: z.string().min(5).max(400) }),
+  z.object({ action: z.literal("simulatePaths"), goal: z.string().min(5).max(300) }),
+  z.object({ action: z.literal("saveSimulation"), id: z.coerce.number().int() }),
 ]);
 
 export async function POST(request: Request) {
@@ -106,6 +109,12 @@ export async function POST(request: Request) {
         break;
       case "decideDockerTool":
         await decideDockerRequest(d, a.id, a.decision === "approve");
+        break;
+      case "simulatePaths":
+        await simulatePaths(d, a.goal);
+        break;
+      case "saveSimulation":
+        saveSimulation(d, a.id);
         break;
       case "startMission": {
         // The mission keeps working after this response; the app polls the workspace until it finishes.

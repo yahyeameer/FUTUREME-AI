@@ -8,6 +8,7 @@ import type {
   MemoryDraft,
   PlanProposal,
   Profile,
+  Simulation,
   SkillRun,
   TaskPatch,
   TurnEvent,
@@ -49,6 +50,12 @@ export interface ReflectionService {
   generateReflection(): Promise<Workspace>;
 }
 
+/** Three conditional routes to one goal, compared side by side. */
+export interface SimulatorService {
+  simulatePaths(goal: string): Promise<{ workspace: Workspace; simulation: Simulation }>;
+  saveSimulation(simulationId: string): Promise<Workspace>;
+}
+
 export interface DailyService {
   publishEdition(): Promise<{ workspace: Workspace; edition: DailyEdition }>;
 }
@@ -79,6 +86,7 @@ export interface FutureMeService
     RoadmapService,
     MemoryService,
     ReflectionService,
+    SimulatorService,
     DailyService,
     SkillService,
     AgentTeamService {
