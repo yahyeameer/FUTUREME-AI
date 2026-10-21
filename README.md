@@ -1,10 +1,10 @@
 <div align="center">
 
-<img src="docs/screenshots/logo.png" alt="FutureMe" width="360" />
+<img src="docs/screenshots/logo.png" alt="TOMORA" width="360" />
 
-### Meet the person you're becoming. Then let them help you get there.
+### Tomorrow starts with you.
 
-A personal AI that talks to you as **your future self**, remembers your life in a vault you own, runs a **team of Nemotron agents** while you sleep, and can even **call you in your own cloned voice**.
+**TOMORA** is personal future intelligence: explore the futures your choices could create, talk with a **future-self persona** grounded in your real circumstances, compare clearly different paths, and turn the one you choose into a plan you can act on.
 
 [![NVIDIA Nemotron](https://img.shields.io/badge/NVIDIA-Nemotron--3.5--Super--VL-76B900?logo=nvidia&logoColor=white)](#-nemotron-native-not-just-a-chat-endpoint)
 [![Nebius Token Factory](https://img.shields.io/badge/Nebius-Token%20Factory%20us--north1-0B1F3A)](#-deploy-it)
@@ -15,11 +15,11 @@ A personal AI that talks to you as **your future self**, remembers your life in 
 
 **Nebius × NVIDIA Global AI Hackathon 2026 · Personal AI track**
 
-[What it is](#-what-it-is) · [Voice twin](#-the-standout-your-voice-twin) · [Agents](#-the-agent-works-on-its-own) · [Nemotron](#-nemotron-native-not-just-a-chat-endpoint) · [Features](#-every-feature) · [Deploy](#-deploy-it) · [What's next](#-whats-next)
+[What it is](#-what-it-is) · [Brand](#-the-tomora-brand) · [Voice twin](#-the-standout-your-voice-twin) · [Agents](#-the-agent-works-on-its-own) · [Nemotron](#-nemotron-native-not-just-a-chat-endpoint) · [Features](#-every-feature) · [Deploy](#-deploy-it) · [What's next](#-whats-next)
 
 <br/>
 
-<img src="docs/screenshots/home-dark.png" alt="FutureMe home in dark mode" width="900" />
+<img src="docs/screenshots/welcome.png" alt="The TOMORA welcome page: Tomorrow starts with you, with a branching preview of three possible roads" width="900" />
 
 </div>
 
@@ -27,22 +27,42 @@ A personal AI that talks to you as **your future self**, remembers your life in 
 
 ## ✨ What it is
 
-Most AI assistants answer the question you just asked. FutureMe starts from the question you rarely ask: **who do you want to be in ten years, and what do you do this week to get there?**
+Most AI assistants answer the question you just asked. TOMORA starts from the question you rarely ask: **who could you become, and which road there fits the life you actually have?**
 
-You describe your ambition once. FutureMe builds a version of you from that horizon year, grounded only in what you've actually told it, and that future self:
+TOMORA follows one journey: **understand me → explore futures → compare paths → choose a direction → take action → review progress → adapt.**
 
-- 💬 **talks with you** about today's decisions, citing the notes it remembered,
-- 🗺️ **turns talk into a plan** (goals, milestones, tasks), but only after you approve,
-- 🌙 **keeps working when you don't**: a night shift writes your morning brief, a council of four future selves debates your hard decisions, missions split a big goal across helper agents,
-- 📞 **calls you in your own voice** to check whether you kept your promise,
-- 🔐 **never acts behind your back**: every change, call, email and commitment waits on an approval card.
+- 🧭 **Explore futures.** The Future Simulator lays out 6 to 12 clearly different roads to a goal (how you'd learn, pay and where), each with time and cost ranges, the assumptions it depends on, risks and first steps.
+- ⚖️ **Compare with real numbers.** Every road is rated against your money, hours, dependants and risk tolerance in plain code, so "what if I only have five hours a week?" or "what if the first milestone slips?" recalculates instantly, marked **Recalculated**, without another model call.
+- 💬 **Talk with your future self**, an AI persona that cites the notes it used, keeps what you told it apart from what it assumes, names trade-offs, and never claims to know your future.
+- 🗺️ **Turn it into action**: plans, milestones and tasks, only after you approve them, with checkpoints and warning signs on the road you chose.
+- 🌙 **Keep going when you don't**: a night shift writes your morning brief, a council of future selves debates hard decisions, missions split a big goal across helper agents.
+- 📞 **Hear it in your own voice** (where a voice engine is configured), with recorded consent.
+- 🔐 **Stay in control**: memory is a Markdown vault you can read, edit and delete; keys stay on the server; every change waits on an approval card.
 
-> **Why this has potential.** Coaching, accountability and planning help people most when they're personal and continuous, and that's exactly what's expensive. FutureMe makes it personal (your values, your words, your voice), continuous (agents that run on a schedule and call you), and trustworthy (local-first Markdown memory, provenance on every note, approval for every action). It's built for people who can't hire a coach: the demo persona is Hodan in Hargeisa, building an SMS crop-advice tool for farmers.
+> **Possibility over prediction.** TOMORA explores possibilities. It can't know your future, and nothing it shows is a prediction. Every scenario is conditional ("if you take this road and these assumptions hold"), every number is a range, and the arithmetic is deterministic and tested.
 
 <div align="center">
 <img src="docs/screenshots/future-self-chat.png" alt="Chat with your future self" width="900" />
 <br/><sub><b>Future Self.</b> Replies stream, tool calls show as they run, recalled notes are cited, and the plan waits as an approval card.</sub>
 </div>
+
+---
+
+## 🪞 The TOMORA brand
+
+| | |
+| --- | --- |
+| **Name** | TOMORA · Personal Future Intelligence |
+| **Tagline** | Tomorrow starts with you. |
+| **Promise** | Explore the futures your choices could create. |
+| **Symbol** | A threshold: a champagne horizon line with a road narrowing toward it, together reading as a geometric T. `src/components/brand/mark.tsx` (`BrandSymbol`, `Mark`, `Wordmark`), `src/app/icon.svg`. |
+| **Palette** | Ink `#101113`, deep midnight `#171B22`, warm ivory `#F3F0E8`, muted champagne `#C8B78F` (used sparingly for the one important action and selected states), slate `#858A93`. Tokens in `src/app/globals.css`, raw values in `src/lib/brand.ts`. |
+| **Type** | Instrument Serif for the wordmark and editorial headings, Geist for interface text, Newsreader for long-form reading, all self-hosted through `next/font`. |
+| **Motion** | Still by default. Motion only marks work in progress or a meaningful transition, and respects reduced-motion settings (OS or Settings → Appearance). |
+
+Everything brand-facing reads from **`src/lib/brand.ts`**. Storage and integration identifiers keep their original names on purpose, so nothing breaks for existing installs: the `futureme.db` database, the `futureme_access` cookie, `FUTUREME_*` environment variables, the `agents/futureme.yaml` team file, the `futureme` MCP server and Docker image names, and all API routes.
+
+The public welcome page lives at **`/welcome`** (open even when the access lock is on, and carries no workspace data). New visitors land there; **Explore my future** goes to `/start`, which opens onboarding for someone new and the app for someone returning.
 
 ---
 
@@ -74,7 +94,7 @@ You describe your ambition once. FutureMe builds a version of you from that hori
 | **Qwen TTS** (Alibaba Model Studio) | Your consent recording is enrolled for `qwen3-tts-vc` | — |
 | **Self-hosted** | Preset voices from any OpenAI-style `/audio/speech` server (Qwen3-TTS, Kokoro, Orpheus on Nebius, vLLM or your own box) | — |
 
-**How a call works.** ElevenLabs handles speech-to-text, your cloned voice (Flash v2.5) and turn-taking. For every reply it calls FutureMe as a **custom LLM** at `/api/twin/llm/v1/chat/completions`, which runs the `twin_voice` agent on Nemotron with your memory. So the voice is yours and the words are your future self's. Each call has its own random `call_ref` and a secret header, so nobody else can speak through your voice.
+**How a call works.** ElevenLabs handles speech-to-text, your cloned voice (Flash v2.5) and turn-taking. For every reply it calls TOMORA as a **custom LLM** at `/api/twin/llm/v1/chat/completions`, which runs the `twin_voice` agent on Nemotron with your memory. So the voice is yours and the words are your future self's. Each call has its own random `call_ref` and a secret header, so nobody else can speak through your voice.
 
 **Guardrails that are code, not prompts.** A fixed AI-disclosure opener on every call and email (added by the app, not the model) · contacts-only · daily limits (10 proposed calls, 50 emails, 6 calls to you) · a kill switch · a monthly cost cap · calling hours per country and no premium-rate numbers · a `stop_recording` tool if someone declines recording · retention of other people's data for 30 days · export or delete all twin data from Settings · an access code that locks the whole app before it goes public.
 
@@ -95,14 +115,14 @@ Recordings are converted to WAV in the browser so every engine accepts them, kep
 
 **Guardrails.** A `twin` agent in `agents/futureme.yaml` gets `search_memory` plus three propose-only MCP tools: `propose_call`, `propose_email` and `propose_commitment`. Each creates a pending approval (`outbound_call`, `send_email`, `commitment`) shown on `/twin`. It never agrees for you: requests become `commitment` approvals, and an approved one is filed under `Plans/`.
 
-**Talk to your twin** needs `TWIN_PUBLIC_URL` (FutureMe's public https address) and an ElevenLabs key.
+**Talk to your twin** needs `TWIN_PUBLIC_URL` (TOMORA's public https address) and an ElevenLabs key.
 
 - **In the browser:** "Call now" on `/twin` (or "Call your future self" on Home) starts a WebRTC call with a short-lived token.
-- **On your phone:** set `ELEVENLABS_PHONE_NUMBER_ID` to a Twilio number imported into ElevenLabs. FutureMe calls your number and reads a six-digit code you type in; the twin only ever calls that verified number.
+- **On your phone:** set `ELEVENLABS_PHONE_NUMBER_ID` to a Twilio number imported into ElevenLabs. TOMORA calls your number and reads a six-digit code you type in; the twin only ever calls that verified number.
 - When a call ends, its transcript and ElevenLabs' summary (marked as AI-written) are filed under `Calls/`.
 - `scripts/twin-scheduler.ts --loop` dials scheduled calls and files transcripts every 30 seconds. The Docker image always runs it (`TWIN_SCHEDULER=off` disables it).
 
-**Reach your contacts.** Calls need `ELEVENLABS_PHONE_NUMBER_ID`; email needs `AGENTMAIL_API_KEY`. At dial time the kill switch, daily limit and the contact's number are checked again. For Call Screen, assign the same Twilio number to the twin's ElevenLabs agent; FutureMe turns on its initiation webhook (`/api/twin/inbound`). To receive mail, point an AgentMail `message.received` webhook at `/api/twin/email` and set `AGENTMAIL_WEBHOOK_SECRET` (Svix signatures are verified).
+**Reach your contacts.** Calls need `ELEVENLABS_PHONE_NUMBER_ID`; email needs `AGENTMAIL_API_KEY`. At dial time the kill switch, daily limit and the contact's number are checked again. For Call Screen, assign the same Twilio number to the twin's ElevenLabs agent; TOMORA turns on its initiation webhook (`/api/twin/inbound`). To receive mail, point an AgentMail `message.received` webhook at `/api/twin/email` and set `AGENTMAIL_WEBHOOK_SECRET` (Svix signatures are verified).
 
 **Before putting it on a public address:**
 
@@ -119,7 +139,7 @@ Recordings are converted to WAV in the browser so every engine accepts them, kep
 
 ## 🤖 The agent works on its own
 
-FutureMe isn't one chatbot. `agents/futureme.yaml` defines a **team of 17 agents**, each with only the tools its job needs (the future self never browses; the researcher can't write plans). They run on Nemotron in the app, or under [Docker Agent](https://docker.github.io/docker-agent/) with FutureMe's MCP server.
+TOMORA isn't one chatbot. `agents/futureme.yaml` defines a **team of 17 agents**, each with only the tools its job needs (the future self never browses; the researcher can't write plans). They run on Nemotron in the app, or under [Docker Agent](https://docker.github.io/docker-agent/) with TOMORA's MCP server.
 
 <div align="center">
 <img src="docs/screenshots/agent.png" alt="Agent control room" width="900" />
@@ -130,7 +150,7 @@ FutureMe isn't one chatbot. `agents/futureme.yaml` defines a **team of 17 agents
 
 | | What runs by itself |
 | --- | --- |
-| 🌙 **Night shift** | Every day at `NIGHT_SHIFT_AT` (default 05:30) it publishes FutureMe Daily, writes a morning brief, picks up to three real open tasks as tomorrow's focus, and can propose a plan that waits for you. The Docker image starts the loop for you. |
+| 🌙 **Night shift** | Every day at `NIGHT_SHIFT_AT` (default 05:30) it publishes TOMORA Daily, writes a morning brief, picks up to three real open tasks as tomorrow's focus, and can propose a plan that waits for you. The Docker image starts the loop for you. |
 | 🚀 **Missions** | Give the team one goal. A mission lead splits it into 2 to 4 tasks, helper agents work on them **in parallel** with read-only tools, a supervisor reviews every result, and the lead writes one report from accepted results only. |
 | 🏛️ **Council** | Ask one decision of four future selves (you at your horizon, you next year, a skeptic, a mentor). They answer in parallel from your notes; a chair agent merges them into a decision brief with agreements, tensions and a next step. |
 | 🤝 **Handoffs** | Mid-conversation the future self can `delegate_task` to the researcher or council, or `spawn_agent` a temporary helper with a role and a subset of read-only tools. The reply shows who did it, with which tools, and the supervisor's verdict. |
@@ -162,13 +182,13 @@ FutureMe isn't one chatbot. `agents/futureme.yaml` defines a **team of 17 agents
 
 ## 🧠 Nemotron-native, not just a chat endpoint
 
-Every agent runs on **`nvidia/Nemotron-3.5-Super-VL`** on **Nebius Token Factory (`us-north1`)**, and FutureMe uses what the model offers beyond plain chat. See `src/lib/llm.ts` and `src/lib/nemotron.ts`.
+Every agent runs on **`nvidia/Nemotron-3.5-Super-VL`** on **Nebius Token Factory (`us-north1`)**, and TOMORA uses what the model offers beyond plain chat. See `src/lib/llm.ts` and `src/lib/nemotron.ts`.
 
-| Nemotron capability | Where FutureMe uses it |
+| Nemotron capability | Where TOMORA uses it |
 | --- | --- |
 | **Reasoning on/off per agent** (`chat_template_kwargs.enable_thinking`) | Planners and judges think first (future self, mission lead, council chair, supervisor, night shift, voice twin). Quick ones answer straight away (council voices, verifier, researcher, helpers, live-call agents, so calls stay fast). `NEBIUS_REASONING=on\|off` overrides. |
 | **Live reasoning trace** (`reasoning_content`, streamed) | The chat shows "Nemotron is reasoning…" live, and every reply keeps a folded "How I reasoned" section. |
-| **Structured outputs** (`response_format: json_schema`) | Council brief, fact check, supervisor verdict, mission plan and report, morning brief, research summary and FutureMe Daily are constrained to a schema. Tool-using agents answer freely, then get one formatting pass. |
+| **Structured outputs** (`response_format: json_schema`) | Council brief, fact check, supervisor verdict, mission plan and report, morning brief, research summary and TOMORA Daily are constrained to a schema. Tool-using agents answer freely, then get one formatting pass. |
 | **Parallel tool calling** | When Nemotron asks for several tools in one step, they run in parallel. Up to 10 tool steps per turn. |
 | **Vision** (photo input) | Attach a photo in the chat (a whiteboard plan, a workout log). Nemotron reads it, and the photo is kept in the vault's `Photos/` folder. |
 | **Long context** | The future self keeps the last 40 messages in view. |
@@ -195,7 +215,7 @@ Every agent runs on **`nvidia/Nemotron-3.5-Super-VL`** on **Nebius Token Factory
 <td width="50%"><img src="docs/screenshots/memory.png" alt="Memory Vault" /><br/><sub><b>Memory Vault.</b> Search, filters, provenance and a graph of real links.</sub></td>
 </tr>
 <tr>
-<td width="50%"><img src="docs/screenshots/daily.png" alt="FutureMe Daily" /><br/><sub><b>FutureMe Daily.</b> A magazine edition of your week, every item sourced.</sub></td>
+<td width="50%"><img src="docs/screenshots/daily.png" alt="TOMORA Daily" /><br/><sub><b>TOMORA Daily.</b> A magazine edition of your week, every item sourced.</sub></td>
 <td width="50%" align="center"><img src="docs/screenshots/chat-phone.png" alt="Phone layout" width="220" /><br/><sub>Every screen works down to phone width.</sub></td>
 </tr>
 </table>
@@ -208,7 +228,7 @@ Every agent runs on **`nvidia/Nemotron-3.5-Super-VL`** on **Nebius Token Factory
 | **Future Reflection** `/reflection` | An imagined letter as a five-chapter magazine issue with keyboard and swipe navigation; insights become goals or memories (labelled as AI interpretation). |
 | **Memory Vault** `/memory` | Search, filter by type, provenance and tag, a graph of wiki-links, create, edit and delete. Each note shows why it exists. |
 | **Life Roadmap** `/roadmap` | Long-term goal, milestones as a timeline, tasks with status, due dates and dependencies, blockers, and plans awaiting approval. |
-| **FutureMe Daily** `/daily` | A weekly magazine built only from completed tasks, goals and saved notes, with links to every source. |
+| **TOMORA Daily** `/daily` | A weekly magazine built only from completed tasks, goals and saved notes, with links to every source. |
 | **Skills and Actions** `/skills` | Plan My Day, Break Down My Goal, Weekly Review, Prepare an Action Plan, Research and Summarize. Each lists its permissions; record-creating runs go through approval. |
 | **Council** `/council` · **Missions** `/missions` · **Agent** `/agent` | The agent team, described above. |
 | **Voice Twin** `/twin` | Your cloned voice, calls, contacts, email and guardrails, described above. |
@@ -365,7 +385,7 @@ npm run lint && npm run typecheck && npm test
 npm run test:e2e                            # browser test of the whole loop
 ```
 
-`--safety autonomous` lets Docker Agent call tools without a terminal prompt. That's safe here because its only tools are FutureMe's own, and anything they propose still waits for approval in the app.
+`--safety autonomous` lets Docker Agent call tools without a terminal prompt. That's safe here because its only tools are TOMORA's own, and anything they propose still waits for approval in the app.
 
 </details>
 
@@ -379,6 +399,8 @@ npm run test:e2e                            # browser test of the whole loop
 - Skill run history and "mark useful" on Daily are kept in the browser, not the database.
 - The decision layer's thresholds and weights are untuned starting points, and its evaluation set is small and labelled by the implementer. Nemotron's cost estimates aren't verified unless you enter a looked-up price ([docs/decision-layer.md](docs/decision-layer.md#limitations-and-what-still-needs-real-world-validation)).
 - Single-user app: lock it with `FUTUREME_ACCESS_CODE` before putting real data on a public address.
+- **Verified against live Nemotron (Nebius Token Factory, Oct 2026):** future-self chat, including the memory tool and the honesty rules. The Future Simulator returned 8 schema-valid roads live only with the truncation fix from PR #29; without it, live runs can come back short and the app refuses them with "didn't return at least three usable routes" rather than showing partial results.
+- **Scenario arithmetic** (`src/lib/scenario-math.ts`) is deterministic and unit-tested; it stretches timelines by effort and adds slips, but it can't see fixed calendars (terms, hiring cycles), so more hours never shorten a road in its estimate.
 
 ---
 
@@ -388,11 +410,11 @@ Ideas that build directly on what's already here:
 
 1. **Shareable call clip.** Turn the best 30 seconds of a "Call From the Future" into a captioned clip to share, with the AI disclosure burned in. The best possible demo of the product, made by its users.
 2. **Dial-a-Council.** Put the four council voices on one phone call: ask your hard question out loud and hear the skeptic and the mentor argue it out, then get the brief by email.
-3. **Twin-to-Twin.** Let two FutureMe users' twins schedule a meeting or swap updates on their behalf, with both owners approving. It needs more than one user, which is why it isn't built yet.
+3. **Twin-to-Twin.** Let two TOMORA users' twins schedule a meeting or swap updates on their behalf, with both owners approving. It needs more than one user, which is why it isn't built yet.
 4. **Local Nemotron by default for private mode.** Ship a one-click "private" profile on Nemotron Nano through Docker Model Runner, and a GPU recipe on Nebius for the full model on your own VM.
 5. **Real Apify fetch, end to end.** Run the public-profile fetch against live Apify actors (Instagram, TikTok, YouTube) and harden it with real-world data.
 6. **Voice engines in production.** Validate OpenRouter (Fish Audio) and Qwen cloning on real keys, and let calls run on a self-hosted voice on Nebius.
-7. **Trend sourcing for FutureMe Daily**, so the "Signals" section brings in real news about your field.
+7. **Trend sourcing for TOMORA Daily**, so the "Signals" section brings in real news about your field.
 8. **Accountability streaks:** Promise Keeper calls that adapt their timing to when you actually get things done.
 
 ---

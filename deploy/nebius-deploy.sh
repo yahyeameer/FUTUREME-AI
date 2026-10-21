@@ -1,5 +1,5 @@
 #!/bin/bash
-# Creates a firewall + a small CPU VM in your Nebius project and starts FutureMe AI on it.
+# Creates a firewall + a small CPU VM in your Nebius project and starts TOMORA on it.
 set -euo pipefail
 
 # ---------- settings ----------

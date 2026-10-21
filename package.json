@@ -1,5 +1,6 @@
 {
-  "name": "futureme-ai",
+  "name": "tomora",
+  "description": "TOMORA: personal future intelligence. Tomorrow starts with you.",
   "version": "0.1.0",
   "private": true,
   "scripts": {

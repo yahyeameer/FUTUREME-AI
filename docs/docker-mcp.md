@@ -1,8 +1,8 @@
 # Docker MCP tools for the agent
 
-FutureMe's future self can use tools from [Docker's MCP catalog](https://hub.docker.com/mcp) (web search, fetch, GitHub, Notion, time and many more) through the **Docker MCP Gateway**, part of Docker Desktop's MCP Toolkit. The gateway runs each MCP server in its own container. FutureMe connects to it as an MCP client and offers its tools to the agent as `docker_<tool>`.
+TOMORA's future self can use tools from [Docker's MCP catalog](https://hub.docker.com/mcp) (web search, fetch, GitHub, Notion, time and many more) through the **Docker MCP Gateway**, part of Docker Desktop's MCP Toolkit. The gateway runs each MCP server in its own container. TOMORA connects to it as an MCP client and offers its tools to the agent as `docker_<tool>`.
 
-Every call goes through FutureMe, so:
+Every call goes through TOMORA, so:
 
 - **Read-only tools run straight away.** A tool counts as read-only only when it declares `readOnlyHint` and not `destructiveHint`.
 - **Everything else asks first.** The call becomes a request on the Agent page (**Docker MCP tools**). Nothing runs until you press **Approve and run**. The result is shown there and posted into the conversation, so the agent can use it on your next message. **Decline** runs nothing.
@@ -34,13 +34,13 @@ It's optional. Without it, or when Docker isn't running, the agent has no Docker
    DOCKER_MCP_GATEWAY_URL=http://localhost:8811/mcp
    ```
 
-6. Start FutureMe (`npm run dev`, or `npm run build && npm start`) and open **Agent**. **Docker MCP tools** should say *Connected* and list the tools. Ask your future self something a tool can do, for example "search the web for SMS farming advice".
+6. Start TOMORA (`npm run dev`, or `npm run build && npm start`) and open **Agent**. **Docker MCP tools** should say *Connected* and list the tools. Ask your future self something a tool can do, for example "search the web for SMS farming advice".
 
-Instead of steps 4 and 5 you can set `DOCKER_MCP_GATEWAY=on`, and FutureMe starts `docker mcp gateway run` itself over stdio (`DOCKER_MCP_SERVERS=duckduckgo,fetch` picks the servers). That's one gateway per process, so with Docker Agent prefer the URL.
+Instead of steps 4 and 5 you can set `DOCKER_MCP_GATEWAY=on`, and TOMORA starts `docker mcp gateway run` itself over stdio (`DOCKER_MCP_SERVERS=duckduckgo,fetch` picks the servers). That's one gateway per process, so with Docker Agent prefer the URL.
 
 ## With Docker Agent
 
-`agents/futureme.yaml` gives the future self a second MCP toolset, `mcp/docker-tools-server.ts`. It's a small bridge that lists the gateway's tools and sends every call through FutureMe's approval step, so `--safety autonomous` stays safe. Set `DOCKER_MCP_GATEWAY_URL` in the environment of `npm run agent:serve` too.
+`agents/futureme.yaml` gives the future self a second MCP toolset, `mcp/docker-tools-server.ts`. It's a small bridge that lists the gateway's tools and sends every call through TOMORA's approval step, so `--safety autonomous` stays safe. Set `DOCKER_MCP_GATEWAY_URL` in the environment of `npm run agent:serve` too.
 
 ## With Docker Compose
 
@@ -48,7 +48,7 @@ Instead of steps 4 and 5 you can set `DOCKER_MCP_GATEWAY=on`, and FutureMe start
 docker compose -f docker-compose.yml -f docker-compose.mcp.yml up --build
 ```
 
-This adds a `mcp-gateway` service (the `docker/mcp-gateway` image, with the Docker socket mounted) and points FutureMe at it. `DOCKER_MCP_SERVERS` picks the catalog servers (default `duckduckgo,fetch`).
+This adds a `mcp-gateway` service (the `docker/mcp-gateway` image, with the Docker socket mounted) and points TOMORA at it. `DOCKER_MCP_SERVERS` picks the catalog servers (default `duckduckgo,fetch`).
 
 ## Settings
 
@@ -61,4 +61,4 @@ This adds a `mcp-gateway` service (the `docker/mcp-gateway` image, with the Dock
 | `DOCKER_MCP_AUTO_APPROVE` | Tool names (as the gateway names them) that may run without asking even though they don't say they're read-only. Leave empty unless you trust them. |
 | `DOCKER_MCP_GATEWAY_COMMAND` | Advanced: a different command to start instead of `docker mcp gateway run`. |
 
-If the gateway stops, the Agent page shows *Not reachable* and FutureMe tries again every 30 seconds. A request you approve while it's down stays pending, so you can approve it again once Docker is back.
+If the gateway stops, the Agent page shows *Not reachable* and TOMORA tries again every 30 seconds. A request you approve while it's down stays pending, so you can approve it again once Docker is back.

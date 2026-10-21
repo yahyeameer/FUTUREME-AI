@@ -1,5 +1,5 @@
 #!/bin/bash
-# FutureMe AI on your own server, always on, with a free HTTPS link.
+# TOMORA on your own server, always on, with a free HTTPS link.
 # Works on AWS EC2 and any Ubuntu 22.04/24.04 VM (Nebius, DigitalOcean, Hetzner, a home server...).
 #   AWS / most clouds: paste this whole file into "User data" (cloud-init) when you create the VM.
 #   Any other Ubuntu box: copy it over and run   sudo bash aws-user-data-always-on.sh
@@ -97,7 +97,7 @@ chmod +x /usr/local/bin/futureme-start
 
 cat > /etc/systemd/system/futureme.service <<'UNIT'
 [Unit]
-Description=FutureMe AI (app + HTTPS)
+Description=TOMORA (app + HTTPS)
 After=docker.service network-online.target
 Wants=network-online.target
 Requires=docker.service

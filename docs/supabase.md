@@ -1,6 +1,6 @@
 # Supabase cloud copy
 
-FutureMe keeps working on its local SQLite database and Markdown vault, and keeps a copy of both in Supabase:
+TOMORA keeps working on its local SQLite database and Markdown vault, and keeps a copy of both in Supabase:
 every table goes to a Postgres table with the same name and columns, and every vault note and voice recording goes to
 the private `futureme-files` Storage bucket. A new server or a lost disk gets everything back from that copy.
 

@@ -2,6 +2,7 @@
 
 import { ConversationProvider, useConversation } from "@elevenlabs/react";
 import { Archive, Ban, CalendarClock, Check, Hourglass, Loader2, Mic, Phone, PhoneCall, PhoneIncoming, PhoneOff, PhoneOutgoing, ShieldCheck, Square, Trash2, X } from "lucide-react";
+import Link from "next/link";
 import * as React from "react";
 import { toast } from "sonner";
 import { SectionHeading } from "@/components/layout/page-header";
@@ -66,6 +67,8 @@ function BrowserCall({ act, paused, year }: { act: Act; paused: boolean; year: n
   const [topic, setTopic] = React.useState("");
   const [starting, setStarting] = React.useState(false);
   const [lines, setLines] = React.useState<{ id: number; role: "user" | "agent"; text: string }[]>([]);
+  // Why the last call couldn't start or dropped, shown in place with a retry and a text fallback (not only as a toast).
+  const [problem, setProblem] = React.useState<string | null>(null);
   const callId = React.useRef<number | null>(null);
 
   const conversation = useConversation({
@@ -75,7 +78,9 @@ function BrowserCall({ act, paused, year }: { act: Act; paused: boolean; year: n
     onDisconnect: () => end(),
     onMessage: (m) => setLines((l) => [...l, { id: m.event_id, role: m.role, text: m.message }].slice(-12)),
     onError: (message) => {
-      toast.error(typeof message === "string" ? message : "The call dropped.");
+      const text = typeof message === "string" ? message : "The call dropped.";
+      toast.error(text);
+      setProblem(`${text} You can try again, or keep talking by text.`);
       end();
     },
   });
@@ -91,12 +96,21 @@ function BrowserCall({ act, paused, year }: { act: Act; paused: boolean; year: n
   const start = async () => {
     setStarting(true);
     setLines([]);
+    setProblem(null);
     try {
       // Ask for the microphone first, so a refusal doesn't leave a call half started.
+      if (!navigator.mediaDevices?.getUserMedia) throw Object.assign(new Error("unsupported"), { name: "NotSupportedError" });
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       stream.getTracks().forEach((t) => t.stop());
-    } catch {
-      toast.error("TOMORA needs your microphone for a call.");
+    } catch (err) {
+      const name = err instanceof Error ? err.name : "";
+      setProblem(
+        name === "NotAllowedError" || name === "SecurityError"
+          ? "Microphone access is blocked. Allow it for this site in your browser's settings, then try again."
+          : name === "NotFoundError"
+            ? "No microphone was found. Plug one in, or keep talking by text."
+            : "This browser can't use a microphone here. Calls need HTTPS or localhost.",
+      );
       setStarting(false);
       return;
     }
@@ -105,6 +119,8 @@ function BrowserCall({ act, paused, year }: { act: Act; paused: boolean; year: n
     if (call) {
       callId.current = call.callId;
       conversation.startSession({ conversationToken: call.conversationToken, connectionType: "webrtc", dynamicVariables: call.dynamicVariables });
+    } else {
+      setProblem("The call couldn't start. Check the voice engine on this page, or keep talking by text.");
     }
     setStarting(false);
   };
@@ -134,12 +150,28 @@ function BrowserCall({ act, paused, year }: { act: Act; paused: boolean; year: n
           </Button>
         </div>
       ) : (
+        <>
+        {problem && (
+          <div role="alert" className="mt-4 rounded-lg border border-warning/30 bg-warning-wash px-3 py-2.5 text-[12.5px]">
+            <p>{problem}</p>
+            <p className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1">
+              <button type="button" className="font-medium text-accent-ink underline-offset-4 hover:underline" onClick={start} disabled={starting || paused}>
+                Try again
+              </button>
+              <Link href="/future-self" className="font-medium text-accent-ink underline-offset-4 hover:underline">
+                Talk by text instead
+              </Link>
+            </p>
+          </div>
+        )}
         <div className="mt-4 flex flex-col gap-2 sm:flex-row">
           <Input value={topic} onChange={(e) => setTopic(e.target.value)} maxLength={200} placeholder="What's on your mind? (optional)" aria-label="What to talk about" />
           <Button variant="primary" onClick={start} disabled={starting || paused}>
-            {starting ? <Loader2 className="animate-spin" /> : <PhoneCall />} Call now
+            {starting ? <Loader2 className="animate-spin" /> : <PhoneCall />} {starting ? "Connecting…" : "Call now"}
           </Button>
         </div>
+        <p className="mt-2 t-meta">Your browser asks for the microphone only when you start a call.</p>
+        </>
       )}
     </article>
   );
