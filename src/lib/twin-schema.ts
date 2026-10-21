@@ -122,6 +122,7 @@ const ADDED_COLUMNS: [table: string, column: string, type: string][] = [
   ["calls", "no_record", "INTEGER NOT NULL DEFAULT 0"],
   ["calls", "purged_at", "TEXT"],
   ["email_threads", "purged_at", "TEXT"],
+  ["voice_profiles", "model", "TEXT"],
 ];
 
 type MiniDb = { prepare: (sql: string) => { all: () => unknown[] }; exec: (sql: string) => unknown };

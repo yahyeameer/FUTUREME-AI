@@ -56,7 +56,7 @@ if [ "$NIGHT_SHIFT_AT" != "off" ]; then
 fi
 
 # The voice twin's scheduler places scheduled calls to the user's own phone and files call transcripts.
-if [ -n "$ELEVENLABS_API_KEY" ] && [ "$TWIN_SCHEDULER" != "off" ]; then
+if [ "$TWIN_SCHEDULER" != "off" ]; then
   node_modules/.bin/tsx scripts/twin-scheduler.ts --loop &
 fi
 

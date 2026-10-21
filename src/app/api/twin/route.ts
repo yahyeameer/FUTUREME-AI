@@ -18,7 +18,9 @@ import {
 } from "@/lib/twin-calls";
 import { deleteTwinData } from "@/lib/twin-data";
 import { dismissFlag } from "@/lib/twin-guard";
-import { getVoiceApi, professionalCaptcha, refreshProfessional, revokeVoice, startConsent, startProfessionalClone } from "@/lib/voice";
+import type { Db } from "@/lib/db";
+import { chooseEngine, ENGINE_IDS, forgetEngineKey, saveEngine } from "@/lib/voice-engines";
+import { activeVoice, getTranscriber, getVoiceApi, professionalCaptcha, refreshProfessional, revokeVoice, startConsent, startProfessionalClone } from "@/lib/voice";
 import { errorResponse, twinState } from "./state";
 
 // The Twin page's endpoint. GET returns the twin's state; POST runs one action and returns the new state.
@@ -56,6 +58,16 @@ const Action = z.discriminatedUnion("action", [
   z.object({ action: z.literal("setupInbox") }),
   z.object({ action: z.literal("dismissFlag"), id: z.number().int() }),
   z.object({ action: z.literal("deleteAll"), confirm: z.literal("DELETE") }),
+  z.object({
+    action: z.literal("saveEngine"),
+    engine: z.enum(ENGINE_IDS),
+    key: z.string().max(500).optional(),
+    model: z.string().max(120).optional(),
+    voice: z.string().max(120).optional(),
+    baseUrl: z.string().max(300).optional(),
+  }),
+  z.object({ action: z.literal("forgetEngineKey"), engine: z.enum(ENGINE_IDS) }),
+  z.object({ action: z.literal("chooseEngine"), engine: z.enum(ENGINE_IDS) }),
 ]);
 
 const needsMail = () => {
@@ -64,9 +76,9 @@ const needsMail = () => {
   return api;
 };
 
-const needsKey = () => {
-  const api = getVoiceApi();
-  if (!api) throw new Error("The voice twin needs ELEVENLABS_API_KEY on the server.");
+const needsKey = (d: Db) => {
+  const api = getVoiceApi(d);
+  if (!api) throw new Error("This needs an ElevenLabs key. Add one under Voice engine.");
   return api;
 };
 
@@ -92,7 +104,7 @@ export async function POST(request: Request) {
         // can't happen (not set up, or it fails), the approval stands and the card offers to try again.
         const { callId, emailId } = decideTwinApproval(d, a.id, a.decision === "approve");
         try {
-          const voice = getVoiceApi();
+          const voice = getVoiceApi(d);
           const mail = getMailApi();
           if (callId && voice) await dialApprovedCall(d, voice, callId);
           if (emailId && mail) await sendApprovedEmail(d, mail, emailId);
@@ -102,7 +114,7 @@ export async function POST(request: Request) {
         break;
       }
       case "dialApproved":
-        await dialApprovedCall(d, needsKey(), a.callId);
+        await dialApprovedCall(d, needsKey(d), a.callId);
         break;
       case "sendApproved":
         await sendApprovedEmail(d, needsMail(), a.emailId);
@@ -117,23 +129,23 @@ export async function POST(request: Request) {
         await ensureInbox(d, needsMail());
         break;
       case "startConsent":
-        needsKey();
+        if (!getTranscriber(d)) throw new Error("Checking your consent phrase needs an ElevenLabs or OpenRouter key. Add one under Voice engine.");
         extra = { consent: startConsent(d) };
         break;
       case "startProfessional":
-        await startProfessionalClone(d, needsKey(), a.language);
+        await startProfessionalClone(d, needsKey(d), a.language);
         break;
       case "captcha":
-        extra = { captcha: await professionalCaptcha(d, needsKey()) };
+        extra = { captcha: await professionalCaptcha(d, needsKey(d)) };
         break;
       case "refreshVoice":
-        await refreshProfessional(d, needsKey());
+        await refreshProfessional(d, needsKey(d));
         break;
       case "revokeVoice":
-        await revokeVoice(d, getVoiceApi());
+        await revokeVoice(d, getVoiceApi(d));
         break;
       case "startWebCall":
-        extra = { webCall: await startWebCall(d, needsKey(), a.topic) };
+        extra = { webCall: await startWebCall(d, needsKey(d), a.topic) };
         break;
       case "webCallConnected":
         webCallConnected(d, a.callId, a.conversationId);
@@ -142,10 +154,10 @@ export async function POST(request: Request) {
         webCallEnded(d, a.callId);
         break;
       case "syncCalls":
-        await syncCalls(d, needsKey());
+        await syncCalls(d, needsKey(d));
         break;
       case "setPhone":
-        await setOwnerPhone(d, needsKey(), a.phone);
+        await setOwnerPhone(d, needsKey(d), a.phone);
         break;
       case "confirmPhone":
         confirmOwnerPhone(d, a.code);
@@ -154,7 +166,7 @@ export async function POST(request: Request) {
         removeOwnerPhone(d);
         break;
       case "scheduleCall":
-        await scheduleSelfCall(d, getVoiceApi(), a.call);
+        await scheduleSelfCall(d, getVoiceApi(d), a.call);
         break;
       case "cancelCall":
         cancelCall(d, a.id);
@@ -162,8 +174,18 @@ export async function POST(request: Request) {
       case "dismissFlag":
         dismissFlag(d, a.id);
         break;
+      case "saveEngine":
+        saveEngine(d, a);
+        break;
+      case "forgetEngineKey":
+        if (activeVoice(d)?.provider === a.engine) throw new Error("Your voice lives with this engine. Delete your voice first, so it can be deleted there too.");
+        forgetEngineKey(d, a.engine);
+        break;
+      case "chooseEngine":
+        chooseEngine(d, a.engine, activeVoice(d)?.provider ?? null);
+        break;
       case "deleteAll":
-        extra = { deleted: await deleteTwinData(d, getVoiceApi(), getMailApi()) };
+        extra = { deleted: await deleteTwinData(d, getVoiceApi(d), getMailApi()) };
         break;
     }
     return Response.json({ ...twinState(d), ...extra });

@@ -1,6 +1,6 @@
 import { db } from "@/lib/server-db";
 import { sealCapsule } from "@/lib/twin-calls";
-import { createInstantClone, getVoiceApi, MAX_SAMPLES, verifyConsent, verifyProfessional, type AudioInput } from "@/lib/voice";
+import { createInstantClone, getTranscriber, getVoiceApi, MAX_SAMPLES, verifyConsent, verifyProfessional, type AudioInput } from "@/lib/voice";
 import { errorResponse, twinState } from "../state";
 
 // Recordings from the Twin page, as multipart form data:
@@ -16,26 +16,31 @@ async function toAudio(value: FormDataEntryValue | null): Promise<AudioInput> {
 
 export async function POST(request: Request) {
   try {
-    const api = getVoiceApi();
-    if (!api) throw new Error("Voice cloning needs ELEVENLABS_API_KEY on the server.");
     const form = await request.formData();
     const d = db();
+    const elevenlabs = () => {
+      const api = getVoiceApi(d);
+      if (!api) throw new Error("This needs an ElevenLabs key. Add one under Voice engine.");
+      return api;
+    };
     switch (form.get("action")) {
       case "consent": {
-        const result = await verifyConsent(d, api, Number(form.get("consentId")), await toAudio(form.get("audio")));
+        const stt = getTranscriber(d);
+        if (!stt) throw new Error("Checking your consent phrase needs an ElevenLabs or OpenRouter key. Add one under Voice engine.");
+        const result = await verifyConsent(d, stt, Number(form.get("consentId")), await toAudio(form.get("audio")));
         return Response.json({ ...twinState(d), result });
       }
       case "clone": {
         const samples = form.getAll("samples");
         if (samples.length > MAX_SAMPLES) throw new Error(`Add at most ${MAX_SAMPLES} samples.`);
-        await createInstantClone(d, api, await Promise.all(samples.map(toAudio)));
+        await createInstantClone(d, await Promise.all(samples.map(toAudio)));
         return Response.json(twinState(d));
       }
       case "captcha":
-        await verifyProfessional(d, api, await toAudio(form.get("audio")));
+        await verifyProfessional(d, elevenlabs(), await toAudio(form.get("audio")));
         return Response.json(twinState(d));
       case "capsule":
-        await sealCapsule(d, api, await toAudio(form.get("audio")), new Date(String(form.get("at"))));
+        await sealCapsule(d, elevenlabs(), await toAudio(form.get("audio")), new Date(String(form.get("at"))));
         return Response.json(twinState(d));
       default:
         throw new Error("Unknown action.");
