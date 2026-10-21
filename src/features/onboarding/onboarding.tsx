@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import * as React from "react";
 import { toast } from "sonner";
 import { Wordmark } from "@/components/brand/mark";
+import { Orb } from "@/components/brand/orb";
 import { Presence } from "@/components/brand/presence";
 import { ErrorState } from "@/components/states";
 import { Button } from "@/components/ui/button";
@@ -60,7 +61,9 @@ export function Onboarding() {
             <Wordmark withSymbol className="text-[#F3F0E8]" />
           </Link>
           <div className="relative">
-            <Presence convergence={0.15} size={220} horizonLabel="Possible you" className="text-[#F3F0E8]" />
+            <Orb size={280} className="text-[#F3F0E8]">
+              <Presence convergence={0.15} size={190} horizonLabel="Possible you" />
+            </Orb>
             <p className="mt-10 max-w-md font-display text-[2.6rem] leading-[1.02] text-balance">{BRAND.tagline}</p>
             <ol className="mt-8 grid gap-3 text-[13px] text-[#F3F0E8]/75">
               {["Tell TOMORA where you are and where you want to go", "Explore different roads, each with its assumptions", "Choose one, and turn it into a few next steps"].map((t, i) => (

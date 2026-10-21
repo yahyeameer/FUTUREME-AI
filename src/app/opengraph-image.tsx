@@ -1,4 +1,5 @@
 import { ImageResponse } from "next/og";
+import { StillClock } from "@/components/brand/still-clock";
 import { BRAND, BRAND_COLORS } from "@/lib/brand";
 
 // The share preview. It carries the brand only: never a name, goal or anything from someone's workspace.
@@ -13,10 +14,7 @@ export default function OpenGraphImage() {
     (
       <div style={{ width: "100%", height: "100%", display: "flex", flexDirection: "column", justifyContent: "space-between", padding: 80, background: `linear-gradient(180deg, ${midnight} 0%, ${ink} 100%)`, color: ivory }}>
         <div style={{ display: "flex", alignItems: "center", gap: 20 }}>
-          <svg width="56" height="56" viewBox="0 0 32 32">
-            <rect x="5" y="8.5" width="22" height="2.25" rx="1.125" fill={champagne} />
-            <path d="M12.6 27 L15.15 13.6 H16.85 L19.4 27 Z" fill={ivory} />
-          </svg>
+          <StillClock size={64} />
           <div style={{ fontSize: 34, letterSpacing: 12 }}>{BRAND.name}</div>
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>

@@ -37,6 +37,8 @@
   --accent-wash: rgb(200 183 143 / 0.2);
   --copper: #4f5a6b;
   --copper-wash: rgb(79 90 107 / 0.1);
+  /* Bronze: the past in the TOMORA clock (logo and orb). Champagne is the future. */
+  --bronze: #a8703f;
 
   --destructive: #a8402e;
   --destructive-wash: rgb(168 64 46 / 0.08);
@@ -88,6 +90,7 @@
   --accent-wash: rgb(200 183 143 / 0.11);
   --copper: #9ba5b4;
   --copper-wash: rgb(155 165 180 / 0.1);
+  --bronze: #c8925f;
 
   --destructive: #e08a77;
   --destructive-wash: rgb(224 138 119 / 0.12);
@@ -158,6 +161,7 @@
   --color-accent-ink: var(--accent-ink);
   --color-accent-wash: var(--accent-wash);
   --color-copper: var(--copper);
+  --color-bronze: var(--bronze);
   --color-copper-wash: var(--copper-wash);
   --color-destructive: var(--destructive);
   --color-destructive-wash: var(--destructive-wash);
