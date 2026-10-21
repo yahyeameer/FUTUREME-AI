@@ -55,12 +55,16 @@ TOMORA follows one journey: **understand me → explore futures → compare path
 | **Name** | TOMORA · Personal Future Intelligence |
 | **Tagline** | Tomorrow starts with you. |
 | **Promise** | Explore the futures your choices could create. |
-| **Symbol** | A threshold: a champagne horizon line with a road narrowing toward it, together reading as a geometric T. `src/components/brand/mark.tsx` (`BrandSymbol`, `Mark`, `Wordmark`), `src/app/icon.svg`. |
+| **Symbol** | An old clock where the past and the future turn together: a bronze ring of the past turns backward while the future dial turns forward, around today (a bronze point) and the future you named (a champagne ring), with a light running like a second hand. `src/components/brand/mark.tsx` (`Mark`, `ClockFace`, `Wordmark`), the larger time-orb in `src/components/brand/orb.tsx`, and `src/app/icon.svg`. |
 | **Palette** | Ink `#101113`, deep midnight `#171B22`, warm ivory `#F3F0E8`, muted champagne `#C8B78F` (used sparingly for the one important action and selected states), slate `#858A93`. Tokens in `src/app/globals.css`, raw values in `src/lib/brand.ts`. |
 | **Type** | Instrument Serif for the wordmark and editorial headings, Geist for interface text, Newsreader for long-form reading, all self-hosted through `next/font`. |
-| **Motion** | Still by default. Motion only marks work in progress or a meaningful transition, and respects reduced-motion settings (OS or Settings → Appearance). |
+| **Motion** | The clock turns slowly and glows on hover. Onboarding is the most animated screen: rising embers, turning time rings, a live preview of your future self as you type, and an arrival moment when you finish. Everything respects reduced-motion settings (OS or Settings → Appearance). |
 
 Everything brand-facing reads from **`src/lib/brand.ts`**. Storage and integration identifiers keep their original names on purpose, so nothing breaks for existing installs: the `futureme.db` database, the `futureme_access` cookie, `FUTUREME_*` environment variables, the `agents/futureme.yaml` team file, the `futureme` MCP server and Docker image names, and all API routes.
+
+<div align="center">
+<img src="docs/screenshots/onboarding.png" alt="TOMORA onboarding: the time-orb, a live preview of your future self, and the first of three short steps" width="900" />
+</div>
 
 The public welcome page lives at **`/welcome`** (open even when the access lock is on, and carries no workspace data). New visitors land there; **Explore my future** goes to `/start`, which opens onboarding for someone new and the app for someone returning.
 

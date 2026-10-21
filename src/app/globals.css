@@ -292,6 +292,19 @@
   to { opacity: 1; transform: none; }
 }
 
+@keyframes rise {
+  0% { transform: translate3d(0, 0, 0); opacity: 0; }
+  12% { opacity: 0.9; }
+  50% { transform: translate3d(14px, -48vh, 0); }
+  85% { opacity: 0.6; }
+  100% { transform: translate3d(-6px, -96vh, 0); opacity: 0; }
+}
+
+@keyframes glint {
+  0%, 100% { opacity: 0.55; }
+  50% { opacity: 1; }
+}
+
 @keyframes caret {
   to {
     visibility: hidden;
