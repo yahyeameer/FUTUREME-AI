@@ -6,6 +6,7 @@ import {
   AtSign,
   BookmarkPlus,
   BookOpen,
+  CheckCircle2,
   Briefcase,
   Check,
   Clock,
@@ -40,6 +41,7 @@ import { Button } from "@/components/ui/button";
 import { fieldClass } from "@/components/ui/input";
 import { Segmented } from "@/components/ui/segmented";
 import { ProvenanceBadge } from "@/features/memory/provenance";
+import { ChosenRoadCard } from "@/features/simulator/chosen-road";
 import { activeMilestone } from "@/lib/derive";
 import { FUNDING_LABEL, KIND_LABEL, PLACE_LABEL, SIMULATION_FRAMING, formatCost, formatSpan, money, rankPaths, type Assessment } from "@/lib/simulator-paths";
 import { cn, relativeDay } from "@/lib/utils";
@@ -165,6 +167,8 @@ export function Simulator() {
         <RevealItem aria-label="How to read these scenarios">
           <Framing />
         </RevealItem>
+
+        {workspace.chosenRoad && <ChosenRoadCard />}
 
         <AnimatePresence mode="wait">
           {busy ? (
@@ -327,6 +331,13 @@ function Result({ simulation }: { simulation: Simulation }) {
   const compared = pinned ?? ranked.slice(0, 3).map((r) => r.index);
   const rest = ranked.filter((r) => !compared.includes(r.index));
   const shown = Math.min(focus, compared.length - 1);
+  const [choosing, setChoosing] = React.useState<number | null>(null);
+  const chosen = workspace.chosenRoad?.simulationId === simulation.id ? workspace.chosenRoad.index : null;
+  const choose = async (index: number) => {
+    setChoosing(index);
+    await run((s) => s.chooseRoad(simulation.id, index), "Road chosen. Your future self and the team now plan with it.");
+    setChoosing(null);
+  };
 
   const compare = (index: number) => {
     // The new road takes the last column; the person's earlier picks stay.
@@ -439,7 +450,19 @@ function Result({ simulation }: { simulation: Simulation }) {
 
       <section aria-label="The roads compared" className="grid grid-cols-[minmax(0,1fr)] gap-4 lg:grid-cols-3">
         {compared.map((index, i) => (
-          <PathCard key={index} path={paths[index]} assessment={assessments.get(index)!} situation={whatIf} letter={LETTERS[i]} order={i} goal={simulation.goal} className={cn(shown !== i && "max-lg:hidden")} />
+          <PathCard
+            key={index}
+            path={paths[index]}
+            assessment={assessments.get(index)!}
+            situation={whatIf}
+            letter={LETTERS[i]}
+            order={i}
+            goal={simulation.goal}
+            chosen={chosen === index}
+            choosing={choosing === index}
+            onChoose={() => choose(index)}
+            className={cn(shown !== i && "max-lg:hidden")}
+          />
         ))}
       </section>
 
@@ -453,7 +476,7 @@ function Result({ simulation }: { simulation: Simulation }) {
           </div>
           <ul className="divide-y divide-border">
             {rest.map(({ index, assessment: a }) => (
-              <MoreRoad key={index} path={paths[index]} assessment={a} rated={!!whatIf} onCompare={() => compare(index)} />
+              <MoreRoad key={index} path={paths[index]} assessment={a} rated={!!whatIf} chosen={chosen === index} onCompare={() => compare(index)} />
             ))}
           </ul>
         </section>
@@ -613,6 +636,9 @@ function PathCard({
   letter,
   order,
   goal,
+  chosen,
+  choosing,
+  onChoose,
   className,
 }: {
   path: SimulatedPath;
@@ -621,6 +647,9 @@ function PathCard({
   letter: string;
   order: number;
   goal: string;
+  chosen: boolean;
+  choosing: boolean;
+  onChoose: () => void;
   className?: string;
 }) {
   const k = KIND_STYLE[p.kind] ?? KIND_STYLE.other;
@@ -628,7 +657,7 @@ function PathCard({
     `From the Future Simulator, for my goal "${goal}": I'm considering the ${p.name.toLowerCase()} (${p.summary}) It assumes: ${p.assumptions.join("; ")}. Help me test the riskiest assumption first and plan small first steps.`,
   )}`;
   return (
-    <motion.article initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.08 * order, duration: 0.5, ease: EASE }} className={cn("card card-hover flex flex-col p-5", className)} aria-labelledby={`path-${letter}`}>
+    <motion.article initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.08 * order, duration: 0.5, ease: EASE }} className={cn("card card-hover flex flex-col p-5", chosen && "ring-gradient", className)} aria-labelledby={`path-${letter}`}>
       <header className="flex items-start gap-3">
         <span className={cn("flex size-10 shrink-0 items-center justify-center rounded-xl border", k.tint)}>
           <k.icon className="size-4.5" aria-hidden />
@@ -646,6 +675,7 @@ function PathCard({
         <Badge tone="outline">{FUNDING_LABEL[p.funding]}</Badge>
         <Badge tone="outline">{PLACE_LABEL[p.place]}</Badge>
         {p.keepsIncome && <Badge tone="success">Keeps an income</Badge>}
+        {chosen && <Badge tone="copper">Your road</Badge>}
       </div>
       <p className="mt-3 text-[13.5px] leading-relaxed">
         <span className="font-serif text-muted-foreground italic">If you take this road: </span>
@@ -700,7 +730,16 @@ function PathCard({
         </p>
       )}
 
-      <div className="mt-auto pt-5">
+      <div className="mt-auto grid gap-2 pt-5">
+        {chosen ? (
+          <p className="flex items-center justify-center gap-1.5 rounded-md border border-copper/30 bg-copper-wash py-1.5 text-[12.5px] font-medium text-copper">
+            <CheckCircle2 className="size-3.5" aria-hidden /> Your road. The team plans with it.
+          </p>
+        ) : (
+          <Button variant="primary" size="sm" className="w-full" onClick={onChoose} disabled={choosing}>
+            {choosing ? <Loader2 className="animate-spin" /> : <CheckCircle2 />} Choose this road
+          </Button>
+        )}
         <Button asChild variant="secondary" size="sm" className="w-full">
           <Link href={planHref}>
             Plan this road <ArrowRight />
@@ -711,7 +750,7 @@ function PathCard({
   );
 }
 
-function MoreRoad({ path: p, assessment: a, rated, onCompare }: { path: SimulatedPath; assessment: Assessment; rated: boolean; onCompare: () => void }) {
+function MoreRoad({ path: p, assessment: a, rated, chosen, onCompare }: { path: SimulatedPath; assessment: Assessment; rated: boolean; chosen: boolean; onCompare: () => void }) {
   const k = KIND_STYLE[p.kind] ?? KIND_STYLE.other;
   return (
     <li className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-2 px-5 py-4 sm:grid-cols-[auto_minmax(0,1fr)_auto] sm:items-center sm:px-6">
@@ -728,6 +767,7 @@ function MoreRoad({ path: p, assessment: a, rated, onCompare }: { path: Simulate
         <p className="flex flex-wrap items-center gap-x-2 gap-y-1">
           <k.icon className="size-3.5 shrink-0 text-muted-foreground" aria-hidden />
           <span className="text-[14px] font-medium">{p.name}</span>
+          {chosen && <Badge tone="copper">Your road</Badge>}
           <span className="t-meta">
             {KIND_LABEL[p.kind]} · {FUNDING_LABEL[p.funding]} · {PLACE_LABEL[p.place]}
           </span>

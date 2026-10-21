@@ -256,6 +256,18 @@ export interface Simulation {
   simulated: boolean;
 }
 
+/** The road the user chose in the simulator. Every agent reads it with their profile. */
+export interface ChosenRoad {
+  simulationId: string;
+  /** The road's index in that simulation's `paths`. */
+  index: number;
+  goal: string;
+  path: SimulatedPath;
+  chosenAt: string;
+  /** The "Chosen road" note in the vault. */
+  memoryId?: string;
+}
+
 // ---------- FutureMe Daily ----------
 
 export interface SourceRef {
@@ -579,6 +591,8 @@ export interface Workspace {
   councils: CouncilSession[];
   /** Future Simulator runs, newest first. Optional for snapshots saved before the simulator existed. */
   simulations?: Simulation[];
+  /** The road chosen in the simulator, if any. */
+  chosenRoad?: ChosenRoad | null;
   nightShifts: NightShift[];
   research: ResearchRun[];
   /** Live only: the Docker MCP Gateway's tools. Absent in demo mode. */

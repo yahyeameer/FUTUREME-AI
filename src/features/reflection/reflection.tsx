@@ -714,7 +714,7 @@ function Finale({
           </Button>
           <Button asChild variant="ghost" size="lg">
             <Link href="/simulator">
-              <Split /> Compare three paths
+              <Split /> Explore roads
             </Link>
           </Button>
           <Button asChild variant="ghost" size="lg">

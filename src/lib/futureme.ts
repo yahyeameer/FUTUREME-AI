@@ -17,6 +17,7 @@ import { yearsInWords } from "./utils";
 import { resolveInVault, writeNote } from "./vault";
 import { fetchPage, webSearch } from "./web";
 import { AGENT_REASONING } from "./nemotron";
+import { chosenRoadBlock } from "./chosen-road";
 
 // Core FutureMe workflow: profile -> future story -> chat with memory -> approval-gated plans -> tasks.
 
@@ -500,11 +501,13 @@ const STYLE_GUIDE: Record<Profile["style"], string> = {
   strategic: "Be analytical; focus on leverage, trade-offs and sequencing.",
 };
 
-export function systemPrompt(profile: Profile, persona?: string, social?: string | null): string {
+/** `road` is the road they chose in the Future Simulator (chosen-road.ts), when they chose one. */
+export function systemPrompt(profile: Profile, persona?: string, social?: string | null, road?: string | null): string {
   return [
     `You are ${profile.name}'s future self in ${horizonOf(profile).year}, ${yearsInWords(horizonOf(profile).years)} from now, having reached this dream: ${profile.dream}`,
     persona && `Persona pack: ${persona}`,
     social,
+    road,
     `Speak in the first person as them, from experience. ${STYLE_GUIDE[profile.style]}`,
     "Always call search_memory before answering so you use what they've told you, and mention what you remembered.",
     "When they commit to something or describe a goal, call propose_plan with small, concrete tasks.",
@@ -747,7 +750,7 @@ export async function chat(db: Db, userText: string, backend: AgentBackend = get
         ],
       }
     : { role: "user", content: text };
-  const messages: ChatMessage[] = [{ role: "system", content: systemPrompt(profile, activePack(db)?.persona, socialPromptBlock(db)) }, ...history, userMessage];
+  const messages: ChatMessage[] = [{ role: "system", content: systemPrompt(profile, activePack(db)?.persona, socialPromptBlock(db), chosenRoadBlock(db)) }, ...history, userMessage];
   db.prepare("INSERT INTO messages (role, content, image) VALUES ('user', ?, ?)").run(text, photo);
 
   // Keep the reasoning trace of every step, so the reply can show how it was thought through.

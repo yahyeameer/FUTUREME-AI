@@ -6,11 +6,21 @@ import type { ChatMessage, CompleteOptions, LlmProvider } from "../src/lib/llm";
 import type { Situation } from "../src/types";
 
 vi.mock("server-only", () => ({}));
+// Lets a test record what agents that use the default provider (the council, the night shift) were sent.
+const swap: { current: LlmProvider | null } = { current: null };
+vi.mock("../src/lib/llm", async (orig) => {
+  const mod = await orig<typeof import("../src/lib/llm")>();
+  return { ...mod, getProvider: () => swap.current ?? mod.getProvider() };
+});
 
 const { openDb } = await import("../src/lib/db");
 const { saveProfile } = await import("../src/lib/futureme");
 const { mockProvider } = await import("../src/lib/mock-llm");
-const { listSimulations, saveSimulation, simulatePaths } = await import("../src/lib/simulator");
+const { chooseRoad, clearRoad, listSimulations, saveSimulation, simulatePaths } = await import("../src/lib/simulator");
+const { chosenRoadBlock, getChosenRoad } = await import("../src/lib/chosen-road");
+const { chat, inProcessBackend } = await import("../src/lib/futureme");
+const { runCouncil } = await import("../src/lib/council");
+const { runNightShift } = await import("../src/lib/night-shift");
 const { SIMULATION_FRAMING, SIMULATION_SCHEMA, assessPath, formatCost, formatSpan, normalizeSimulation, normalizeSituation, rankPaths, standInSimulation, toPaths } = await import("../src/lib/simulator-paths");
 const { parseExport } = await import("../src/lib/social/parse");
 const { SAMPLE_FILES } = await import("../src/lib/social/sample");
@@ -41,6 +51,8 @@ beforeEach(() => {
   dir = fs.mkdtempSync(path.join(os.tmpdir(), "futureme-sim-"));
   process.env.VAULT_DIR = path.join(dir, "vault");
   process.env.LLM_PROVIDER = "mock";
+  delete process.env.DOCKER_AGENT_URL;
+  swap.current = null;
   db = openDb(":memory:");
   saveProfile(db, {
     name: "Amina",
@@ -260,5 +272,60 @@ describe("rating roads against a starting point", () => {
       risk: "medium",
     });
     expect(normalizeSituation(null)).toBeNull();
+  });
+});
+
+describe("choosing a road", () => {
+  const text = (calls: { messages: ChatMessage[] }[]) => calls.flatMap((c) => c.messages).map((m) => (typeof m.content === "string" ? m.content : "")).join("\n");
+
+  it("records the road, writes one Chosen road note, and shows it in the workspace", async () => {
+    const sim = await simulatePaths(db, "Become an AI engineer", null, mockProvider);
+    const road = chooseRoad(db, sim.id, 2);
+    expect(road.path.name).toBe(sim.result.paths[2].name);
+    expect(getChosenRoad(db)).toMatchObject({ simulationId: sim.id, index: 2, goal: "Become an AI engineer" });
+    const note = fs.readFileSync(path.join(process.env.VAULT_DIR!, road.notePath!), "utf8");
+    expect(road.notePath).toBe("Goals/chosen-road.md");
+    expect(note).toContain("I chose this road in the Future Simulator");
+    expect(note).toContain(SIMULATION_FRAMING);
+    expect(buildWorkspace(db).chosenRoad).toMatchObject({ simulationId: String(sim.id), index: 2, path: { name: sim.result.paths[2].name }, memoryId: "Goals/chosen-road.md" });
+
+    // Choosing again replaces it, in the same note.
+    expect(chooseRoad(db, sim.id, 0).notePath).toBe("Goals/chosen-road.md");
+    expect(getChosenRoad(db)!.index).toBe(0);
+    expect(() => chooseRoad(db, sim.id, 99)).toThrow(/isn't in this simulation/);
+    expect(() => chooseRoad(db, 404, 0)).toThrow(/No simulation/);
+
+    clearRoad(db);
+    expect(getChosenRoad(db)).toBeNull();
+    expect(buildWorkspace(db).chosenRoad).toBeNull();
+  });
+
+  it("is read by the future self, the council, the night shift and the next simulation", async () => {
+    const sim = await simulatePaths(db, "Become an AI engineer", null, mockProvider);
+    const name = sim.result.paths[1].name;
+    chooseRoad(db, sim.id, 1);
+    expect(chosenRoadBlock(db)).toContain(`The road they chose in the Future Simulator for "Become an AI engineer" (a conditional scenario they picked, not a prediction): ${name}.`);
+    expect(chosenRoadBlock(db)).toMatch(/It holds only if: /);
+
+    const { provider, calls } = recording();
+    await chat(db, "What should I do this week?", inProcessBackend(provider));
+    expect(text(calls)).toContain(`not a prediction): ${name}`);
+
+    const team = recording();
+    swap.current = team.provider;
+    await runCouncil(db, "Should I take a part-time job?");
+    await runNightShift(db, "manual");
+    const seen = team.calls.filter((c) => text([c]).includes(`not a prediction): ${name}`));
+    expect(seen.length).toBeGreaterThanOrEqual(5); // four voices, the chair and the night shift
+
+    const again = recording();
+    await simulatePaths(db, "Become an AI engineer", null, again.provider);
+    expect(text(again.calls)).toContain(`not a prediction): ${name}`);
+  });
+
+  it("leaves prompts alone when no road is chosen", async () => {
+    const { provider, calls } = recording();
+    await chat(db, "Hi", inProcessBackend(provider));
+    expect(text(calls)).not.toContain("The road they chose");
   });
 });

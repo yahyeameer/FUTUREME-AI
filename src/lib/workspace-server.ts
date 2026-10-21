@@ -25,6 +25,7 @@ import { getProvider, LOCAL_LLM_URL } from "./llm";
 import { listNightShifts, nextRunAt, nightShiftSchedule } from "./night-shift";
 import { activePack, listPacks } from "./packs";
 import { listResearch } from "./research";
+import { getChosenRoad } from "./chosen-road";
 import { listSimulations } from "./simulator";
 import { toPaths } from "./simulator-paths";
 import { skillsFor } from "./skills";
@@ -460,6 +461,7 @@ export function buildWorkspace(db: Db): Workspace {
       memoryId: s.note_path ?? undefined,
       simulated: s.backend === "mock",
     })),
+    chosenRoad: chosenRoadView(db),
     nightShifts: nightShifts.map((n) => ({
       id: String(n.id),
       trigger: n.trigger,
@@ -759,6 +761,12 @@ export function updateMemory(id: string, input: unknown) {
 export function deleteMemories(ids: unknown) {
   const list = z.array(z.string()).min(1).max(200).parse(ids);
   for (const id of list) fs.unlinkSync(existingNotePath(id));
+}
+
+function chosenRoadView(db: Db): Workspace["chosenRoad"] {
+  const r = getChosenRoad(db);
+  if (!r) return null;
+  return { simulationId: String(r.simulationId), index: r.index, goal: r.goal, path: toPaths([r.path])[0], chosenAt: r.chosenAt, memoryId: r.notePath ?? undefined };
 }
 
 export async function generateReflection(db: Db) {

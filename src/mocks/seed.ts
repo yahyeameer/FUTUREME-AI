@@ -1,4 +1,4 @@
-import type { ActivityItem, Approval, CouncilSession, Simulation, Memory, Message, Milestone, Mission, NightShift, PlanProposal, Profile, Reflection, SkillRun, Task } from "@/types";
+import type { ActivityItem, Approval, ChosenRoad, CouncilSession, Simulation, Memory, Message, Milestone, Mission, NightShift, PlanProposal, Profile, Reflection, SkillRun, Task } from "@/types";
 
 // Deterministic demo data: one fictional person, Hodan, a developer in Hargeisa.
 // Dates are offsets from the moment the demo was first opened (the anchor), so the story always reads as recent.
@@ -20,6 +20,7 @@ export interface DemoState {
   /** Added after the first release, so older saved demos may not have them. */
   councils?: CouncilSession[];
   simulations?: Simulation[];
+  chosenRoad?: ChosenRoad | null;
   nightShifts?: NightShift[];
   missions?: DemoMission[];
 }

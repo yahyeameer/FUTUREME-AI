@@ -1,5 +1,6 @@
 import { parseJsonReply } from "./agents";
 import { profileContext } from "./council";
+import { getChosenRoad, setChosenRoad, withChosenRoad, type ChosenRoadRecord } from "./chosen-road";
 import type { Db } from "./db";
 import { getProfile } from "./futureme";
 import { getProvider, type LlmProvider } from "./llm";
@@ -71,7 +72,7 @@ export function simulationContext(db: Db, goal: string, situation: Situation | n
   if (!profile) throw new Error("Complete onboarding first.");
   const hits = searchMemory(db, `${goal} ${profile.dream}`, 5).filter((h) => h.note.folder !== "Conversations");
   const persona = getPersona(db);
-  const lines = [profileContext(profile)];
+  const lines = [withChosenRoad(db, profileContext(profile))];
   if (hits.length) lines.push("Notes from their vault:", ...hits.map((h) => `- "${h.note.title}" (${h.note.path}): ${h.note.body.replace(/\s+/g, " ").slice(0, 280)}`));
   if (persona) {
     lines.push(
@@ -185,6 +186,44 @@ export function saveSimulation(db: Db, id: number): string {
   const note = writeNote({ folder: "Reflections", title: `Simulation: ${r.goal.slice(0, 80)}`, tags: ["simulation", "imagined"], links: ["10-Year Dream"], evidence: "ai-inferred", body });
   db.prepare("UPDATE simulations SET note_path = ? WHERE id = ?").run(note.path, id);
   return note.path;
+}
+
+/**
+ * Records the road the user picked (by its index in the simulation's model order) so every agent reasons with it, and
+ * writes it to the vault as one "Chosen road" note in Goals. Choosing again replaces it.
+ */
+export function chooseRoad(db: Db, simulationId: number, index: number): ChosenRoadRecord {
+  const s = getSimulation(db, simulationId);
+  if (!s) throw new Error(`No simulation #${simulationId}.`);
+  const path = s.result.paths[index];
+  if (!Number.isInteger(index) || !path) throw new Error("That road isn't in this simulation.");
+  const [p] = toPaths([path]);
+  const note = writeNote({
+    folder: "Goals",
+    title: "Chosen road",
+    tags: ["chosen-road", "simulation"],
+    links: ["10-Year Dream"],
+    evidence: "user-stated",
+    body: [
+      `I chose this road in the Future Simulator for **${s.goal}**: **${p.name}**.`,
+      `> ${SIMULATION_FRAMING}`,
+      p.summary,
+      `- **Time:** ${formatSpan(p.months)}, about ${p.hoursPerWeek} hours a week`,
+      `- **Cost:** ${formatCost(p.cost)}`,
+      `## Holds only if\n\n${p.assumptions.map((x) => `- ${x}`).join("\n")}`,
+      p.firstSteps.length && `## First steps\n\n${p.firstSteps.map((x) => `- ${x}`).join("\n")}`,
+    ]
+      .filter(Boolean)
+      .join("\n\n"),
+  });
+  const record: ChosenRoadRecord = { simulationId, index, goal: s.goal, path, situation: s.situation, notePath: note.path, chosenAt: new Date().toISOString() };
+  setChosenRoad(db, record);
+  return record;
+}
+
+/** Forgets the chosen road. The vault note stays, so the user decides whether to delete it. */
+export function clearRoad(db: Db) {
+  if (getChosenRoad(db)) setChosenRoad(db, null);
 }
 
 interface RawRow {

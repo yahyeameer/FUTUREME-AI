@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { parseJsonReply, runAgent } from "./agents";
 import { profileContext } from "./council";
+import { withChosenRoad } from "./chosen-road";
 import type { Db } from "./db";
 import { getRun, runsForMission, runSubAgent, type HelperTool, type RunRecord, type SubTask } from "./delegation";
 import { createApproval, getProfile } from "./futureme";
@@ -69,7 +70,7 @@ export function startMission(db: Db, rawGoal: string): { id: number; done: Promi
 
 async function work(db: Db, id: number, goal: string): Promise<MissionRecord> {
   const profile = getProfile(db)!;
-  const context = { role: "system" as const, content: profileContext(profile) };
+  const context = { role: "system" as const, content: withChosenRoad(db, profileContext(profile)) };
   const webOn = searchProvider() !== "off";
   try {
     // 1. Plan.

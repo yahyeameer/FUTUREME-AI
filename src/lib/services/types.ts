@@ -55,6 +55,9 @@ export interface ReflectionService {
 export interface SimulatorService {
   simulatePaths(goal: string, situation: Situation | null): Promise<{ workspace: Workspace; simulation: Simulation }>;
   saveSimulation(simulationId: string): Promise<Workspace>;
+  /** Makes one road the user's chosen road, which every agent then reasons with. */
+  chooseRoad(simulationId: string, index: number): Promise<Workspace>;
+  clearRoad(): Promise<Workspace>;
 }
 
 export interface DailyService {

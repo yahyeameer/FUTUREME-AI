@@ -185,6 +185,8 @@ export function createLiveService(): FutureMeService {
       return { workspace, simulation };
     },
     saveSimulation: (id) => request({ action: "saveSimulation", id }),
+    chooseRoad: (id, index) => request({ action: "chooseRoad", id, index }),
+    clearRoad: () => request({ action: "clearRoad" }),
     verifyMessage: (id) => request({ action: "verifyMessage", id }),
     runResearch,
     async runNightShift() {

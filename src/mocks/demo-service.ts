@@ -133,6 +133,7 @@ export function createDemoService(): FutureMeService {
     },
     councils: state.councils ?? [],
     simulations: state.simulations ?? [],
+    chosenRoad: state.chosenRoad ?? null,
     nightShifts: state.nightShifts ?? [],
     research: [],
     missions: (state.missions ?? []).map((m) => replay(m, Date.now())),
@@ -435,6 +436,24 @@ export function createDemoService(): FutureMeService {
         s.memoryId = mem.id;
         log("memory_saved", `Memory saved: ${mem.title}`, `/memory/${mem.id}`);
       }
+      return commit();
+    },
+
+    async chooseRoad(simulationId, index) {
+      const s = state.simulations?.find((x) => x.id === simulationId);
+      const path = s?.paths[index];
+      if (!s || !path) throw new Error("That road isn't in this simulation.");
+      const body = `I chose this road in the Future Simulator for **${s.goal}**: **${path.name}**.\n\n> ${SIMULATION_FRAMING}\n\n${path.summary}\n\n## Holds only if\n\n${path.assumptions.map((a) => `- ${a}`).join("\n")}`;
+      const existing = state.memories.find((m) => m.tags.includes("chosen-road"));
+      if (existing) Object.assign(existing, { body, updatedAt: now() });
+      const mem = existing ?? addMemory({ title: "Chosen road", kind: "goal", tags: ["chosen-road", "simulation"], body }, "Chosen in the Future Simulator");
+      state.chosenRoad = { simulationId, index, goal: s.goal, path, chosenAt: now(), memoryId: mem.id };
+      log("goal_created", `Chose a road: ${path.name}`, "/simulator");
+      return commit();
+    },
+
+    async clearRoad() {
+      state.chosenRoad = null;
       return commit();
     },
 
