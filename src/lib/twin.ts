@@ -163,7 +163,7 @@ export const callOpener = (name: string) =>
 
 /** First line of every email to someone else. */
 export const emailDisclosure = (name: string) => `This email was written by ${name}'s AI twin, an AI assistant, and approved by ${name} before it was sent.`;
-export const emailSignature = (name: string) => `${name}'s AI twin (FutureMe)`;
+export const emailSignature = (name: string) => `${name}'s AI twin (TOMORA)`;
 
 // ---------- Proposals ----------
 

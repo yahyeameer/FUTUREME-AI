@@ -40,7 +40,7 @@ async function toolCall() {
     tools,
     tool_choice: "auto",
     messages: [
-      { role: "system", content: "You are FutureMe. When the user states a goal, save it with write_note." },
+      { role: "system", content: "You are TOMORA. When the user states a goal, save it with write_note." },
       { role: "user", content: "My 10-year goal is to lead an AI research lab in Hargeisa. Please remember it." },
     ],
   });

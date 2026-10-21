@@ -5,8 +5,8 @@ import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/
 import type { Transport } from "@modelcontextprotocol/sdk/shared/transport.js";
 import type { ToolDefinition } from "./llm";
 
-// FutureMe as an MCP client of the Docker MCP Gateway (Docker Desktop's MCP Toolkit, or `docker mcp gateway run`).
-// The gateway runs each MCP server from Docker's catalog in its own container; FutureMe lists their tools, offers them
+// TOMORA as an MCP client of the Docker MCP Gateway (Docker Desktop's MCP Toolkit, or `docker mcp gateway run`).
+// The gateway runs each MCP server from Docker's catalog in its own container; TOMORA lists their tools, offers them
 // to the agent as `docker_<tool>`, and routes every call through runTool so it is logged and, when it can change
 // something, waits for the user's approval (docker-tools.ts).
 //
@@ -39,7 +39,7 @@ export interface DockerTool {
 
 export interface DockerMcpState {
   status: "off" | "connecting" | "connected" | "unavailable";
-  /** How FutureMe reaches the gateway, in plain words. */
+  /** How TOMORA reaches the gateway, in plain words. */
   via: string;
   detail?: string;
   tools: DockerTool[];
@@ -67,7 +67,7 @@ export const dockerMcpConfigured = () => dockerMcpConfig() !== null;
 
 function describeConfig(c: Config | null) {
   if (!c) return "Not set up";
-  return c.kind === "url" ? `Docker MCP Gateway at ${c.url}` : `${[c.command, ...c.args].join(" ")} (started by FutureMe)`;
+  return c.kind === "url" ? `Docker MCP Gateway at ${c.url}` : `${[c.command, ...c.args].join(" ")} (started by TOMORA)`;
 }
 
 function transportFor(c: Config): Transport {

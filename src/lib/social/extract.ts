@@ -1,7 +1,7 @@
 import { parseExport, wantedFile, type ExportFile, type SocialImport } from "./parse";
 import { listEntries, readEntry, type Inflate, type ZipSource } from "./zip";
 
-// Picks the few files FutureMe reads out of whatever the person chose: whole archives (.zip) or loose export files.
+// Picks the few files TOMORA reads out of whatever the person chose: whole archives (.zip) or loose export files.
 // In the browser this runs before anything is sent, so messages, contacts and photos never leave the device.
 
 const MAX_ENTRY_BYTES = 400 * 1024 * 1024;

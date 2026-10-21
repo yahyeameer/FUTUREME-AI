@@ -1,4 +1,4 @@
-// Keeps the cloud copy (Supabase) of FutureMe's database and files up to date. See docs/supabase.md.
+// Keeps the cloud copy (Supabase) of TOMORA's database and files up to date. See docs/supabase.md.
 //   npm run cloud-sync                       restore if this install is empty, then push once
 //   npm run cloud-sync -- --loop             the same, then push every CLOUD_SYNC_INTERVAL seconds (default 30)
 //   npm run cloud-sync -- restore [--force]  pull the cloud copy down (--force replaces local rows)

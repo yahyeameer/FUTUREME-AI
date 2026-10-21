@@ -35,7 +35,7 @@ export function MemoryDetail({ id }: { id: string }) {
             </Button>
           }
         >
-          It may have been deleted, or the link is out of date. FutureMe can&apos;t recall it.
+          It may have been deleted, or the link is out of date. TOMORA can&apos;t recall it.
         </EmptyState>
       </PageFrame>
     );
@@ -156,10 +156,10 @@ export function MemoryDetail({ id }: { id: string }) {
           </div>
           {caps.memoryRetrievalControl && (
             <label className="flex items-start gap-3 border-t border-border px-4 py-3">
-              <Switch className="mt-0.5" checked={memory.retrievable} onCheckedChange={(c) => run((s) => s.updateMemory(memory.id, { retrievable: c }), c ? "FutureMe can recall this again" : "FutureMe won't recall this")} />
+              <Switch className="mt-0.5" checked={memory.retrievable} onCheckedChange={(c) => run((s) => s.updateMemory(memory.id, { retrievable: c }), c ? "TOMORA can recall this again" : "TOMORA won't recall this")} />
               <span>
                 <span className="flex items-center gap-1.5 text-[13px] font-medium">
-                  {memory.retrievable ? <Eye className="size-3.5" /> : <EyeOff className="size-3.5" />} Let FutureMe recall this in conversations
+                  {memory.retrievable ? <Eye className="size-3.5" /> : <EyeOff className="size-3.5" />} Let TOMORA recall this in conversations
                 </span>
                 <span className="mt-0.5 block text-[12px] text-muted-foreground">When off, the note stays in your vault but isn&apos;t retrieved or cited.</span>
               </span>
@@ -176,7 +176,7 @@ export function MemoryDetail({ id }: { id: string }) {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Delete “{memory.title}”?</DialogTitle>
-            <DialogDescription>FutureMe won&apos;t be able to recall it again, and conversations will stop citing it. This can&apos;t be undone.</DialogDescription>
+            <DialogDescription>TOMORA won&apos;t be able to recall it again, and conversations will stop citing it. This can&apos;t be undone.</DialogDescription>
           </DialogHeader>
           <DialogFooter>
             <Button variant="ghost" onClick={() => setConfirm(false)}>

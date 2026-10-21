@@ -1,11 +1,11 @@
-// Shared domain types for the FutureMe frontend.
+// Shared domain types for the TOMORA frontend.
 // Both the demo service (browser) and the live service (Next.js API over SQLite + the Markdown vault) produce these.
 
 import type { BranchResult, DecisionRequest, DecisionResult } from "@/lib/decision/contract";
 
 export type ServiceMode = "demo" | "live";
 
-/** Tone of the future-self conversation. Changes how FutureMe speaks, not who it is. */
+/** Tone of the future-self conversation. Changes how TOMORA speaks, not who it is. */
 export type CoachingStyle = "reflective" | "strategic" | "encouraging" | "analytical";
 
 /**
@@ -45,7 +45,7 @@ export interface Memory {
   createdAt: string;
   updatedAt: string;
   archived: boolean;
-  /** When false, FutureMe will not retrieve this memory in conversations. */
+  /** When false, TOMORA will not retrieve this memory in conversations. */
   retrievable: boolean;
   relatedMemoryIds: string[];
   relatedMilestoneIds: string[];
@@ -301,7 +301,7 @@ export interface ChosenRoad {
   memoryId?: string;
 }
 
-// ---------- FutureMe Daily ----------
+// ---------- TOMORA Daily ----------
 
 export interface SourceRef {
   kind: "task" | "milestone" | "memory" | "reflection";

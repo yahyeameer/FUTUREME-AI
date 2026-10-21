@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <style>
+    .tile { fill: #101113; } .road { fill: #F3F0E8; }
+    @media (prefers-color-scheme: light) { .tile { fill: #101113; } }
+  </style>
+  <rect class="tile" width="32" height="32" rx="7" />
+  <rect x="5" y="8.5" width="22" height="2.25" rx="1.125" fill="#C8B78F" />
+  <path class="road" d="M12.6 27 L15.15 13.6 H16.85 L19.4 27 Z" />
+</svg>

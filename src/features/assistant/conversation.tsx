@@ -88,7 +88,7 @@ export function Conversation() {
           </Orb>
           <p className={cn("mt-5 max-w-md font-display leading-snug text-balance italic", messages.length ? "text-[19px]" : "text-[22px] sm:text-[24px]")}>{OPENING}</p>
           <p className="mt-3 max-w-sm text-[12px] text-subtle">
-            FutureMe speaks as one possible future you, based on what you&apos;ve shared. It remembers what&apos;s in your vault and asks before changing anything.
+            TOMORA speaks as one possible future you, based on what you&apos;ve shared. It remembers what&apos;s in your vault and asks before changing anything.
           </p>
         </section>
 

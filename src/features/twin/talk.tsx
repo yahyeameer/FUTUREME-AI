@@ -45,7 +45,7 @@ export function TalkSection({ state, act, onState }: { state: TwinState; act: Ac
         </EmptyState>
       ) : !c.ready.publicUrl ? (
         <EmptyState icon={PhoneCall} title="Calls need a public address">
-          ElevenLabs runs the voice and asks this server what your future self says next. Set TWIN_PUBLIC_URL to FutureMe&apos;s public https address and restart.
+          ElevenLabs runs the voice and asks this server what your future self says next. Set TWIN_PUBLIC_URL to TOMORA&apos;s public https address and restart.
         </EmptyState>
       ) : (
         <div className="grid gap-4 lg:grid-cols-2">
@@ -96,7 +96,7 @@ function BrowserCall({ act, paused, year }: { act: Act; paused: boolean; year: n
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       stream.getTracks().forEach((t) => t.stop());
     } catch {
-      toast.error("FutureMe needs your microphone for a call.");
+      toast.error("TOMORA needs your microphone for a call.");
       setStarting(false);
       return;
     }
@@ -178,7 +178,7 @@ function VerifyPhone({ state, act }: { state: TwinState; act: Act }) {
   };
   return (
     <div className="mt-2 space-y-3">
-      <p className="text-[13px] text-muted-foreground">Your twin only ever calls your own number. Add it and FutureMe calls you to read out a six-digit code.</p>
+      <p className="text-[13px] text-muted-foreground">Your twin only ever calls your own number. Add it and TOMORA calls you to read out a six-digit code.</p>
       <div className="flex flex-col gap-2 sm:flex-row">
         <Input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+14155550123" aria-label="Your phone number" />
         <Button variant="secondary" disabled={busy || !phone.trim()} onClick={() => run(() => act(() => post({ action: "setPhone", phone }), "Calling you with your code now."))}>

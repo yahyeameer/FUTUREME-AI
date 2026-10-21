@@ -8,7 +8,7 @@ import { NIGHT_MARKER } from "./mock-llm";
 import { SCHEMAS } from "./nemotron";
 
 // The night shift runs while the user sleeps (scripts/night-shift.ts, or "Run now" in the app): it publishes the day's
-// FutureMe Daily, then the night_shift agent writes a morning brief and picks tomorrow's focus from real open tasks.
+// TOMORA Daily, then the night_shift agent writes a morning brief and picks tomorrow's focus from real open tasks.
 // Any plan it proposes waits for approval like every other proposal.
 
 export interface NightShiftRecord {

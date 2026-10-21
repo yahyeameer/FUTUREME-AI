@@ -26,7 +26,7 @@ import { cn } from "@/lib/utils";
 import { useWorkspaceContext } from "@/lib/workspace-store";
 import { useCommandPalette } from "./command-palette";
 import { ModeBadge } from "./mode-badge";
-import { isActive, NAV, SECONDARY_NAV } from "./nav";
+import { isActive, NAV, NAV_GROUPS, SECONDARY_NAV } from "./nav";
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const { sidebarCollapsed } = usePreferences();
@@ -86,11 +86,11 @@ function SidebarContents({ collapsed, onNavigate }: { collapsed: boolean; onNavi
           <motion.span
             layoutId={onNavigate ? "nav-pill-mobile" : "nav-pill"}
             aria-hidden
-            className="absolute inset-0 rounded-lg bg-primary shadow-[inset_0_1px_0_rgb(255_255_255/0.14),0_8px_22px_-10px_var(--primary-glow)]"
+            className="absolute inset-0 rounded-lg bg-primary"
             transition={{ type: "spring", stiffness: 420, damping: 36 }}
           />
         )}
-        <n.icon className={cn("relative size-4 shrink-0 transition-[color,transform] duration-200", active ? "text-accent dark:text-primary-foreground" : "text-subtle group-hover:scale-110 group-hover:-rotate-6 group-hover:text-accent-ink")} aria-hidden />
+        <n.icon className={cn("relative size-4 shrink-0 transition-[color,transform] duration-200", active ? "text-accent dark:text-primary-foreground" : "text-subtle group-hover:text-foreground")} aria-hidden />
         {!collapsed && <span className="relative truncate">{n.label}</span>}
         {!!badge && (
           <span
@@ -114,7 +114,7 @@ function SidebarContents({ collapsed, onNavigate }: { collapsed: boolean; onNavi
   return (
     <>
       <div className={cn("flex h-14 items-center gap-2 px-4", collapsed && "justify-center px-0")}>
-        <Link href="/" onClick={onNavigate} className="group/brand flex items-center gap-2 rounded-md outline-offset-4" aria-label="FutureMe home">
+        <Link href="/" onClick={onNavigate} className="group/brand flex items-center gap-2 rounded-md outline-offset-4" aria-label="TOMORA home">
           <Mark />
           {!collapsed && <Wordmark />}
         </Link>
@@ -144,12 +144,14 @@ function SidebarContents({ collapsed, onNavigate }: { collapsed: boolean; onNavi
       </div>
 
       <nav className={cn("flex flex-1 flex-col gap-0.5 overflow-y-auto px-3 py-2 scrollbar-none", collapsed && "px-2")}>
-        {!collapsed && <p className="px-2.5 pt-1 pb-1.5 text-[10px] font-semibold tracking-[0.12em] text-subtle uppercase">Companion</p>}
-        {NAV.slice(0, 6).map((n) => item(n, n.href === "/future-self" ? waiting : undefined))}
-        {collapsed ? <div className="my-2 hairline" /> : <p className="px-2.5 pt-4 pb-1.5 text-[10px] font-semibold tracking-[0.12em] text-subtle uppercase">Your plan</p>}
-        {NAV.slice(6).map((n) => item(n))}
-        <div className="my-3 hairline" />
-        {item(SECONDARY_NAV[0])}
+        {NAV.filter((n) => !n.group).map((n) => item(n))}
+        {NAV_GROUPS.map((g) => (
+          <React.Fragment key={g}>
+            {collapsed ? <div className="my-2 hairline" /> : <p className="px-2.5 pt-4 pb-1.5 text-[11px] font-medium text-subtle">{g}</p>}
+            {NAV.filter((n) => n.group === g).map((n) => item(n, n.href === "/future-self" ? waiting : undefined))}
+            {g === "Review" && item(SECONDARY_NAV[0])}
+          </React.Fragment>
+        ))}
       </nav>
 
       <div className={cn("flex flex-col gap-2 border-t border-border bg-surface-2/60 p-3", collapsed && "items-center px-2")}>
@@ -179,7 +181,7 @@ function ProfileMenu({ collapsed, onNavigate }: { collapsed: boolean; onNavigate
         className={cn("flex min-w-0 flex-1 items-center gap-2 rounded-md px-1.5 py-1 text-left transition-colors hover:bg-surface-3/60 data-[state=open]:bg-surface-3/60", collapsed && "flex-none p-1")}
         aria-label="Profile and appearance"
       >
-        <span aria-hidden className="flex size-7 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-accent to-copper font-display text-[14px] text-accent-foreground italic shadow-[inset_0_1px_0_rgb(255_255_255/0.4)]">
+        <span aria-hidden className="flex size-7 shrink-0 items-center justify-center rounded-full bg-accent font-display text-[14px] text-accent-foreground">
           {name.charAt(0)}
         </span>
         {!collapsed && <span className="truncate text-[13px] font-medium">{name}</span>}
@@ -209,7 +211,7 @@ function ProfileMenu({ collapsed, onNavigate }: { collapsed: boolean; onNavigate
 }
 
 const tab = (href: string) => NAV.find((n) => n.href === href)!;
-const TABS = [tab("/"), tab("/future-self"), tab("/roadmap"), tab("/memory")] as const;
+const TABS = [tab("/"), tab("/simulator"), tab("/future-self"), tab("/roadmap")] as const;
 
 function MobileBar() {
   const [open, setOpen] = React.useState(false);
@@ -236,7 +238,7 @@ function MobileBar() {
             </div>
           </SheetContent>
         </Sheet>
-        <Link href="/" className="group/brand flex items-center gap-2" aria-label="FutureMe home">
+        <Link href="/" className="group/brand flex items-center gap-2" aria-label="TOMORA home">
           <Mark />
           <Wordmark />
         </Link>
@@ -258,12 +260,12 @@ function MobileBar() {
               return (
                 <li key={t.href}>
                   <Link href={t.href} aria-current={active ? "page" : undefined} className="relative flex h-full flex-col items-center justify-center gap-1 text-[10.5px] font-medium text-muted-foreground transition-colors active:scale-95">
-                    {active && <motion.span layoutId="tab-dot" aria-hidden className="absolute top-0 h-[3px] w-8 rounded-b-full bg-gradient-to-r from-accent to-copper" transition={{ type: "spring", stiffness: 420, damping: 36 }} />}
+                    {active && <motion.span layoutId="tab-dot" aria-hidden className="absolute top-0 h-[2px] w-8 rounded-b-full bg-accent" transition={{ type: "spring", stiffness: 420, damping: 36 }} />}
                     <span className={cn("relative flex h-7 w-11 items-center justify-center rounded-full transition-colors", active && "bg-accent-wash text-accent-ink")}>
                       <t.icon className="size-[18px]" aria-hidden />
                       {!!badge && <span className="absolute -top-0.5 right-1 size-2 rounded-full bg-accent ring-2 ring-surface" aria-label={`${badge} waiting for approval`} />}
                     </span>
-                    <span className={cn(active && "text-foreground")}>{t.label.replace("Life ", "").replace("Memory Vault", "Memory")}</span>
+                    <span className={cn(active && "text-foreground")}>{t.label.replace("Future Simulator", "Futures").replace("Life ", "")}</span>
                   </Link>
                 </li>
               );

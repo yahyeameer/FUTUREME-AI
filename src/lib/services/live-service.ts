@@ -3,7 +3,7 @@ import { toolLabel } from "@/lib/tool-labels";
 import type { CoachingStyle, Message, SkillRun, ToolCall, TurnEvent, Workspace } from "@/types";
 import type { FutureMeService } from "./types";
 
-// Live implementation: talks to the FutureMe app server, which owns SQLite, the vault and the agent.
+// Live implementation: talks to the TOMORA app server, which owns SQLite, the vault and the agent.
 // The browser never sees API keys; it only calls this app's own routes.
 
 const TONE_KEY = "futureme.live.tone";
@@ -44,11 +44,11 @@ async function request(body?: object): Promise<Workspace> {
     cache: "no-store",
   });
   const json = await res.json().catch(() => null);
-  if (!res.ok) throw new Error(json?.error ?? `The FutureMe server returned ${res.status}.`);
+  if (!res.ok) throw new Error(json?.error ?? `The TOMORA server returned ${res.status}.`);
   return withLocalPrefs(json as Workspace);
 }
 
-/** True when the FutureMe app server answers. Used to choose between live and demo mode. */
+/** True when the TOMORA app server answers. Used to choose between live and demo mode. */
 // Generous on purpose: in `next dev` the first request compiles the route, and on Windows that alone can take
 // several seconds. Timing out early silently drops people into demo mode while their server is fine.
 export async function probeLive(timeoutMs = 20_000): Promise<boolean> {
@@ -70,7 +70,7 @@ export function createLiveService(): FutureMeService {
       res = await fetch("/api/chat", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text, image }), signal });
     } catch (err) {
       if ((err as Error).name === "AbortError") throw err;
-      yield { type: "error", error: "Couldn't reach the FutureMe server. Check your connection and try again." };
+      yield { type: "error", error: "Couldn't reach the TOMORA server. Check your connection and try again." };
       return;
     }
     if (!res.ok || !res.body) {

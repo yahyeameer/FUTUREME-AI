@@ -1,4 +1,4 @@
-// MCP bridge that gives Docker Agent the tools of the Docker MCP Gateway (Docker's MCP Toolkit), FutureMe's way:
+// MCP bridge that gives Docker Agent the tools of the Docker MCP Gateway (Docker's MCP Toolkit), TOMORA's way:
 // each tool is offered as docker_<tool>, and every call goes through runTool, so it is logged and anything that can
 // change something waits for the user's approval in the app instead of running. agents/futureme.yaml adds it to the
 // future self. When the gateway isn't configured or isn't running, this server simply lists no tools.
@@ -19,7 +19,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
     tools: state.tools.map((t) => ({
       name: t.name,
       title: t.title,
-      description: `${t.description || t.title}${t.gate === "approval" ? " (Waits for the user's approval in FutureMe; it does not run straight away.)" : ""}`,
+      description: `${t.description || t.title}${t.gate === "approval" ? " (Waits for the user's approval in TOMORA; it does not run straight away.)" : ""}`,
       inputSchema: { type: "object" as const, ...t.inputSchema },
       annotations: { readOnlyHint: t.gate === "auto", openWorldHint: true },
     })),

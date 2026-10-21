@@ -5,7 +5,7 @@ import { useId } from "react";
 import { cn } from "@/lib/utils";
 
 /**
- * The FutureMe presence: two circles, today and the future you described.
+ * The TOMORA presence: two circles, today and the future you described.
  * Their overlap is driven by real task completion (`convergence`), so the image changes only when the record does.
  * It moves only while the agent is working.
  */

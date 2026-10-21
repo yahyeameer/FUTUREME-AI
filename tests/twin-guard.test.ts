@@ -242,7 +242,7 @@ describe("export and delete", () => {
     expect(data.approvals[0].payload).toMatchObject({ contact_name: "Hodan" });
   });
 
-  it("deletes the twin's data here and at the providers, and leaves the rest of FutureMe", async () => {
+  it("deletes the twin's data here and at the providers, and leaves the rest of TOMORA", async () => {
     const callId = await approvedCall();
     await dialApprovedCall(db, voice, callId);
     setTwinSetting(db, "inbox_id", "twin@agentmail.to");

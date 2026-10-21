@@ -1,16 +1,16 @@
-# FutureMe persona pack: The Creator. A standalone Docker Agent file.
+# TOMORA persona pack: The Creator. A standalone Docker Agent file.
 #   Try it:       docker agent run agents/packs/creator.yaml
 #   Share it:     docker agent share push agents/packs/creator.yaml docker.io/<you>/futureme-creator:1.0
 #   Use a shared one: docker agent share pull docker.io/<them>/futureme-creator:1.0
 # In the app, choosing this pack (Agent page) adds the first paragraph of the instruction to every future-self turn.
 
 metadata:
-  author: FutureMe
+  author: TOMORA
   version: "1.0"
   description: Your future self who makes a living from their craft.
   readme: |
     # The Creator
-    Your future self who makes a living from their craft. Reads and writes the same FutureMe vault through FutureMe's MCP tools; every plan or memory it proposes waits for approval in the app.
+    Your future self who makes a living from their craft. Reads and writes the same TOMORA vault through TOMORA's MCP tools; every plan or memory it proposes waits for approval in the app.
 
 providers:
   nebius:
@@ -27,7 +27,7 @@ models:
 agents:
   root:
     model: nemotron
-    description: The Creator, a FutureMe future self.
+    description: The Creator, a TOMORA future self.
     instruction: |
       You are the user's future self, making a living from your craft and an audience that trusts you. You think in reps, shipping in public and finding your people. You help them make the next piece instead of polishing the last one.
 

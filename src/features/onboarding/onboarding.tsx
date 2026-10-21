@@ -2,23 +2,42 @@
 
 import { ArrowLeft, ArrowRight } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import * as React from "react";
 import { toast } from "sonner";
 import { Wordmark } from "@/components/brand/mark";
-import { Orb } from "@/components/brand/orb";
 import { Presence } from "@/components/brand/presence";
 import { ErrorState } from "@/components/states";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Field, PlanLengthField, StyleField, toProfile, useProfileForm, type ProfileValues } from "@/features/settings/profile-form";
+import { BRAND } from "@/lib/brand";
 import { usePreferences } from "@/lib/preferences";
 import { useWorkspaceContext } from "@/lib/workspace-store";
 
-const STEPS: { title: string; lede: string; fields: (keyof ProfileValues)[] }[] = [
-  { title: "Who are you becoming?", lede: "Your future self starts from the ambition you name here. Be as specific as you can.", fields: ["name", "dream", "horizonYear"] },
-  { title: "Where are you now?", lede: "The honest starting point. It keeps plans grounded in what you actually have.", fields: ["current", "resources", "challenges"] },
-  { title: "How should your future self speak?", lede: "You can change this any time, or for a single conversation.", fields: ["values", "style"] },
+// Progressive: three short steps, only the first required. Each says why it asks, and everything can be edited later
+// in Settings. Nothing is saved until the last step.
+const STEPS: { title: string; lede: string; why: string; optional?: boolean; fields: (keyof ProfileValues)[] }[] = [
+  {
+    title: "Who are you becoming?",
+    lede: "Your future self starts from the ambition you name here. Be as specific as you can.",
+    why: "Every possible future TOMORA explores is a road toward this ambition.",
+    fields: ["name", "dream", "horizonYear"],
+  },
+  {
+    title: "Where are you now?",
+    lede: "The honest starting point. It keeps plans grounded in what you actually have.",
+    why: "Roads are only useful if they start from what's true. Share as much or as little as you like; money and hours can be added later, when you compare roads.",
+    optional: true,
+    fields: ["current", "resources", "challenges"],
+  },
+  {
+    title: "How should your future self speak?",
+    lede: "You can change this any time, or for a single conversation.",
+    why: "Values help your future self point out trade-offs that matter to you.",
+    fields: ["values", "style"],
+  },
 ];
 
 export function Onboarding() {
@@ -34,39 +53,33 @@ export function Onboarding() {
 
   return (
     <div className="grid min-h-dvh lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]">
-      <aside className="relative hidden overflow-hidden p-3 lg:flex">
-        <div className="paper relative flex flex-1 flex-col justify-between overflow-hidden rounded-[1.75rem] bg-[linear-gradient(160deg,#f7f5ee_0%,#eef2d6_45%,#f1dccb_100%)] p-10 text-[#17191b] shadow-card">
-          <div aria-hidden className="absolute -top-32 -right-24 size-[30rem] animate-breathe rounded-full bg-[radial-gradient(circle,rgb(196_214_106/0.55),transparent_65%)] blur-2xl" />
-          <div aria-hidden className="absolute -bottom-40 -left-20 size-[28rem] animate-breathe rounded-full bg-[radial-gradient(circle,rgb(187_128_92/0.4),transparent_65%)] blur-2xl [animation-delay:-3s]" />
-          <Wordmark className="relative" />
+      <aside className="relative hidden p-3 lg:flex">
+        <div className="relative flex flex-1 flex-col justify-between overflow-hidden rounded-[1.5rem] bg-[#171B22] p-10 text-[#F3F0E8]">
+          <div aria-hidden className="absolute inset-x-0 top-0 h-72 bg-[radial-gradient(60%_70%_at_70%_0%,rgb(200_183_143/0.16),transparent_70%)]" />
+          <Link href="/welcome" className="relative self-start rounded-md outline-offset-4" aria-label="TOMORA welcome page">
+            <Wordmark withSymbol className="text-[#F3F0E8]" />
+          </Link>
           <div className="relative">
-            <Orb size={300} className="mx-auto">
-              <Presence convergence={0.15} size={200} horizonLabel="You, later" className="text-[#17191b]" />
-            </Orb>
-            <p className="mt-10 max-w-md font-display text-[2.6rem] leading-[1.02] text-balance">
-              A conversation with the person you&apos;re <span className="italic text-[#a15f39]">becoming</span>.
-            </p>
-            <ul className="mt-6 flex flex-wrap gap-2">
-              {["Memory you can read and edit", "Plans wait for your approval", "Progress only from real steps"].map((t, i) => (
-                <motion.li
-                  key={t}
-                  initial={{ opacity: 0, y: 8 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.3 + i * 0.12 }}
-                  className="rounded-full border border-black/10 bg-white/60 px-3 py-1.5 text-[12px] font-medium backdrop-blur"
-                >
+            <Presence convergence={0.15} size={220} horizonLabel="Possible you" className="text-[#F3F0E8]" />
+            <p className="mt-10 max-w-md font-display text-[2.6rem] leading-[1.02] text-balance">{BRAND.tagline}</p>
+            <ol className="mt-8 grid gap-3 text-[13px] text-[#F3F0E8]/75">
+              {["Tell TOMORA where you are and where you want to go", "Explore different roads, each with its assumptions", "Choose one, and turn it into a few next steps"].map((t, i) => (
+                <motion.li key={t} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 + i * 0.1 }} className="flex gap-3">
+                  <span className="font-mono text-[11px] text-[#C8B78F]">0{i + 1}</span>
                   {t}
                 </motion.li>
               ))}
-            </ul>
+            </ol>
           </div>
-          <p className="relative font-mono text-[11px] text-black/50">Nothing is saved until you finish.</p>
+          <p className="relative max-w-sm text-[12px] text-[#F3F0E8]/55">Nothing is saved until you finish. Your answers stay on this TOMORA server, and you can edit or delete them in Settings.</p>
         </div>
       </aside>
 
       <main className="flex min-w-0 flex-col px-5 py-8 sm:px-10 lg:px-16 lg:py-12">
         <div className="flex items-center justify-between gap-4 lg:justify-end">
-          <Wordmark className="lg:hidden" />
+          <Link href="/welcome" className="rounded-md lg:hidden" aria-label="TOMORA welcome page">
+            <Wordmark withSymbol />
+          </Link>
           <Button variant="link" size="sm" className="px-0" onClick={exploreDemo}>
             Explore with demo data
           </Button>
@@ -80,7 +93,7 @@ export function Onboarding() {
               <Skeleton className="mt-8 h-40 w-full" />
             </div>
           ) : status === "error" ? (
-            <ErrorState title="Couldn't reach FutureMe" message={error ?? "Unknown error."} onRetry={reload} />
+            <ErrorState title="Couldn't reach TOMORA" message={error ?? "Unknown error."} onRetry={reload} />
           ) : (
             <ProfileSteps key={workspace?.runtime.mode} />
           )}
@@ -150,10 +163,14 @@ function ProfileSteps() {
             {s.title}
           </h1>
           <p className="mt-3 text-[14px] text-muted-foreground">{s.lede}</p>
+          <p className="mt-3 flex gap-2 rounded-lg border border-border bg-surface-2/60 px-3 py-2 text-[12.5px] text-muted-foreground">
+            <span className="shrink-0 font-medium text-foreground">Why we ask</span>
+            {s.why}
+          </p>
           <div className="mt-8 grid gap-5">
             {step === 0 && (
               <>
-                <Field form={form} name="name" label="What should FutureMe call you?" placeholder="Your first name" />
+                <Field form={form} name="name" label="What should TOMORA call you?" placeholder="Your first name" />
                 <Field form={form} name="dream" label="Your ambition" multiline rows={4} placeholder="e.g. Lead an applied AI lab that builds tools for farmers in the Horn of Africa." />
                 <div className="grid gap-2">
                   <div className="max-w-[10rem]">
@@ -165,9 +182,9 @@ function ProfileSteps() {
             )}
             {step === 1 && (
               <>
-                <Field form={form} name="current" label="Where you are now" multiline placeholder="Studying, working, starting over… whatever is true." />
-                <Field form={form} name="resources" label="What you have to work with" multiline placeholder="Skills, people, time, money, tools." />
-                <Field form={form} name="challenges" label="What stands in the way" multiline placeholder="Optional, but it helps your future self be useful." />
+                <Field form={form} name="current" label="Where you are now (optional)" multiline placeholder="Studying, working, starting over… whatever is true." />
+                <Field form={form} name="resources" label="What you have to work with (optional)" multiline placeholder="Skills, people, time, money, tools." />
+                <Field form={form} name="challenges" label="What stands in the way (optional)" multiline placeholder="Responsibilities, money, time, doubts. It helps your future self be useful." />
               </>
             )}
             {step === 2 && (
@@ -190,9 +207,16 @@ function ProfileSteps() {
         ) : (
           <span />
         )}
+        <div className="flex items-center gap-2">
+        {s.optional && (
+          <Button variant="ghost" onClick={() => setStep((n) => n + 1)}>
+            Skip for now
+          </Button>
+        )}
         <Button type="submit" variant="primary" size="lg" disabled={saving}>
           {last ? (saving ? "Saving…" : "Meet your future self") : "Continue"} <ArrowRight />
         </Button>
+        </div>
       </div>
     </form>
   );
