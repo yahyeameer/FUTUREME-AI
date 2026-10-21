@@ -10,7 +10,7 @@ import { useWorkspace } from "@/lib/workspace-store";
 import { DueLabel } from "@/features/roadmap/task-row";
 import { ChosenRoadCard } from "@/features/simulator/chosen-road";
 
-/** What FutureMe is working from, separated into what you confirmed and what's only suggested. */
+/** What TOMORA is working from, separated into what you confirmed and what's only suggested. */
 export function FutureSelfContext() {
   const { workspace } = useWorkspace();
   const { profile } = workspace;
@@ -103,7 +103,7 @@ export function FutureSelfContext() {
             ))}
           </ul>
         ) : (
-          <p className="text-[12.5px] text-muted-foreground">Memories FutureMe retrieves will appear here, with links to each note.</p>
+          <p className="text-[12.5px] text-muted-foreground">Memories TOMORA retrieves will appear here, with links to each note.</p>
         )}
       </RailSection>
 

@@ -115,7 +115,7 @@ export const checkLlmSecret = (db: Db, header: string | null) => !!header && sam
 
 function agentConfig(db: Db, voiceId: string, publicUrl: string) {
   return {
-    name: `${ownerName(db)}: FutureMe twin`,
+    name: `${ownerName(db)}: TOMORA twin`,
     conversation_config: {
       agent: {
         // Both come from this app per call, as dynamic variables. The model never writes the opening line.
@@ -199,18 +199,18 @@ export function openingLine(db: Db, call: CallRow): string {
   switch (call.mode) {
     case "verify_phone": {
       const code = getTwinSetting(db, "phone_code") ?? "";
-      return `${hi}, this is FutureMe, an AI assistant, checking this number${name ? ` for ${name}` : ""}. Your code is ${spokenCode(code)}. Once more: ${spokenCode(code)}. Type it into FutureMe to finish. Goodbye.`;
+      return `${hi}, this is TOMORA, an AI assistant, checking this number${name ? ` for ${name}` : ""}. Your code is ${spokenCode(code)}. Once more: ${spokenCode(code)}. Type it into TOMORA to finish. Goodbye.`;
     }
     case "future_call":
       return `${hi}, it's you, calling from ${year}. Well, an AI version of your future self. This call is recorded for your notes. I wanted to talk about ${call.topic}. Got a minute?`;
     case "promise_check": {
       const task = taskInfo(db, call.task_id);
       const promise = task ? (/^[A-Z][a-z]/.test(task.title) ? task.title[0].toLowerCase() + task.title.slice(1) : task.title) : "do something";
-      return `${hi}, it's FutureMe, your AI future self. This call is recorded for your notes. You told me you'd ${promise.replace(/\.$/, "")}. Did you do it?`;
+      return `${hi}, it's TOMORA, your AI future self. This call is recorded for your notes. You told me you'd ${promise.replace(/\.$/, "")}. Did you do it?`;
     }
     case "capsule": {
       const when = call.created_at.slice(0, 10);
-      return `${hi}, it's FutureMe, your AI future self. This call is recorded for your notes. On ${when} you left a message for today. Here's what you said: "${call.topic}". So, how did it turn out?`;
+      return `${hi}, it's TOMORA, your AI future self. This call is recorded for your notes. On ${when} you left a message for today. Here's what you said: "${call.topic}". So, how did it turn out?`;
     }
     case "contact": {
       const opener = call.purpose ? `${call.opener ?? ""} I'm calling about ${call.purpose.replace(/\.$/, "")}.` : (call.opener ?? "");

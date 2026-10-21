@@ -1,7 +1,8 @@
 "use client";
 
-import { LockKeyhole } from "lucide-react";
+import Link from "next/link";
 import { useSearchParams } from "next/navigation";
+import { Wordmark } from "@/components/brand/mark";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
@@ -15,10 +16,10 @@ export function SignIn() {
   const params = useSearchParams();
   const error = ERRORS[params.get("error") ?? ""];
   return (
-    <form method="post" action="/api/login" className="w-full max-w-sm rounded-2xl border border-border bg-surface p-6 shadow-card">
-      <LockKeyhole className="size-5 text-subtle" aria-hidden />
-      <h1 className="mt-3 font-display text-2xl">FutureMe is locked</h1>
-      <p className="mt-1 text-[13px] text-muted-foreground">Enter the access code set on this server (FUTUREME_ACCESS_CODE).</p>
+    <form method="post" action="/api/login" className="w-full max-w-sm rounded-2xl border border-border bg-surface p-7 shadow-card">
+      <Wordmark withSymbol />
+      <h1 className="mt-8 font-display text-[1.9rem] leading-tight">Welcome back.</h1>
+      <p className="mt-1.5 text-[13px] text-muted-foreground">This TOMORA is private. Enter the access code set on this server (FUTUREME_ACCESS_CODE).</p>
       <input type="hidden" name="next" value={params.get("next") ?? "/"} />
       <label htmlFor="code" className="mt-5 block text-[12.5px] text-muted-foreground">
         Access code
@@ -32,6 +33,9 @@ export function SignIn() {
       <Button type="submit" variant="primary" className="mt-4 w-full">
         Sign in
       </Button>
+      <p className="mt-5 text-center text-[12px] text-subtle">
+        New here? <Link href="/welcome" className="text-accent-ink underline-offset-4 hover:underline">See what TOMORA is</Link>
+      </p>
     </form>
   );
 }

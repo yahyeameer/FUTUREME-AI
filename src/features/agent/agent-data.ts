@@ -18,14 +18,14 @@ export interface ToolInfo {
 }
 
 /**
- * The real toolset: the FutureMe MCP server (mcp/futureme-server.ts) exposes these, plus the voice twin's own tools.
+ * The real toolset: the TOMORA MCP server (mcp/futureme-server.ts) exposes these, plus the voice twin's own tools.
  * Each agent in agents/futureme.yaml gets only the ones it needs, so the future self itself never browses.
  */
 export function agentTools(ws: Workspace): ToolInfo[] {
   const web = ws.platform.webSearch;
   const webOn = web === "brave" || web === "duckduckgo";
   const usedBy = (name: string) => ws.platform.team.filter((a) => a.tools.includes(name)).map((a) => a.label);
-  const offReason = web === "off" ? "Turned off on this server (WEB_SEARCH=off)." : "Needs the FutureMe server; the demo has no web access.";
+  const offReason = web === "off" ? "Turned off on this server (WEB_SEARCH=off)." : "Needs the TOMORA server; the demo has no web access.";
   return [
     {
       name: "search_memory",
@@ -43,7 +43,7 @@ export function agentTools(ws: Workspace): ToolInfo[] {
       icon: AtSign,
       description: ws.capabilities.delegation
         ? "Searches what you wrote on the LinkedIn, X and Facebook accounts you imported (posts, roles, profile) and quotes it with dates and links. Also reads the persona built from them."
-        : "Searches the LinkedIn, X and Facebook data you import on Connected accounts. Needs the FutureMe server.",
+        : "Searches the LinkedIn, X and Facebook data you import on Connected accounts. Needs the TOMORA server.",
       access: ws.capabilities.delegation ? "read" : "none",
       gate: ws.capabilities.delegation ? "auto" : "unavailable",
       touches: "Imported accounts (vault Social folder)",
@@ -112,7 +112,7 @@ export function agentTools(ws: Workspace): ToolInfo[] {
       icon: Forward,
       description: ws.capabilities.delegation
         ? "Gives one task to the researcher or the council mid-conversation and uses their answer. The supervisor reviews it first."
-        : "Hands a task to the researcher or the council mid-conversation. Needs the FutureMe server.",
+        : "Hands a task to the researcher or the council mid-conversation. Needs the TOMORA server.",
       access: ws.capabilities.delegation ? "read" : "none",
       gate: ws.capabilities.delegation ? "auto" : "unavailable",
       touches: "Other agents",
@@ -123,7 +123,7 @@ export function agentTools(ws: Workspace): ToolInfo[] {
       icon: UserPlus,
       description: ws.capabilities.delegation
         ? "Creates a temporary helper with a role and read-only tools for one task. Helpers can't save anything, and the supervisor reviews their answer."
-        : "Creates a temporary helper agent for one task. Needs the FutureMe server.",
+        : "Creates a temporary helper agent for one task. Needs the TOMORA server.",
       access: ws.capabilities.delegation ? "read" : "none",
       gate: ws.capabilities.delegation ? "auto" : "unavailable",
       touches: "New helper agents",
@@ -233,7 +233,7 @@ export interface VaultFile {
   href: string;
   updatedAt: string;
   memory?: Memory;
-  /** False when the user told FutureMe not to retrieve this note and the backend enforces it. */
+  /** False when the user told TOMORA not to retrieve this note and the backend enforces it. */
   readable: boolean;
 }
 

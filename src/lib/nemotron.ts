@@ -1,7 +1,7 @@
 import type { JsonSchemaSpec, ReasoningMode } from "./llm";
 import { SIMULATION_SCHEMA } from "./simulator-paths";
 
-// How FutureMe uses NVIDIA Nemotron on Nebius Token Factory beyond plain chat:
+// How TOMORA uses NVIDIA Nemotron on Nebius Token Factory beyond plain chat:
 // - Reasoning per agent: the agents that plan, judge or merge think first; quick voices and live calls answer straight away.
 // - Structured outputs: every agent that must return JSON is constrained to a JSON schema, so the app never has to guess.
 // Both apply when the app runs the team itself (no DOCKER_AGENT_URL); the agents in agents/futureme.yaml are the same.

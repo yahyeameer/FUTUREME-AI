@@ -103,7 +103,7 @@ export async function runSubAgent(db: Db, task: SubTask, opts: { missionId?: num
       output = [summary, ...kept.map((f) => `- ${f.point} (${f.url})`)].join("\n");
       ({ citations, usedTools, backend, exactEvents } = fromRun(run));
     } else {
-      const context = [`You were created by FutureMe's main agent for one task, as: ${role}.`, profile && withChosenRoad(db, profileContext(profile))].filter(Boolean).join("\n");
+      const context = [`You were created by TOMORA's main agent for one task, as: ${role}.`, profile && withChosenRoad(db, profileContext(profile))].filter(Boolean).join("\n");
       const run = await runAgent(
         db,
         agent as AgentName,

@@ -371,7 +371,7 @@ export function createDemoService(): FutureMeService {
       await wait(1100);
       const today = new Date().toISOString().slice(0, 10);
       if (!state.editionDates.includes(today)) state.editionDates.push(today);
-      log("daily_published", "Today's FutureMe Daily went to press", "/daily");
+      log("daily_published", "Today's TOMORA Daily went to press", "/daily");
       const workspace = commit();
       return { workspace, edition: workspace.editions[0] };
     },
@@ -469,7 +469,7 @@ export function createDemoService(): FutureMeService {
       const input = { simulationId: 0, goal: s.goal, paths: s.paths, situation, original: s.situation, extras: inputs, profile: { dream: p.dream, values: p.values.join(", "), challenges: p.challenges }, memory: [] };
       const { request, checks } = buildRouteRequest(input, `demo-${Date.now()}`);
       const result = rulesOnlyResult(request, checks);
-      result.reasons.push("Demo mode can't reach Jev. Run FutureMe live with a TypeSafe key to get a recommendation.");
+      result.reasons.push("Demo mode can't reach Jev. Run TOMORA live with a TypeSafe key to get a recommendation.");
       const decision = { id: request.decisionId, kind: "rank_paths" as const, parentId: null, createdAt: now(), request, result, choice: null, outcome: null };
       (s.decisions ??= []).unshift(decision);
       return { workspace: commit(), decision };
@@ -514,7 +514,7 @@ export function createDemoService(): FutureMeService {
     },
 
     async saveDecisionKey() {
-      throw new Error("Keys are saved on the server. Run FutureMe live to add a TypeSafe key.");
+      throw new Error("Keys are saved on the server. Run TOMORA live to add a TypeSafe key.");
     },
 
     async saveCouncil(sessionId) {
@@ -552,7 +552,7 @@ export function createDemoService(): FutureMeService {
     },
 
     async runResearch() {
-      throw new Error("Web research needs the FutureMe server. Demo mode never goes online.");
+      throw new Error("Web research needs the TOMORA server. Demo mode never goes online.");
     },
 
     async runNightShift() {
@@ -580,12 +580,12 @@ export function createDemoService(): FutureMeService {
         simulated: true,
       };
       (state.nightShifts ??= []).unshift(shift);
-      log("daily_published", "The night shift published today's FutureMe Daily", "/daily");
+      log("daily_published", "The night shift published today's TOMORA Daily", "/daily");
       return { workspace: commit(), shift };
     },
 
     async setPack() {
-      throw new Error("Persona packs need the FutureMe server.");
+      throw new Error("Persona packs need the TOMORA server.");
     },
 
     async startMission(goal) {

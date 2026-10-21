@@ -566,7 +566,7 @@ function Meta({ result }: { result: DecisionResult }) {
         : m.error
           ? `Jev wasn't used: ${m.error}`
           : "Jev wasn't used for this check."}{" "}
-      The roads came from Nemotron; every calculation came from FutureMe&apos;s rules.
+      The roads came from Nemotron; every calculation came from TOMORA&apos;s rules.
     </p>
   );
 }

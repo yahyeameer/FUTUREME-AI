@@ -6,9 +6,11 @@ import { cn } from "@/lib/utils";
 import { useNow } from "@/lib/use-now";
 
 /**
- * The glass time-orb around the Presence. A clock dial in the ring: the copper pip is the current minute, a comet sweeps
- * the real seconds, and the citron star at the top is the future you're steering toward. Around it, today's date and
- * time and the horizon year turn slowly. It tilts toward the pointer, and spins faster while the future self is working.
+ * The glass time-orb around the Presence: an old clock where the past and the future turn together. Roman numerals mark
+ * the hours; a bronze ring of the past turns backward inside the dial while today's date, the time and the horizon year
+ * turn forward around it. The bronze pip is the current minute, a comet sweeps the real seconds, and the champagne star
+ * at the top is the future you're steering toward. It tilts toward the pointer, and spins faster while the future self
+ * is working.
  * Everything here is decorative; the Presence inside carries the meaning for screen readers.
  */
 export function Orb({ size = 280, className, children, horizonYear, active = false }: { size?: number; className?: string; children?: React.ReactNode; horizonYear?: number; active?: boolean }) {
@@ -59,12 +61,12 @@ export function Orb({ size = 280, className, children, horizonYear, active = fal
         py.set(0);
       }}
     >
-      {/* Aura: citron for the future, copper for today. */}
+      {/* Aura: champagne for the future, bronze for the past. */}
       <div
         aria-hidden
         className={cn("absolute inset-[4%] -z-10 animate-orbit rounded-full opacity-80 blur-2xl transition-opacity duration-500 group-hover/orb:opacity-100", active && "opacity-100 [animation-duration:5s]")}
         style={{
-          background: "conic-gradient(from 90deg, var(--accent), transparent 30%, var(--copper) 55%, transparent 75%, var(--accent))",
+          background: "conic-gradient(from 90deg, var(--accent), transparent 30%, var(--bronze) 55%, transparent 75%, var(--accent))",
         }}
       />
 
@@ -98,6 +100,26 @@ export function Orb({ size = 280, className, children, horizonYear, active = fal
             })}
           </g>
 
+          {/* The hours, in Roman numerals, like an old clock face. */}
+          <g fill="currentColor" fillOpacity="0.55" textAnchor="middle" style={{ fontFamily: "var(--font-display)", fontSize: 8.5 }}>
+            {NUMERALS.map((n, i) => {
+              const a = (i / 12) * Math.PI * 2 - Math.PI / 2;
+              return (
+                <text key={n} x={round(100 + Math.cos(a) * 67)} y={round(100 + Math.sin(a) * 67 + 3)}>
+                  {n}
+                </text>
+              );
+            })}
+          </g>
+
+          {/* The past: a bronze ring of beads turning backward, against the future's forward turn. */}
+          <g className={cn("origin-center animate-[orbit_70s_linear_infinite] [animation-direction:reverse]", active && "[animation-duration:12s]")} style={{ transformBox: "view-box" }} fill="var(--bronze)">
+            {Array.from({ length: 36 }, (_, i) => {
+              const a = (i / 36) * Math.PI * 2;
+              return <circle key={i} cx={round(100 + Math.cos(a) * 57)} cy={round(100 + Math.sin(a) * 57)} r={i % 3 === 0 ? 1.3 : 0.7} opacity={i % 3 === 0 ? 0.75 : 0.4} />;
+            })}
+          </g>
+
           {/* Today's date and time, and the year you named, turning around the dial. */}
           <g className={cn("origin-center animate-[orbit_90s_linear_infinite]", active && "[animation-duration:16s]")} style={{ transformBox: "view-box" }}>
             <text
@@ -117,7 +139,7 @@ export function Orb({ size = 280, className, children, horizonYear, active = fal
           </g>
 
           {/* Now: the current minute. */}
-          <circle cx={round(100 + Math.cos(minuteAngle) * 80)} cy={round(100 + Math.sin(minuteAngle) * 80)} r="3" fill="var(--copper)" className="drop-shadow-[0_0_4px_var(--copper)]" />
+          <circle cx={round(100 + Math.cos(minuteAngle) * 80)} cy={round(100 + Math.sin(minuteAngle) * 80)} r="3" fill="var(--bronze)" className="drop-shadow-[0_0_4px_var(--bronze)]" />
           {/* The future: where the hands are heading. */}
           <circle cx="100" cy="20" r="9" fill={`url(#star-${uid})`} className="animate-breathe origin-[100px_20px]" />
           <path d="M100 13.5 L101.6 18.4 L106.5 20 L101.6 21.6 L100 26.5 L98.4 21.6 L93.5 20 L98.4 18.4 Z" fill="var(--accent)" />
@@ -140,19 +162,19 @@ export function Orb({ size = 280, className, children, horizonYear, active = fal
           aria-hidden
           className={cn(
             "absolute inset-[17%] rounded-full border border-white/60 bg-gradient-to-br from-white/70 via-white/25 to-white/5 backdrop-blur-md transition-shadow duration-500 dark:border-white/15 dark:from-white/[0.14] dark:via-white/[0.05] dark:to-transparent",
-            "shadow-[inset_0_2px_6px_rgb(255_255_255/0.9),inset_0_-14px_30px_-10px_rgb(187_128_92/0.3),0_24px_50px_-22px_rgb(60_45_20/0.5),0_0_0_1px_rgb(196_214_106/0.12)] dark:shadow-[inset_0_1px_2px_rgb(255_255_255/0.25),inset_0_-14px_30px_-10px_rgb(187_128_92/0.25),0_24px_50px_-22px_rgb(0_0_0/0.8)]",
-            "group-hover/orb:shadow-[inset_0_2px_6px_rgb(255_255_255/0.9),inset_0_-14px_30px_-10px_rgb(187_128_92/0.3),0_0_42px_-6px_var(--accent)] dark:group-hover/orb:shadow-[inset_0_1px_2px_rgb(255_255_255/0.25),0_0_46px_-8px_var(--accent)]",
+            "shadow-[inset_0_2px_6px_rgb(255_255_255/0.9),inset_0_-14px_30px_-10px_rgb(168_112_63/0.3),0_24px_50px_-22px_rgb(60_45_20/0.5),0_0_0_1px_rgb(200_183_143/0.14)] dark:shadow-[inset_0_1px_2px_rgb(255_255_255/0.25),inset_0_-14px_30px_-10px_rgb(168_112_63/0.25),0_24px_50px_-22px_rgb(0_0_0/0.8)]",
+            "group-hover/orb:shadow-[inset_0_2px_6px_rgb(255_255_255/0.9),inset_0_-14px_30px_-10px_rgb(168_112_63/0.3),0_0_42px_-6px_var(--accent)] dark:group-hover/orb:shadow-[inset_0_1px_2px_rgb(255_255_255/0.25),0_0_46px_-8px_var(--accent)]",
             active && "animate-pulse",
           )}
         />
         <motion.div aria-hidden className="pointer-events-none absolute inset-[17%] rounded-full opacity-70 mix-blend-soft-light" style={{ background: glare }} />
 
-        {/* Satellites: today (copper) and the future (citron), on their own orbits. */}
+        {/* Satellites: the future (champagne) and the past (bronze), on their own orbits. */}
         <div aria-hidden className="absolute inset-0 animate-orbit [animation-duration:18s]">
           <span className="absolute top-[2%] left-1/2 size-2.5 -translate-x-1/2 rounded-full bg-accent shadow-[0_0_14px_var(--accent)]" />
         </div>
         <div aria-hidden className="absolute inset-[10%] animate-orbit [animation-direction:reverse] [animation-duration:30s]">
-          <span className="absolute bottom-0 left-1/2 size-1.5 -translate-x-1/2 rounded-full bg-copper shadow-[0_0_10px_var(--copper)]" />
+          <span className="absolute bottom-0 left-1/2 size-1.5 -translate-x-1/2 rounded-full bg-bronze shadow-[0_0_10px_var(--bronze)]" />
         </div>
 
         <div className="absolute inset-0 flex items-center justify-center [transform:translateZ(36px)]">{children}</div>
@@ -160,6 +182,8 @@ export function Orb({ size = 280, className, children, horizonYear, active = fal
     </div>
   );
 }
+
+const NUMERALS = ["XII", "I", "II", "III", "IIII", "V", "VI", "VII", "VIII", "IX", "X", "XI"];
 
 // Trig results can differ in the last digit between server and browser, which breaks hydration.
 function round(n: number) {

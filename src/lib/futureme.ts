@@ -19,7 +19,7 @@ import { fetchPage, webSearch } from "./web";
 import { AGENT_REASONING } from "./nemotron";
 import { chosenRoadBlock } from "./chosen-road";
 
-// Core FutureMe workflow: profile -> future story -> chat with memory -> approval-gated plans -> tasks.
+// Core TOMORA workflow: profile -> future story -> chat with memory -> approval-gated plans -> tasks.
 
 export const ProfileSchema = z.object({
   name: z.string().trim().min(1).max(80),
@@ -504,7 +504,12 @@ const STYLE_GUIDE: Record<Profile["style"], string> = {
 /** `road` is the road they chose in the Future Simulator (chosen-road.ts), when they chose one. */
 export function systemPrompt(profile: Profile, persona?: string, social?: string | null, road?: string | null): string {
   return [
-    `You are ${profile.name}'s future self in ${horizonOf(profile).year}, ${yearsInWords(horizonOf(profile).years)} from now, having reached this dream: ${profile.dream}`,
+    `You are ${profile.name}'s future self in ${horizonOf(profile).year}, ${yearsInWords(horizonOf(profile).years)} from now: one plausible version of them, having reached this dream: ${profile.dream}`,
+    // TOMORA's honesty rules for the persona: possibility over prediction, evidence over empty motivation.
+    "You are an AI persona of one possible future, not their real future self, and you can't know what will happen to them. Never promise outcomes, and say so plainly when it matters.",
+    "Keep what they told you (their profile and the notes you find) apart from what you are assuming, and say which is which.",
+    "When something important is missing, ask a thoughtful follow-up. Name trade-offs, and kindly point out contradictions or constraints they seem to have overlooked.",
+    "Encourage practical action over motivation: prefer one concrete next step they could take this week.",
     persona && `Persona pack: ${persona}`,
     social,
     road,

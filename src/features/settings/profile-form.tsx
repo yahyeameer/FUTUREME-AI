@@ -12,7 +12,7 @@ import type { CoachingStyle, Profile } from "@/types";
 const thisYear = new Date().getFullYear();
 
 export const ProfileSchema = z.object({
-  name: z.string().trim().min(1, "Tell FutureMe what to call you.").max(60),
+  name: z.string().trim().min(1, "Tell TOMORA what to call you.").max(60),
   dream: z.string().trim().min(10, "Describe your ambition in a sentence or two.").max(1000),
   horizonYear: z.coerce
     .number<number>({ message: "Enter a year." })

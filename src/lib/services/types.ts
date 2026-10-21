@@ -80,7 +80,7 @@ export interface SkillService {
   runSkill(skillId: string, inputs: Record<string, string>, onUpdate: (run: SkillRun) => void): Promise<{ workspace: Workspace; run: SkillRun }>;
 }
 
-/** FutureMe's agent team beyond the conversation: the council, the fact checker, research, the night shift and packs. */
+/** TOMORA's agent team beyond the conversation: the council, the fact checker, research, the night shift and packs. */
 export interface AgentTeamService {
   askCouncil(question: string): Promise<{ workspace: Workspace; session: CouncilSession }>;
   saveCouncil(sessionId: string): Promise<Workspace>;

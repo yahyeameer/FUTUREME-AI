@@ -289,7 +289,7 @@ export function Packs() {
       <div className="flex flex-col gap-2 border-t border-border bg-sunken/50 px-5 py-3.5 text-[12px] text-muted-foreground sm:flex-row sm:items-center">
         <Package className="size-4 shrink-0 text-subtle" aria-hidden />
         <p className="min-w-0 flex-1">
-          {enabled ? "Each pack is a Docker Agent file in agents/packs/. Share one with " : "Switching packs needs the FutureMe server. Each pack is a Docker Agent file you can share with "}
+          {enabled ? "Each pack is a Docker Agent file in agents/packs/. Share one with " : "Switching packs needs the TOMORA server. Each pack is a Docker Agent file you can share with "}
           <code className="rounded bg-surface-3/70 px-1 font-mono text-[11px]">docker agent share push</code> and pull a friend&apos;s with{" "}
           <code className="rounded bg-surface-3/70 px-1 font-mono text-[11px]">share pull</code>.
         </p>
@@ -309,7 +309,7 @@ export function Privacy() {
       : p.backend === "demo"
         ? { icon: Sparkles, label: "Model", value: "None. The demo plays scripted replies in your browser." }
         : { icon: Cloud, label: "Model", value: `${rt.model}. Messages are sent to the model provider to get a reply.` },
-    { icon: Bot, label: "Agents run in", value: p.backend === "docker-agent" ? `Docker Agent, from ${p.agentFile}` : p.backend === "in-process" ? "The FutureMe server (no Docker Agent configured)" : "Your browser (demo)" },
+    { icon: Bot, label: "Agents run in", value: p.backend === "docker-agent" ? `Docker Agent, from ${p.agentFile}` : p.backend === "in-process" ? "The TOMORA server (no Docker Agent configured)" : "Your browser (demo)" },
     p.webSearch === "brave" || p.webSearch === "duckduckgo"
       ? { icon: Globe, label: "Web", value: `Only the research agent goes online, through ${p.webSearch === "brave" ? "Brave Search" : "DuckDuckGo"}. Your notes are never sent to search.` }
       : { icon: Lock, label: "Web", value: p.webSearch === "off" ? "Off. No agent can reach the web." : "Not available in the demo.", tone: "off" },
@@ -326,7 +326,7 @@ export function Privacy() {
       ))}
       {!p.local && p.backend !== "demo" && (
         <p className="px-5 py-3 text-[12px] text-subtle">
-          To keep everything on your machine, start FutureMe with <code className="font-mono">docker compose -f docker-compose.yml -f docker-compose.local.yml up</code>.
+          To keep everything on your machine, start TOMORA with <code className="font-mono">docker compose -f docker-compose.yml -f docker-compose.local.yml up</code>.
         </p>
       )}
     </div>
@@ -347,7 +347,7 @@ export function Research() {
               Run <Link href="/skills#skill-research" className="underline">Research a topic</Link>. It searches the web, reads the pages and cites only links it opened.
             </>
           ) : (
-            "On the FutureMe server the research agent searches the web and cites only links it actually opened."
+            "On the TOMORA server the research agent searches the web and cites only links it actually opened."
           )}
         </EmptyState>
       </div>

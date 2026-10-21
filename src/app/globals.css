@@ -6,109 +6,114 @@
 @custom-variant light (&:where([data-theme="light"], [data-theme="light"] *));
 @custom-variant compact (&:where([data-density="compact"], [data-density="compact"] *));
 
-/* ---------- Editorial Futurism tokens ---------- */
+/* ---------- TOMORA tokens ----------
+   Ink, midnight, ivory, champagne and slate (src/lib/brand.ts). Champagne is rare on purpose: the one important action,
+   the selected state, small brand details. "copper" is the quiet second accent (a cool slate) used in two-stop rules. */
 
 :root,
 [data-theme="light"] {
   color-scheme: light;
-  --background: #f4f1ea;
-  --surface: #fffefb;
-  --surface-2: #faf8f3;
-  --surface-3: #efebe2;
-  --sunken: #ece8de;
-  --foreground: #17191b;
-  --muted-foreground: #5a5853;
-  --subtle-foreground: #75726b;
-  --border: #e6e1d6;
-  --border-strong: #d3cdbf;
-  --input: #dcd6ca;
-  --ring: #6b7d16;
+  --background: #f3f0e8;
+  --surface: #fbfaf6;
+  --surface-2: #f7f5ef;
+  --surface-3: #ebe7dd;
+  --sunken: #e9e5da;
+  --foreground: #101113;
+  --muted-foreground: #565b63;
+  --subtle-foreground: #6a6f77;
+  --border: #e2ddd1;
+  --border-strong: #cec7b8;
+  --input: #d8d2c5;
+  --ring: #8a7445;
 
-  /* The one strong action on a surface: obsidian ink with an ivory label. */
-  --primary: #17191b;
-  --primary-foreground: #f5f2ea;
-  --primary-glow: rgb(196 214 106 / 0.55);
+  /* The one strong action on a surface: ink with an ivory label. */
+  --primary: #101113;
+  --primary-foreground: #f3f0e8;
+  --primary-glow: rgb(16 17 19 / 0.28);
 
-  --accent: #c4d66a;
-  --accent-foreground: #15170b;
-  --accent-ink: #55640f;
-  --accent-wash: rgb(150 172 40 / 0.12);
-  --copper: #a15f39;
-  --copper-wash: rgb(187 128 92 / 0.13);
+  --accent: #c8b78f;
+  --accent-foreground: #101113;
+  --accent-ink: #77653a;
+  --accent-wash: rgb(200 183 143 / 0.2);
+  --copper: #4f5a6b;
+  --copper-wash: rgb(79 90 107 / 0.1);
+  /* Bronze: the past in the TOMORA clock (logo and orb). Champagne is the future. */
+  --bronze: #a8703f;
 
-  --destructive: #b2412d;
-  --destructive-wash: rgb(178 65 45 / 0.08);
-  --success: #3f7a35;
-  --success-wash: rgb(63 122 53 / 0.1);
-  --warning: #93630f;
-  --warning-wash: rgb(147 99 15 / 0.1);
-  --info: #3b6782;
-  --info-wash: rgb(59 103 130 / 0.09);
+  --destructive: #a8402e;
+  --destructive-wash: rgb(168 64 46 / 0.08);
+  --success: #3d7044;
+  --success-wash: rgb(61 112 68 / 0.1);
+  --warning: #8a5f12;
+  --warning-wash: rgb(138 95 18 / 0.1);
+  --info: #3b5f7a;
+  --info-wash: rgb(59 95 122 / 0.09);
 
-  --glass: rgb(255 254 251 / 0.72);
-  --glass-border: rgb(23 25 27 / 0.07);
-  --shadow-card: 0 1px 0 rgb(255 255 255 / 0.9) inset, 0 1px 2px rgb(52 40 20 / 0.05), 0 10px 30px -14px rgb(52 40 20 / 0.16);
-  --shadow-lift: 0 1px 0 rgb(255 255 255 / 0.9) inset, 0 2px 4px rgb(52 40 20 / 0.05), 0 24px 48px -18px rgb(52 40 20 / 0.28);
-  --shadow-float: 0 1px 0 rgb(255 255 255 / 0.7) inset, 0 22px 50px -20px rgb(52 40 20 / 0.32);
-  --ambient-a: rgb(196 214 106 / 0.32);
-  --ambient-b: rgb(187 128 92 / 0.2);
+  --glass: rgb(251 250 246 / 0.86);
+  --glass-border: rgb(16 17 19 / 0.08);
+  --shadow-card: 0 1px 2px rgb(30 26 18 / 0.04), 0 8px 24px -16px rgb(30 26 18 / 0.14);
+  --shadow-lift: 0 2px 4px rgb(30 26 18 / 0.05), 0 18px 40px -20px rgb(30 26 18 / 0.24);
+  --shadow-float: 0 18px 44px -22px rgb(30 26 18 / 0.3);
+  --ambient-a: rgb(200 183 143 / 0.18);
+  --ambient-b: rgb(79 90 107 / 0.08);
   --ambient-c: rgb(235 231 222 / 0.9);
-  --paper-grain: 0.045;
-  /* Cursor-following light on cards, and the dotted field behind the app. */
-  --spot: rgb(196 214 106 / 0.16);
-  --spot-edge: rgb(150 172 40 / 0.35);
-  --dots: rgb(23 25 27 / 0.07);
-  --glow-accent: 0 0 0 1px rgb(150 172 40 / 0.25), 0 18px 40px -18px rgb(150 172 40 / 0.55);
+  --paper-grain: 0.03;
+  /* The faint light a card catches under the pointer. */
+  --spot: rgb(200 183 143 / 0.08);
+  --spot-edge: rgb(138 116 69 / 0.22);
+  --dots: rgb(16 17 19 / 0.05);
+  --glow-accent: 0 0 0 1px rgb(138 116 69 / 0.22);
 }
 
 [data-theme="dark"] {
   color-scheme: dark;
-  --background: #101112;
-  --surface: #17181a;
-  --surface-2: #1c1e20;
-  --surface-3: #25282b;
-  --sunken: #0c0d0e;
-  --foreground: #ece8df;
-  --muted-foreground: #a29f96;
-  --subtle-foreground: #86847d;
-  --border: #26292c;
-  --border-strong: #363a3e;
-  --input: #2c3034;
-  --ring: #c4d66a;
+  --background: #101113;
+  --surface: #171b22;
+  --surface-2: #1b2028;
+  --surface-3: #242a33;
+  --sunken: #0b0c0e;
+  --foreground: #f3f0e8;
+  --muted-foreground: #aeb2ba;
+  --subtle-foreground: #8d929b;
+  --border: #252a32;
+  --border-strong: #353c47;
+  --input: #2d333d;
+  --ring: #c8b78f;
 
-  --primary: #c4d66a;
-  --primary-foreground: #15170b;
-  --primary-glow: rgb(196 214 106 / 0.35);
+  --primary: #c8b78f;
+  --primary-foreground: #101113;
+  --primary-glow: rgb(200 183 143 / 0.25);
 
-  --accent: #c4d66a;
-  --accent-foreground: #15170b;
-  --accent-ink: #c9da78;
-  --accent-wash: rgb(196 214 106 / 0.1);
-  --copper: #c98d67;
-  --copper-wash: rgb(201 141 103 / 0.12);
+  --accent: #c8b78f;
+  --accent-foreground: #101113;
+  --accent-ink: #d8caa5;
+  --accent-wash: rgb(200 183 143 / 0.11);
+  --copper: #9ba5b4;
+  --copper-wash: rgb(155 165 180 / 0.1);
+  --bronze: #c8925f;
 
-  --destructive: #e3826f;
-  --destructive-wash: rgb(227 130 111 / 0.12);
-  --success: #9ac48c;
-  --success-wash: rgb(154 196 140 / 0.12);
-  --warning: #dcae63;
-  --warning-wash: rgb(220 174 99 / 0.12);
-  --info: #96b6cb;
-  --info-wash: rgb(150 182 203 / 0.12);
+  --destructive: #e08a77;
+  --destructive-wash: rgb(224 138 119 / 0.12);
+  --success: #93bf95;
+  --success-wash: rgb(147 191 149 / 0.12);
+  --warning: #d9b06a;
+  --warning-wash: rgb(217 176 106 / 0.12);
+  --info: #98b4c9;
+  --info-wash: rgb(152 180 201 / 0.12);
 
-  --glass: rgb(25 27 29 / 0.72);
-  --glass-border: rgb(255 255 255 / 0.08);
-  --shadow-card: 0 1px 0 rgb(255 255 255 / 0.035) inset, 0 12px 32px -18px rgb(0 0 0 / 0.7);
-  --shadow-lift: 0 1px 0 rgb(255 255 255 / 0.05) inset, 0 24px 50px -20px rgb(0 0 0 / 0.85);
-  --shadow-float: 0 1px 0 rgb(255 255 255 / 0.04) inset, 0 18px 50px -20px rgb(0 0 0 / 0.7);
-  --ambient-a: rgb(196 214 106 / 0.15);
-  --ambient-b: rgb(187 128 92 / 0.13);
-  --ambient-c: rgb(16 17 18 / 0);
-  --paper-grain: 0.035;
-  --spot: rgb(196 214 106 / 0.09);
-  --spot-edge: rgb(196 214 106 / 0.32);
-  --dots: rgb(255 255 255 / 0.05);
-  --glow-accent: 0 0 0 1px rgb(196 214 106 / 0.22), 0 18px 44px -16px rgb(196 214 106 / 0.35);
+  --glass: rgb(23 27 34 / 0.88);
+  --glass-border: rgb(255 255 255 / 0.07);
+  --shadow-card: 0 1px 0 rgb(255 255 255 / 0.025) inset, 0 10px 28px -18px rgb(0 0 0 / 0.7);
+  --shadow-lift: 0 1px 0 rgb(255 255 255 / 0.04) inset, 0 20px 44px -22px rgb(0 0 0 / 0.8);
+  --shadow-float: 0 18px 44px -20px rgb(0 0 0 / 0.7);
+  --ambient-a: rgb(200 183 143 / 0.07);
+  --ambient-b: rgb(155 165 180 / 0.05);
+  --ambient-c: rgb(16 17 19 / 0);
+  --paper-grain: 0.025;
+  --spot: rgb(200 183 143 / 0.05);
+  --spot-edge: rgb(200 183 143 / 0.2);
+  --dots: rgb(255 255 255 / 0.035);
+  --glow-accent: 0 0 0 1px rgb(200 183 143 / 0.2);
 }
 
 :root {
@@ -120,6 +125,11 @@
   --gap-section: 2.5rem;
   /* Height of the phone tab bar; 0 wherever it isn't shown. */
   --tabbar: 0px;
+  /* Motion: one easing and three durations, so transitions feel like one product. */
+  --ease-out: cubic-bezier(0.2, 0.7, 0.2, 1);
+  --dur-fast: 150ms;
+  --dur-base: 280ms;
+  --dur-slow: 600ms;
 }
 
 @media (max-width: 1023px) {
@@ -151,6 +161,7 @@
   --color-accent-ink: var(--accent-ink);
   --color-accent-wash: var(--accent-wash);
   --color-copper: var(--copper);
+  --color-bronze: var(--bronze);
   --color-copper-wash: var(--copper-wash);
   --color-destructive: var(--destructive);
   --color-destructive-wash: var(--destructive-wash);
@@ -281,6 +292,19 @@
   to { opacity: 1; transform: none; }
 }
 
+@keyframes rise {
+  0% { transform: translate3d(0, 0, 0); opacity: 0; }
+  12% { opacity: 0.9; }
+  50% { transform: translate3d(14px, -48vh, 0); }
+  85% { opacity: 0.6; }
+  100% { transform: translate3d(-6px, -96vh, 0); opacity: 0; }
+}
+
+@keyframes glint {
+  0%, 100% { opacity: 0.55; }
+  50% { opacity: 1; }
+}
+
 @keyframes caret {
   to {
     visibility: hidden;
@@ -355,12 +379,21 @@
   letter-spacing: -0.01em;
 }
 
+/* Small section labels in sentence case: hierarchy from size and colour, not shouting capitals. */
 @utility t-label {
-  font-size: 0.6875rem;
+  font-size: 0.75rem;
   font-weight: 500;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  letter-spacing: 0.005em;
   color: var(--subtle-foreground);
+}
+
+/* The brand's own voice: eyebrow lines on the landing page and brand moments, sparingly. */
+@utility t-eyebrow {
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--accent-ink);
 }
 
 @utility t-meta {
@@ -410,13 +443,13 @@
     box-shadow: var(--shadow-card);
   }
   /* Cards you can act on lift and lean toward the pointer (--px/--py, -0.5 to 0.5, from SpotlightTracker). */
+  /* Cards you can act on rise slightly; no tilt, no glow. */
   .card-hover {
-    transition: transform 0.35s cubic-bezier(0.2, 0.7, 0.2, 1), box-shadow 0.25s, border-color 0.25s;
-    transform-style: preserve-3d;
+    transition: transform var(--dur-base) var(--ease-out), box-shadow var(--dur-base), border-color var(--dur-base);
   }
   .card-hover:hover {
-    transform: perspective(900px) rotateX(calc(var(--py, 0) * -5deg)) rotateY(calc(var(--px, 0) * 5deg)) translateY(-3px);
-    box-shadow: var(--shadow-lift), var(--glow-accent);
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-lift);
   }
   .card-hover:not(.card):hover {
     border-color: var(--border-strong);
@@ -438,31 +471,22 @@
     transform: translateX(-120%) skewX(-18deg);
     pointer-events: none;
   }
+  /* Kept as a hook for the primary button; TOMORA doesn't sweep light across it. */
   .sheen:hover::after {
-    animation: sheen 0.9s cubic-bezier(0.2, 0.7, 0.2, 1);
+    animation: none;
   }
 
-  /* Citron to copper ink, slowly panning: names and the words that matter. */
+  /* Champagne ink for names and the words that matter. Static: emphasis, not decoration. */
   .text-gradient {
-    background: linear-gradient(100deg, var(--copper) 0%, var(--accent-ink) 45%, var(--copper) 90%);
-    background-size: 220% 100%;
-    -webkit-background-clip: text;
-    background-clip: text;
-    color: transparent;
-    animation: gradient-pan 9s ease-in-out infinite;
+    color: var(--accent-ink);
   }
 
-  /* Slow coloured light inside hero cards. */
+  /* A still horizon of light at the top of hero cards. */
   .aurora {
     position: absolute;
-    inset: -30%;
+    inset: 0;
     pointer-events: none;
-    background:
-      radial-gradient(38% 42% at 72% 30%, var(--ambient-a), transparent 70%),
-      radial-gradient(30% 36% at 85% 78%, var(--ambient-b), transparent 70%),
-      radial-gradient(26% 30% at 20% 90%, var(--accent-wash), transparent 70%);
-    filter: blur(20px);
-    animation: aurora 26s ease-in-out infinite;
+    background: radial-gradient(70% 55% at 80% 0%, var(--ambient-a), transparent 70%);
   }
 
   /* Faint dotted field, fading out toward the edges. */
@@ -480,10 +504,9 @@
   /* Short citron-to-copper rule under page titles. */
   .title-rule {
     display: block;
-    height: 3px;
+    height: 1px;
     width: 3.5rem;
-    border-radius: 9999px;
-    background: linear-gradient(90deg, var(--accent), var(--copper));
+    background: var(--accent);
     transform-origin: left;
     animation: grow-x 0.8s cubic-bezier(0.2, 0.7, 0.2, 1) 0.15s both;
   }
@@ -494,6 +517,7 @@
   }
   .focus-glow:focus-within {
     box-shadow: var(--shadow-lift), var(--glow-accent);
+    border-color: var(--border-strong);
   }
 
   .pulse-ring {
@@ -514,7 +538,6 @@
     position: absolute;
     border-radius: 9999px;
     filter: blur(80px);
-    animation: drift 38s ease-in-out infinite;
   }
   .ambient::before {
     width: 46rem;
@@ -543,7 +566,7 @@
     inset: 0;
     border-radius: inherit;
     padding: 1px;
-    background: linear-gradient(135deg, rgb(196 214 106 / 0.7), transparent 35%, transparent 65%, rgb(187 128 92 / 0.55));
+    background: linear-gradient(180deg, color-mix(in oklab, var(--accent) 55%, transparent), transparent 40%);
     -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
     -webkit-mask-composite: xor;
     mask-composite: exclude;
@@ -583,12 +606,8 @@
     pointer-events: none;
   }
   .reply:hover {
-    background: var(--glass);
-    border-color: var(--glass-border);
-    box-shadow: var(--shadow-float);
-    -webkit-backdrop-filter: blur(14px) saturate(1.2);
-    backdrop-filter: blur(14px) saturate(1.2);
-    transform: translateY(-2px);
+    background: color-mix(in oklab, var(--surface) 70%, transparent);
+    border-color: var(--border);
   }
   .reply:hover::before {
     opacity: 1;
@@ -601,10 +620,7 @@
     inset: 0 auto 0 0;
     width: 45%;
     border-radius: inherit;
-    background: linear-gradient(90deg, transparent, color-mix(in oklab, var(--accent) 22%, transparent), transparent);
-    transform: translateX(-120%) skewX(-18deg);
-    animation: sheen 1.4s cubic-bezier(0.2, 0.7, 0.2, 1) 0.15s both;
-    pointer-events: none;
+    content: none;
   }
   .reply-enter .reply-settle > * {
     animation: settle 0.55s cubic-bezier(0.2, 0.7, 0.2, 1) both;
@@ -621,15 +637,14 @@
     inset: -3px;
     z-index: -1;
     border-radius: 9999px;
-    background: conic-gradient(from 0deg, var(--accent), transparent 35%, var(--copper) 65%, transparent 85%, var(--accent));
-    box-shadow: 0 0 14px -3px var(--accent);
-    opacity: 0.35;
+    background: conic-gradient(from 0deg, var(--accent), transparent 40%, transparent 100%);
+    opacity: 0.25;
     transition: opacity 0.35s;
-    animation: orbit 3s linear infinite;
   }
-  .reply:hover .halo::before,
+  /* The ring turns only while the reply is being written: motion means work in progress. */
   .halo[data-busy]::before {
     opacity: 1;
+    animation: orbit 1.6s linear infinite;
   }
 
   /* Reply text: the opening line leads, a citron rule marks the paragraph under the pointer, and bold phrases get a
@@ -645,7 +660,7 @@
     left: -0.9rem;
     width: 2px;
     border-radius: 2px;
-    background: linear-gradient(var(--accent), var(--copper));
+    background: var(--accent);
     transform: scaleY(0);
     transform-origin: top;
     transition: transform 0.35s cubic-bezier(0.2, 0.7, 0.2, 1);
@@ -660,7 +675,7 @@
     font-weight: 450;
   }
   .reply-prose strong {
-    background: linear-gradient(90deg, color-mix(in oklab, var(--accent) 45%, transparent), color-mix(in oklab, var(--copper) 30%, transparent)) no-repeat 0 90% / 0% 40%;
+    background: linear-gradient(90deg, color-mix(in oklab, var(--accent) 40%, transparent), color-mix(in oklab, var(--accent) 40%, transparent)) no-repeat 0 90% / 0% 40%;
     border-radius: 2px;
     transition: background-size 0.6s cubic-bezier(0.2, 0.7, 0.2, 1);
   }

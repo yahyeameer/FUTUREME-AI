@@ -1,13 +1,13 @@
 import type { AgentInfo, Pack } from "@/types";
 
-// What the browser knows about FutureMe's agent team, for labels and for demo mode, which can't read agents/futureme.yaml.
+// What the browser knows about TOMORA's agent team, for labels and for demo mode, which can't read agents/futureme.yaml.
 // tests/agents.test.ts checks this list against the YAML, so the two can't drift apart.
 export const TEAM: AgentInfo[] = [
   {
     name: "root",
     label: "Future self",
     role: "chat",
-    description: "FutureMe, the user's future self, from the year they're reaching for.",
+    description: "TOMORA's future self, an AI persona of the user from the year they're reaching for.",
     tools: ["search_memory", "search_social", "get_persona", "propose_memory", "propose_plan", "delegate_task", "spawn_agent", "save_file", "read_file", "list_files", "docker_mcp"],
     subAgents: [],
   },

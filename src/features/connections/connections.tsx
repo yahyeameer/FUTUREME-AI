@@ -98,7 +98,7 @@ export function Connections() {
           if (!res.ok) throw new Error();
           return res.json() as Promise<State>;
         })
-        .then(setState, () => setError("The FutureMe server didn't answer.")),
+        .then(setState, () => setError("The TOMORA server didn't answer.")),
     [],
   );
   const load = () => {
@@ -136,7 +136,7 @@ export function Connections() {
     return (
       <PageFrame>
         <Header />
-        <EmptyState icon={AtSign} title="Your accounts are imported on the FutureMe server" className="mt-8">
+        <EmptyState icon={AtSign} title="Your accounts are imported on the TOMORA server" className="mt-8">
           What you import lives in your own vault on the server, never in demo data. Switch the data mode to Server in{" "}
           <Link href="/settings#data" className="text-accent-ink underline underline-offset-2">
             Settings
@@ -301,7 +301,7 @@ function PlatformCard(props: {
             ? HOW_TO[platform].steps
             : state.fetch.configured
               ? `Fetch your public profile once you've shown it's yours. ${state.fetch.reads[platform]}`
-              : `${PLATFORM_NAMES[platform]} has no data export FutureMe can read. Add your Apify key above to fetch your public profile.`}
+              : `${PLATFORM_NAMES[platform]} has no data export TOMORA can read. Add your Apify key above to fetch your public profile.`}
         </p>
       )}
       {source && (
@@ -421,7 +421,7 @@ function ImportDialog({ open, onOpenChange, onImported }: { open: boolean; onOpe
             <ul className="space-y-2">
               <Rule ok>Read: your profile, career, education, skills, and posts you wrote yourself.</Rule>
               <Rule ok={false}>Never read: messages, connections and contacts, other people&apos;s posts, photos, ads or location history. Those files stay on your device.</Rule>
-              <Rule ok>Stored in your own vault on this FutureMe server, as notes you can read and edit. Passages are sent to the AI model only when they help answer you.</Rule>
+              <Rule ok>Stored in your own vault on this TOMORA server, as notes you can read and edit. Passages are sent to the AI model only when they help answer you.</Rule>
               <Rule ok>Delete any of it, any time, from this page.</Rule>
             </ul>
             <label className="flex items-start gap-2.5 rounded-lg border border-border bg-surface-2 px-3 py-2.5">
@@ -537,7 +537,7 @@ function ApifyKey({ state, act }: { state: State; act: (fn: () => Promise<State>
           <DialogHeader>
             <DialogTitle>Add your Apify key</DialogTitle>
             <DialogDescription>
-              FutureMe uses it to fetch public profiles you&apos;ve shown are yours, through Apify&apos;s MCP server. Runs are billed to your Apify account, at most $0.25 each.
+              TOMORA uses it to fetch public profiles you&apos;ve shown are yours, through Apify&apos;s MCP server. Runs are billed to your Apify account, at most $0.25 each.
             </DialogDescription>
           </DialogHeader>
           <ol className="list-decimal space-y-1.5 pl-5 text-[13px]">
@@ -590,7 +590,7 @@ function ConnectDialog({ platform, state, onClose, act }: { platform: Platform |
           <DialogDescription>{oauth.reads}</DialogDescription>
         </DialogHeader>
         <ul className="space-y-2 text-[13px]">
-          <Rule ok>Permissions asked for: {oauth.scopes.join(", ")}. Read-only; FutureMe can never post for you.</Rule>
+          <Rule ok>Permissions asked for: {oauth.scopes.join(", ")}. Read-only; TOMORA can never post for you.</Rule>
           <Rule ok>The sign-in token is encrypted on this server, and revoked at {PLATFORM_NAMES[platform]} when you disconnect.</Rule>
         </ul>
         <label className="flex items-start gap-2.5 rounded-lg border border-border bg-surface-2 px-3 py-2.5 text-[13px]">
@@ -713,7 +713,7 @@ function FetchDialog({ platform, state, onState, onClose }: { platform: Platform
                 ? claim.ready
                   ? "Nothing has been imported yet. Check it, then import."
                   : `Verified until ${formatDate(claim.expiresAt, { day: "numeric", month: "short" })}. Fetch again to get your latest posts.`
-                : "Anyone can type a username, so FutureMe only fetches an account that carries this code."}
+                : "Anyone can type a username, so TOMORA only fetches an account that carries this code."}
           </DialogDescription>
         </DialogHeader>
 
@@ -754,7 +754,7 @@ function FetchDialog({ platform, state, onState, onClose }: { platform: Platform
               </Button>
             </div>
             <ol start={2} className="list-decimal space-y-1.5 pl-5">
-              <li>Save it so it&apos;s public, then press the button below. FutureMe finds the code and imports your profile on its own. You can remove the code afterwards.</li>
+              <li>Save it so it&apos;s public, then press the button below. TOMORA finds the code and imports your profile on its own. You can remove the code afterwards.</li>
             </ol>
             {busy && (
               <p className="flex items-center gap-2 rounded-lg bg-surface-2 px-3 py-2 text-[12.5px]" aria-live="polite">

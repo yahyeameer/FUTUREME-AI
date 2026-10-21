@@ -1,6 +1,6 @@
-# Deploying FutureMe AI
+# Deploying TOMORA
 
-FutureMe ships as one Docker image that runs the Next.js app and the Docker Agent future-self agent together. SQLite and the Markdown vault live in `/data`, so mount a persistent volume there. To also keep a cloud copy that a new server restores from, set `SUPABASE_URL` and `SUPABASE_SECRET_KEY` (see [supabase.md](supabase.md)).
+TOMORA ships as one Docker image that runs the Next.js app and the Docker Agent future-self agent together. SQLite and the Markdown vault live in `/data`, so mount a persistent volume there. To also keep a cloud copy that a new server restores from, set `SUPABASE_URL` and `SUPABASE_SECRET_KEY` (see [supabase.md](supabase.md)).
 
 ## On a Nebius Compute VM (or any Linux VM)
 
@@ -26,13 +26,13 @@ FutureMe ships as one Docker image that runs the Next.js app and the Docker Agen
 
 ## Checks after deploying
 
-- `/daily` shows a FutureMe Daily issue when `SEED_DEMO=1`.
+- `/daily` shows a TOMORA Daily issue when `SEED_DEMO=1`.
 - `docker compose logs futureme` shows `Agent runtime: Nemotron, in the app` and the Next.js ready line (with `AGENT_RUNTIME=docker-agent`, `Listening on 127.0.0.1:8083` from Docker Agent instead).
 - The Agent page shows the night shift's next run time. `docker compose exec futureme npm run night-shift` runs it once.
 - A chat message on `/future-self` shows "remembered …" tags under the reply, which proves the agent called the memory tool.
 
 ## Security notes
 
-- FutureMe is a single-user MVP with no sign-in. Don't put personal data in a public deployment; use the demo user, or put the app behind HTTP basic auth at the proxy.
+- TOMORA is single-user. Before putting personal data on a public address, set `FUTUREME_ACCESS_CODE` so every page and API asks for it (the `/welcome` page, icons and share image stay public and carry no workspace data).
 - The research agent's page reader refuses private, loopback and link-local addresses (checked after DNS and on every redirect), so it can't be pointed at the VM's metadata service or other containers. Set `WEB_SEARCH=off` if the server shouldn't reach the internet at all.
-- Docker Agent listens only on `127.0.0.1` inside the container. Its tools are FutureMe's own MCP tools, and anything they propose still needs approval in the app.
+- Docker Agent listens only on `127.0.0.1` inside the container. Its tools are TOMORA's own MCP tools, and anything they propose still needs approval in the app.

@@ -37,7 +37,7 @@ describe("memory index", () => {
     ]);
   });
 
-  it("sees notes written or deleted in Obsidian, outside FutureMe's folders too", () => {
+  it("sees notes written or deleted in Obsidian, outside TOMORA's folders too", () => {
     expect(searchMemory(db, "sourdough")).toEqual([]);
     fs.mkdirSync(path.join(root, "Kitchen"), { recursive: true });
     fs.writeFileSync(path.join(root, "Kitchen", "bread.md"), "# Bread\n\nMy sourdough starter is called Bilal.\n");
