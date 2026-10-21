@@ -5,6 +5,7 @@ import { AnimatePresence, motion } from "motion/react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import * as React from "react";
+import { ProgressDial } from "@/components/brand/progress-dial";
 import { PageFrame, RailSection } from "@/components/layout/page-frame";
 import { PageHeader, SectionHeading } from "@/components/layout/page-header";
 import { EmptyState } from "@/components/states";
@@ -41,13 +42,31 @@ export function Roadmap() {
         }
       />
 
-      <section className="card ring-gradient paper relative mt-7 overflow-hidden px-5 py-5 sm:px-6">
+      <section className="card ring-gradient paper group/goal relative mt-7 flex items-center gap-5 overflow-hidden px-5 py-5 sm:gap-7 sm:px-6">
         <div aria-hidden className="aurora" />
-        <p className="relative t-label">Long-term goal · by {profile.horizonYear}</p>
-        <p className="relative mt-2 font-display text-[clamp(1.4rem,1.1rem+1vw,1.9rem)] leading-snug text-balance">{profile.dream}</p>
-        <p className="relative mt-3 t-meta">
-          {pluralize(milestones.length, "milestone")} · {all.done} of {pluralize(all.total, "task")} done
-        </p>
+        <div className="relative min-w-0 flex-1">
+          <p className="t-label">Long-term goal · by {profile.horizonYear}</p>
+          <p className="mt-2 font-display text-[clamp(1.4rem,1.1rem+1vw,1.9rem)] leading-snug text-balance">{profile.dream}</p>
+          <p className="mt-3 t-meta">
+            {pluralize(milestones.length, "milestone")} · {all.done} of {pluralize(all.total, "task")} done
+          </p>
+          <ol aria-hidden className="mt-4 flex max-w-md items-center gap-1">
+            {milestones.map((m) => {
+              const st = statuses.get(m.id);
+              return (
+                <li key={m.id} className="flex flex-1 items-center gap-1">
+                  <span className={cn("size-2.5 shrink-0 rounded-full border transition-transform duration-300 group-hover/goal:scale-125", st === "done" ? "border-accent bg-accent shadow-[0_0_8px_var(--accent)]" : st === "active" ? "pulse-ring border-accent bg-background" : "border-border-strong bg-background")} />
+                  <span className={cn("h-px flex-1", st === "done" ? "bg-accent/60" : "bg-[repeating-linear-gradient(90deg,var(--border-strong)_0_3px,transparent_3px_6px)]")} />
+                </li>
+              );
+            })}
+            <li className="font-display text-[13px] text-copper italic">{profile.horizonYear}</li>
+          </ol>
+        </div>
+        <ProgressDial value={all.total ? all.done / all.total : 0} size={112} label={`${all.done} of ${all.total} tasks done`} className="relative hidden text-muted-foreground sm:flex">
+          <span className="font-display text-[26px] leading-none text-foreground tabular-nums">{all.total ? Math.round((all.done / all.total) * 100) : 0}%</span>
+          <span className="mt-1 font-mono text-[8px] tracking-[0.18em]">ON THE ROAD</span>
+        </ProgressDial>
       </section>
 
       {plans.length > 0 && (
@@ -106,12 +125,12 @@ function MilestoneItem({ milestone, status, last, focused }: { milestone: Milest
   const done = tasks.filter((t) => t.status === "done");
 
   return (
-    <li ref={ref} className="relative scroll-mt-28 pb-6 pl-9 last:pb-0">
-      {!last && <span aria-hidden className={cn("absolute top-6 bottom-0 left-[11px] w-px", status === "done" ? "bg-accent/50" : "bg-border")} />}
+    <li ref={ref} className="group/ms relative scroll-mt-28 pb-6 pl-9 last:pb-0">
+      {!last && <span aria-hidden className={cn("absolute top-6 bottom-0 left-[11px] w-px", status === "done" ? "bg-accent/50 shadow-[0_0_6px_var(--accent)]" : "bg-[repeating-linear-gradient(180deg,var(--border-strong)_0_3px,transparent_3px_7px)]")} />}
       <span
         aria-hidden
         className={cn(
-          "absolute top-1 left-0 flex size-[23px] items-center justify-center rounded-full border bg-background",
+          "absolute top-1 left-0 flex size-[23px] items-center justify-center rounded-full border bg-background transition-transform duration-300 group-hover/ms:scale-115",
           status === "done" && "border-accent bg-accent text-accent-foreground",
           status === "active" && "pulse-ring border-accent",
           status === "upcoming" && "border-border-strong",
@@ -120,7 +139,7 @@ function MilestoneItem({ milestone, status, last, focused }: { milestone: Milest
         {status === "done" ? <Check className="size-3" strokeWidth={3} /> : status === "active" ? <span className="size-2 rounded-full bg-accent" /> : null}
       </span>
 
-      <div className={cn("rounded-xl border transition-colors", status === "active" ? "border-accent/40 bg-[radial-gradient(120%_80%_at_0%_0%,var(--accent-wash),transparent_55%),var(--surface)] shadow-[var(--shadow-card),var(--glow-accent)]" : "border-transparent", focused && "ring-1 ring-accent/40")}>
+      <div data-spotlight className={cn("relative rounded-xl border transition-[background-color,border-color,box-shadow,transform] duration-300", status !== "active" && "hover:translate-x-1 hover:border-border hover:bg-surface/70", status === "active" ? "border-accent/40 bg-[radial-gradient(120%_80%_at_0%_0%,var(--accent-wash),transparent_55%),var(--surface)] shadow-[var(--shadow-card),var(--glow-accent)]" : "border-transparent", focused && "ring-1 ring-accent/40")}>
         <button type="button" onClick={() => setOpen((o) => !o)} aria-expanded={open} className={cn("flex w-full items-start gap-3 text-left", status === "active" ? "px-4 py-3" : "px-1 py-1")}>
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-2">

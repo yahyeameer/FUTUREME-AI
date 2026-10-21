@@ -141,15 +141,33 @@ export function Missions() {
 }
 
 /** Lead at the top, helpers in the middle, supervisor watching. Pulses while a mission runs. */
+// The lead hands work down to three helpers and their results flow to the supervisor, as packets of light on the wires.
+const WIRES = ["M120 44 L48 104", "M120 44 L120 104", "M120 44 L192 104", "M48 128 L120 164", "M120 128 L120 164", "M192 128 L120 164"];
+
 function TeamDiagram({ busy }: { busy: boolean }) {
-  const node = "flex size-11 items-center justify-center rounded-xl border shadow-card";
+  const node =
+    "group/node relative flex size-11 items-center justify-center rounded-xl border shadow-card transition-[transform,box-shadow] duration-300 hover:-translate-y-1 hover:scale-110 hover:shadow-[0_0_24px_-6px_currentColor]";
+  const label = "pointer-events-none absolute top-full left-1/2 z-10 mt-1.5 -translate-x-1/2 rounded-full border border-border bg-surface/90 px-2 py-0.5 text-[10.5px] whitespace-nowrap text-foreground opacity-0 shadow-card backdrop-blur transition-opacity group-hover/node:opacity-100";
   return (
     <div className="relative mx-auto hidden h-[13rem] w-[15rem] lg:block" aria-hidden>
       <svg className="absolute inset-0 size-full text-border-strong" viewBox="0 0 240 208" fill="none">
-        <path d="M120 44 L48 104 M120 44 L120 104 M120 44 L192 104 M48 128 L120 164 M120 128 L120 164 M192 128 L120 164" stroke="currentColor" strokeDasharray="3 4" />
+        {WIRES.map((d) => (
+          <path key={d} d={d} stroke="currentColor" strokeDasharray="3 4" />
+        ))}
+        {WIRES.map((d) => (
+          <path key={`glow-${d}`} d={d} stroke="var(--accent)" strokeOpacity={busy ? 0.9 : 0.35} strokeWidth="1.3" strokeDasharray="3 13" className={cn("animate-[dash-flow_1.2s_linear_infinite]", !busy && "[animation-duration:3.5s]")} />
+        ))}
       </svg>
+      {WIRES.map((d, i) => (
+        <span
+          key={`packet-${d}`}
+          className={cn("absolute top-0 left-0 size-1.5 rounded-full bg-accent shadow-[0_0_8px_var(--accent)] animate-[travel_2.4s_ease-in-out_infinite]", busy && "[animation-duration:1.1s]")}
+          style={{ offsetPath: `path("${d}")`, animationDelay: `${(i % 3) * 0.35 + (i > 2 ? 1.2 : 0)}s` }}
+        />
+      ))}
       <motion.span className={cn(node, "absolute top-0 left-1/2 -ml-[1.375rem] border-transparent bg-primary text-primary-foreground")} animate={busy ? { scale: [1, 1.08, 1] } : {}} transition={{ duration: 1.4, repeat: Infinity }}>
         <Flag className="size-5" />
+        <span className={label}>Mission lead</span>
       </motion.span>
       {[0, 1, 2].map((i) => (
         <motion.span
@@ -160,10 +178,12 @@ function TeamDiagram({ busy }: { busy: boolean }) {
           transition={{ duration: 1.1, repeat: Infinity, delay: i * 0.25 }}
         >
           {i === 1 ? <Telescope className="size-4.5" /> : <UserPlus className="size-4.5" />}
+          <span className={label}>{i === 1 ? "Researcher" : "Helper"}</span>
         </motion.span>
       ))}
       <span className={cn(node, "absolute bottom-0 left-1/2 -ml-[1.375rem] border-accent/40 bg-accent-wash text-accent-ink")}>
         <Eye className="size-5" />
+        <span className={cn(label, "top-auto bottom-full mt-0 mb-1.5")}>Supervisor</span>
       </span>
     </div>
   );

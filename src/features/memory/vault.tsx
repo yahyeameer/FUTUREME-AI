@@ -109,7 +109,34 @@ export function MemoryVault() {
         }
       />
 
-      <Tabs defaultValue="list" className="mt-7">
+      <div role="group" aria-label="Jump to a kind of memory" className="mt-7 grid grid-cols-[repeat(auto-fit,minmax(9rem,1fr))] gap-2">
+        {filters
+          .filter((f) => f.kinds)
+          .map((f, i) => {
+            const n = workspace.memories.filter((m) => !m.archived && f.kinds!.includes(m.kind)).length;
+            const live = workspace.memories.filter((m) => !m.archived).length || 1;
+            return (
+              <button
+                key={f.value}
+                type="button"
+                aria-pressed={filter === f.value}
+                onClick={() => setFilter(filter === f.value ? "all" : f.value)}
+                className="card card-hover group/kind relative overflow-hidden px-3 py-2.5 text-left transition-[transform,box-shadow] duration-300 animate-[settle_0.6s_cubic-bezier(0.2,0.7,0.2,1)_backwards] aria-pressed:shadow-[var(--shadow-card),var(--glow-accent)]"
+                style={{ animationDelay: `${i * 0.05}s` }}
+              >
+                <span className="flex items-baseline justify-between gap-2">
+                  <span className="t-label transition-colors group-hover/kind:text-foreground group-aria-pressed/kind:!text-accent-ink">{f.label}</span>
+                  <span className="font-display text-[22px] leading-none tabular-nums transition-transform duration-300 group-hover/kind:-translate-y-0.5">{n}</span>
+                </span>
+                <span aria-hidden className="mt-2 block h-1 overflow-hidden rounded-full bg-surface-3">
+                  <span className="block h-full origin-left rounded-full bg-gradient-to-r from-accent to-copper shadow-[0_0_8px_var(--accent)] transition-transform duration-700 group-hover/kind:scale-x-105" style={{ width: `${Math.max(6, (n / live) * 100)}%` }} />
+                </span>
+              </button>
+            );
+          })}
+      </div>
+
+      <Tabs defaultValue="list" className="mt-6">
         <div className="flex flex-wrap items-center gap-3">
           <TabsList>
             <TabsTrigger value="list">
@@ -174,8 +201,8 @@ export function MemoryVault() {
           <div className="mt-5">
             {list.length ? (
               <ul className="divide-y divide-border border-y border-border">
-                {list.map((m) => (
-                  <li key={m.id} className="flex items-start gap-3">
+                {list.map((m, i) => (
+                  <li key={m.id} className="flex items-start gap-3 animate-[settle_0.5s_cubic-bezier(0.2,0.7,0.2,1)_backwards]" style={{ animationDelay: `${Math.min(i, 12) * 0.03}s` }}>
                     {selecting && <Checkbox className="mt-4" checked={selected.has(m.id)} onCheckedChange={() => toggle(m.id)} aria-label={`Select ${m.title}`} />}
                     <MemoryPreview memory={m} className="relative mx-0 min-w-0 flex-1 rounded-none px-0 transition-[padding,background-color] duration-200 before:absolute before:top-3 before:bottom-3 before:left-0 before:w-[3px] before:rounded-full before:bg-gradient-to-b before:from-accent before:to-copper before:opacity-0 before:transition-opacity hover:bg-[linear-gradient(90deg,var(--accent-wash),transparent_70%)] hover:pl-4 hover:before:opacity-100" />
                   </li>

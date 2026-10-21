@@ -46,8 +46,10 @@ export function Skills() {
         description="Each skill says what it can read and change. Anything that would create goals, tasks or memories waits for your approval first."
       />
       <div className="mt-7 grid gap-4">
-        {workspace.skills.map((s) => (
-          <SkillCard key={s.id} skill={s} run={lastRun(s.id)} onRun={() => setOpen(s)} />
+        {workspace.skills.map((s, i) => (
+          <div key={s.id} className="animate-[settle_0.6s_cubic-bezier(0.2,0.7,0.2,1)_backwards]" style={{ animationDelay: `${i * 0.06}s` }}>
+            <SkillCard skill={s} run={lastRun(s.id)} onRun={() => setOpen(s)} />
+          </div>
         ))}
       </div>
       {open && (
@@ -89,7 +91,7 @@ function SkillCard({ skill, run, onRun }: { skill: Skill; run?: SkillRun; onRun:
   return (
     <section className={cn("group card card-hover", status === "awaiting_approval" && "!border-warning/40", !skill.available && "opacity-80")} aria-labelledby={`skill-${skill.id}`}>
       <div className="flex flex-col gap-4 px-5 py-4 sm:flex-row sm:items-start">
-        <SkillMark icon={SKILL_ICON[skill.id] ?? Sparkles} available={skill.available} />
+        <SkillMark icon={SKILL_ICON[skill.id] ?? Sparkles} available={skill.available} running={status === "running"} />
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
             <h2 id={`skill-${skill.id}`} className="t-section">
@@ -115,7 +117,7 @@ function SkillCard({ skill, run, onRun }: { skill: Skill; run?: SkillRun; onRun:
           </ul>
           {!skill.available && skill.unavailableReason && <p className="mt-2 text-[12.5px] text-warning">{skill.unavailableReason}</p>}
         </div>
-        <Button variant={skill.available ? "secondary" : "ghost"} size="sm" onClick={onRun} disabled={!skill.available || status === "running"} className="self-start group-hover:border-accent/70 group-hover:bg-accent group-hover:text-accent-foreground">
+        <Button variant={skill.available ? "secondary" : "ghost"} size="sm" onClick={onRun} disabled={!skill.available || status === "running"} className="self-start transition-[background-color,box-shadow,color] group-hover:border-accent/70 group-hover:bg-accent group-hover:text-accent-foreground group-hover:shadow-[0_0_18px_-4px_var(--accent)] [&_svg]:transition-transform group-hover:[&_svg]:translate-x-0.5 group-hover:[&_svg]:scale-110">
           {status === "running" ? <Loader2 className="animate-spin" /> : <Play />} {status === "running" ? "Running…" : run ? "Run again" : "Run"}
         </Button>
       </div>
@@ -286,18 +288,28 @@ function RunHistory() {
   );
 }
 
-function SkillMark({ icon: Icon, available }: { icon: React.ElementType; available: boolean }) {
+function SkillMark({ icon: Icon, available, running = false }: { icon: React.ElementType; available: boolean; running?: boolean }) {
   return (
-    <span
-      aria-hidden
-      className={cn(
-        "hidden size-11 shrink-0 items-center justify-center rounded-xl border sm:flex",
-        available
-          ? "border-accent/30 bg-[linear-gradient(140deg,var(--accent-wash),var(--copper-wash))] text-accent-ink shadow-[inset_0_1px_0_rgb(255_255_255/0.35)] transition-transform duration-300 group-hover:scale-105 group-hover:-rotate-3"
-          : "border-dashed border-border-strong text-subtle",
+    <span aria-hidden className="relative hidden size-14 shrink-0 items-center justify-center sm:flex">
+      {available && (
+        <>
+          <span className={cn("absolute inset-0 animate-orbit rounded-full border border-dashed border-accent/50 [animation-duration:24s] group-hover:[animation-duration:5s]", running && "[animation-duration:2.5s]")} />
+          <span className={cn("absolute inset-0 animate-orbit [animation-direction:reverse] [animation-duration:9s] group-hover:[animation-duration:2.2s]", running && "[animation-duration:1.2s]")}>
+            <span className="absolute -top-0.5 left-1/2 size-1.5 -translate-x-1/2 rounded-full bg-accent shadow-[0_0_8px_var(--accent)]" />
+          </span>
+          <span className="absolute inset-1 rounded-full opacity-0 blur-md transition-opacity duration-500 group-hover:opacity-60" style={{ background: "radial-gradient(circle, var(--accent), transparent 70%)" }} />
+        </>
       )}
-    >
-      <Icon className="size-5" />
+      <span
+        className={cn(
+          "relative flex size-10 items-center justify-center rounded-full border backdrop-blur",
+          available
+            ? "border-white/60 bg-[linear-gradient(140deg,var(--accent-wash),var(--copper-wash))] text-accent-ink shadow-[inset_0_1px_0_rgb(255_255_255/0.5),0_6px_16px_-8px_rgb(60_45_20/0.5)] transition-transform duration-500 group-hover:scale-110 group-hover:-rotate-6 dark:border-white/15"
+            : "border-dashed border-border-strong text-subtle",
+        )}
+      >
+        <Icon className="size-[18px]" />
+      </span>
     </span>
   );
 }

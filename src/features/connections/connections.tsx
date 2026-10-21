@@ -69,7 +69,7 @@ const HOW_TO: Record<ExportPlatform, { steps: string; link: string; wait: string
 
 function PlatformMark({ platform, className }: { platform: Platform; className?: string }) {
   return (
-    <span aria-hidden className={cn("flex size-9 shrink-0 items-center justify-center rounded-xl text-[15px] font-bold", MARK[platform].className, className)}>
+    <span aria-hidden className={cn("flex size-9 shrink-0 items-center justify-center rounded-xl text-[15px] font-bold transition-[transform,box-shadow] duration-500 group-hover/platform:scale-110 group-hover/platform:-rotate-6 group-hover/platform:shadow-[0_0_18px_-3px_var(--accent)]", MARK[platform].className, className)}>
       {MARK[platform].label}
     </span>
   );
@@ -276,7 +276,7 @@ function PlatformCard(props: {
     setBusy(false);
   };
   return (
-    <article className="flex flex-col rounded-2xl border border-border bg-surface p-4 shadow-card" aria-label={PLATFORM_NAMES[platform]}>
+    <article className="card group/platform flex flex-col p-4 transition-shadow duration-300 hover:shadow-[var(--shadow-lift),var(--glow-accent)]" aria-label={PLATFORM_NAMES[platform]}>
       <div className="flex items-center gap-3">
         <PlatformMark platform={platform} />
         <div className="min-w-0">
@@ -357,9 +357,9 @@ function PlatformCard(props: {
 
 function Stat({ n, label }: { n: number; label: string }) {
   return (
-    <div className="rounded-lg bg-surface-2 px-2 py-2">
+    <div className="rounded-lg bg-surface-2 px-2 py-2 transition-colors duration-300 group-hover/platform:bg-accent-wash">
       <dt className="sr-only">{label}</dt>
-      <dd className="font-display text-[1.35rem] leading-none">{n}</dd>
+      <dd className="font-display text-[1.35rem] leading-none transition-transform duration-300 group-hover/platform:-translate-y-0.5">{n}</dd>
       <p aria-hidden className="mt-1 text-[11px] text-muted-foreground">
         {label}
       </p>
@@ -836,7 +836,7 @@ function PersonaSection({ state }: { state: State }) {
       >
         What your future self learned
       </SectionHeading>
-      <div className="rounded-2xl border border-border bg-surface p-5 shadow-card">
+      <div data-spotlight className="card p-5">
         <div className="grid gap-5 md:grid-cols-2">
           <div className="space-y-3 text-[13px]">
             {p.headline && <Fact label="Headline">{p.headline}</Fact>}
@@ -943,7 +943,7 @@ function CompareSection({ state, onState }: { state: State; onState: (s: State) 
 
 function Answer({ title, text, highlight }: { title: string; text: string; highlight?: boolean }) {
   return (
-    <div className={cn("rounded-2xl border p-4 shadow-card", highlight ? "border-accent/40 bg-accent-wash" : "border-border bg-surface")}>
+    <div className={cn("rounded-2xl border p-4 shadow-card transition-shadow duration-300 hover:shadow-[var(--shadow-lift),var(--glow-accent)]", highlight ? "border-accent/40 bg-accent-wash" : "border-border bg-surface")}>
       <p className="t-label mb-2">{title}</p>
       <p className="text-[13.5px] leading-relaxed whitespace-pre-wrap">{text}</p>
     </div>
