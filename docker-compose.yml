@@ -4,12 +4,19 @@ services:
     build: .
     ports:
       - "3000:3000"
+    # Every setting in .env reaches the app (Jev, access code, Supabase, voice twin...). The lines below only add defaults.
+    env_file:
+      - path: .env
+        required: false
     environment:
       NEBIUS_API_KEY: ${NEBIUS_API_KEY:-}
       NEBIUS_MODEL: ${NEBIUS_MODEL:-}
       NEBIUS_REASONING: ${NEBIUS_REASONING:-auto}
       AGENT_RUNTIME: ${AGENT_RUNTIME:-nemotron}
       SEED_DEMO: ${SEED_DEMO:-0}
+      # Kept on the volume even when .env was copied from .env.example (which points at ./data)
+      DATABASE_PATH: /data/futureme.db
+      VAULT_DIR: /data/vault
     volumes:
       - futureme-data:/data
     restart: unless-stopped
