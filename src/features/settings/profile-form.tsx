@@ -1,7 +1,7 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Controller, useForm, type UseFormReturn } from "react-hook-form";
+import { Controller, useForm, useWatch, type UseFormReturn } from "react-hook-form";
 import { z } from "zod";
 import { Input, Textarea } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -79,6 +79,34 @@ export function Field({ form, name, label, hint, multiline, rows = 3, placeholde
           {err}
         </p>
       )}
+    </div>
+  );
+}
+
+const PLAN_LENGTHS = [3, 5, 10, 15];
+
+/** Quick picks for how far ahead the plan reaches. They fill in the horizon year, which can still be typed. */
+export function PlanLengthField({ form }: { form: Form }) {
+  const year = Number(useWatch({ control: form.control, name: "horizonYear" }));
+  return (
+    <div role="group" aria-label="Plan length" className="flex flex-wrap gap-1.5">
+      {PLAN_LENGTHS.map((n) => {
+        const on = year === thisYear + n;
+        return (
+          <button
+            key={n}
+            type="button"
+            aria-pressed={on}
+            onClick={() => form.setValue("horizonYear", thisYear + n, { shouldDirty: true, shouldValidate: true })}
+            className={cn(
+              "rounded-full border px-3 py-1 text-[12px] transition-colors",
+              on ? "border-accent/50 bg-accent-wash text-accent-ink" : "border-border text-muted-foreground hover:border-border-strong hover:text-foreground",
+            )}
+          >
+            In {n} years
+          </button>
+        );
+      })}
     </div>
   );
 }

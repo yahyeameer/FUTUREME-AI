@@ -147,7 +147,7 @@ export function respond(state: DemoState, text: string, style: CoachingStyle): S
           ? `${opener}${remembered}${anchor} What's the decision you're avoiding?`
           : style === "analytical"
             ? `${opener}${remembered}${anchor} What would you need to know to move faster?`
-            : `${remembered}${anchor} When you imagine the person you want to be in ten years, what would they want you to protect this week?`,
+            : `${remembered}${anchor} When you imagine the person you want to become, what would they want you to protect this week?`,
   };
 }
 

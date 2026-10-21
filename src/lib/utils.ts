@@ -35,6 +35,14 @@ export function daysUntil(isoDate: string, now = Date.now()) {
   return Math.round((new Date(`${isoDate.slice(0, 10)}T00:00:00`).getTime() - start.getTime()) / DAY);
 }
 
+const NUMBER_WORDS = ["zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten", "eleven", "twelve", "thirteen", "fourteen", "fifteen", "sixteen", "seventeen", "eighteen", "nineteen", "twenty"];
+
+/** "five years", "one year", "25 years": the span of a plan, in words where it reads better. */
+export function yearsInWords(n: number) {
+  const count = n >= 0 && n < NUMBER_WORDS.length ? NUMBER_WORDS[n] : String(n);
+  return `${count} ${n === 1 ? "year" : "years"}`;
+}
+
 export function pluralize(n: number, one: string, many = `${one}s`) {
   return `${n} ${n === 1 ? one : many}`;
 }

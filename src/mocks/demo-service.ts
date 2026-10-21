@@ -353,7 +353,7 @@ export function createDemoService(): FutureMeService {
       state.reflection = demoReflection(state.profile, state.reflection);
       const existing = state.memories.find((m) => m.kind === "reflection" && m.provenance === "ai-inferred" && m.title.startsWith("Future Reflection"));
       if (!existing) {
-        const mem = addMemory({ title: `Future Reflection: ${state.reflection.title}`, kind: "reflection", tags: ["reflection", "future-self"], body: "An imagined letter from ten years ahead." }, "Generated reflection", "ai-inferred");
+        const mem = addMemory({ title: `Future Reflection: ${state.reflection.title}`, kind: "reflection", tags: ["reflection", "future-self"], body: `An imagined letter from ${state.profile.horizonYear}.` }, "Generated reflection", "ai-inferred");
         mem.relatedMemoryIds = state.memories.filter((m) => m.title === "10-Year Dream").map((m) => m.id);
       }
       log("reflection_saved", "Future Reflection saved to your vault", "/reflection");

@@ -10,7 +10,8 @@ import { celebrate } from "@/components/motion/celebrate";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ProvenanceBadge } from "@/features/memory/provenance";
-import { HorizonPlate, NorthStarPlate, Postmark, Summits } from "@/features/reflection/art";
+import { NorthStarPlate, Postmark, Summits } from "@/features/reflection/art";
+import { COVERS, CoverPlate, coverIndexFor } from "@/features/reflection/covers";
 import { convergence } from "@/lib/derive";
 import { cn, formatDate } from "@/lib/utils";
 import { useWorkspace } from "@/lib/workspace-store";
@@ -136,10 +137,14 @@ function Chapters({ reflection, onRegenerate, generating }: { reflection: Reflec
   const [saved, setSaved] = React.useState<Set<string>>(new Set());
   const [letterOpen, setLetterOpen] = React.useState(false);
   const [faced, setFaced] = React.useState<Set<number>>(new Set());
+  const [coverShift, setCoverShift] = React.useState(0);
   const celebrated = React.useRef(false);
   const swipe = React.useRef<{ x: number; y: number } | null>(null);
 
   const year = reflection.horizonYear;
+  // How far ahead the plan reaches, counted from when the letter was written.
+  const span = Math.max(1, year - new Date(reflection.createdAt).getFullYear());
+  const cover = (coverIndexFor(reflection.id, reflection.aspiration) + coverShift) % COVERS.length;
   const today = new Date().getFullYear();
   const letter = React.useMemo(() => letterParts(reflection.narrative), [reflection.narrative]);
   const pullQuote = React.useMemo(() => pullQuoteOf(letter.body), [letter.body]);
@@ -218,7 +223,7 @@ function Chapters({ reflection, onRegenerate, generating }: { reflection: Reflec
           </div>
 
           <motion.div initial={{ opacity: 0, scale: 0.97 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.9, ease: EASE }} className="lg:row-span-2">
-            <HorizonPlate year={year} className="mx-auto max-w-[26rem]" />
+            <CoverPlate index={cover} year={year} span={span} onShuffle={() => setCoverShift((n) => n + 1)} className="mx-auto max-w-[26rem]" />
           </motion.div>
 
           <nav aria-label="In this issue" className="lg:col-start-1 lg:row-start-2">
