@@ -73,7 +73,18 @@ const MAX_CODE_ATTEMPTS = 5;
 /** Calls to the twin's number it will answer per day. */
 export const INBOUND_CALLS_PER_DAY = 30;
 const MAX_CAPSULE_DAYS = 2 * 366;
-const VOICE_TTS_MODEL = "eleven_flash_v2_5";
+/**
+ * The voice model on calls. Eleven v4 Turbo is ElevenLabs' expressive model tuned for live agents (about 100 ms);
+ * TWIN_VOICE_MODEL=eleven_flash_v2_5 trades some expression for about 25 ms less.
+ */
+const voiceModel = () => process.env.TWIN_VOICE_MODEL?.trim() || "eleven_v4_turbo";
+/**
+ * What the twin says when Nemotron hasn't started answering after a moment (usually while it searches your notes),
+ * so the line never goes silent. ElevenLabs speaks one at random, at most once per reply, and never before the
+ * other person has said anything.
+ */
+export const FILLERS = ["Hmm, let me think.", "Mm, good question.", "Let me see.", "Right, one second.", "Oh, hang on."];
+const FILLER_AFTER_SECONDS = 1.2;
 export const SECRET_HEADER = "x-futureme-twin-secret";
 const LIVE: CallStatus[] = ["connecting", "dialing", "in_progress"];
 const PHONE = /^\+[1-9]\d{6,14}$/;
@@ -132,7 +143,19 @@ function agentConfig(db: Db, voiceId: string, publicUrl: string) {
           },
         },
       },
-      tts: { voice_id: voiceId, model_id: VOICE_TTS_MODEL },
+      // Slightly lower stability lets the voice vary its tone like a person does. ElevenLabs reads numbers, dates and
+      // times the way people say them ("half past three"), so the model can write them normally.
+      tts: { voice_id: voiceId, model_id: voiceModel(), stability: 0.4, similarity_boost: 0.8, speed: 1, text_normalisation_type: "elevenlabs" },
+      turn: {
+        soft_timeout_config: {
+          timeout_seconds: FILLER_AFTER_SECONDS,
+          message: FILLERS[0],
+          additional_soft_timeout_messages: FILLERS.slice(1),
+          randomize_fillers: true,
+          max_soft_timeouts_per_generation: 1,
+          disable_until_first_user_message: true,
+        },
+      },
       conversation: { max_duration_seconds: MAX_CALL_SECONDS },
     },
     platform_settings: {

@@ -84,7 +84,7 @@ describe("the twin's ElevenLabs agent", () => {
   it("points ElevenLabs at this app as a custom LLM, with a secret, and only updates when something changed", async () => {
     expect(await ensureTwinAgent(db, api)).toBe("agent-1");
     const create = requests.find((r) => r.url.endsWith("/agents/create"))!.body as {
-      conversation_config: { agent: { first_message: string; prompt: { llm: string; custom_llm: { url: string; request_headers: Record<string, string> } } }; tts: { voice_id: string } };
+      conversation_config: { agent: { first_message: string; prompt: { llm: string; custom_llm: { url: string; request_headers: Record<string, string> } } }; tts: Record<string, unknown>; turn: { soft_timeout_config: Record<string, unknown> } };
       platform_settings: { auth: { enable_auth: boolean } };
     };
     const agent = create.conversation_config.agent;
@@ -92,7 +92,9 @@ describe("the twin's ElevenLabs agent", () => {
     expect(agent.prompt.llm).toBe("custom-llm");
     expect(agent.prompt.custom_llm.url).toBe("https://futureme.example.com/api/twin/llm/v1");
     expect(agent.prompt.custom_llm.request_headers[SECRET_HEADER]).toHaveLength(32);
-    expect(create.conversation_config.tts.voice_id).toBe("ivc-1");
+    expect(create.conversation_config.tts).toMatchObject({ voice_id: "ivc-1", model_id: "eleven_v4_turbo", text_normalisation_type: "elevenlabs" });
+    // A short filler covers the gap while Nemotron searches the user's notes.
+    expect(create.conversation_config.turn.soft_timeout_config).toMatchObject({ timeout_seconds: 1.2, randomize_fillers: true, max_soft_timeouts_per_generation: 1 });
     expect(create.platform_settings.auth.enable_auth).toBe(true);
 
     await ensureTwinAgent(db, api);
