@@ -17,6 +17,8 @@ export const VAULT_FOLDERS = [
   "Conversations",
   "Files",
   "Social",
+  "Drafts",
+  "Calendar",
 ] as const;
 
 export type VaultFolder = (typeof VAULT_FOLDERS)[number];

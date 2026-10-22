@@ -213,6 +213,8 @@ export function createLiveService(): FutureMeService {
     },
     setPack: (id) => request({ action: "setPack", id }),
     decideDockerTool: (id, decision) => request({ action: "decideDockerTool", id, decision }),
+    decideAgentAction: (id, decision) => request({ action: "decideAgentAction", id, decision }),
+    disconnectGoogle: () => request({ action: "disconnectGoogle" }),
     async startMission(goal) {
       const workspace = await request({ action: "startMission", goal });
       const mission = workspace.missions.find((m) => m.goal === goal.trim());
