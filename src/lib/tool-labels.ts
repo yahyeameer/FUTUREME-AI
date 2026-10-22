@@ -18,6 +18,19 @@ export const TOOL_LABELS: Record<string, string> = {
   propose_commitment: "Asked you to confirm a promise",
   confirm_task_done: "Marked a promise kept",
   stop_recording: "Stopped recording the call",
+  get_current_time: "Checked the time",
+  email_search: "Searched your email",
+  email_read: "Read an email",
+  email_draft: "Saved an email draft",
+  email_send: "Asked to send an email",
+  calendar_list_events: "Checked your calendar",
+  calendar_create_event: "Asked to add an event",
+  send_message: "Asked to post a message",
+  list_tasks: "Looked at your tasks",
+  add_task: "Asked to add a task",
+  complete_task: "Asked to mark a task done",
+  edit_file: "Asked to change a file",
+  delete_file: "Asked to delete a file",
 };
 
 export const toolLabel = (name: string) =>

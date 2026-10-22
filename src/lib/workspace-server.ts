@@ -19,6 +19,8 @@ import { agentFilePath, agentTeam } from "./agents";
 import { listCouncils } from "./council";
 import { dockerMcpState } from "./docker-mcp";
 import { listDockerRequests } from "./docker-tools";
+import { googleClientConfigured, googleConnection } from "./connectors/google";
+import { integrationStatus, listActionRequests } from "./connectors/tools";
 import { listRuns, type RunRecord } from "./delegation";
 import { listMissions } from "./missions";
 import { getProvider, LOCAL_LLM_URL } from "./llm";
@@ -491,6 +493,7 @@ export function buildWorkspace(db: Db): Workspace {
       error: r.error ?? undefined,
     })),
     dockerMcp: dockerMcp(db),
+    agentActions: agentActions(db),
     missions: missions.map((m) => ({
       id: String(m.id),
       goal: m.goal,
@@ -535,6 +538,26 @@ function toRunInfo(r: RunRecord): AgentRunInfo {
     startedAt: sqlTime(r.started_at)!,
     finishedAt: sqlTime(r.finished_at),
     simulated: false,
+  };
+}
+
+function agentActions(db: Db): Workspace["agentActions"] {
+  return {
+    integrations: integrationStatus(db),
+    google: { clientConfigured: googleClientConfigured(), ...googleConnection(db) },
+    requests: listActionRequests(db).map((r) => ({
+      id: String(r.id),
+      tool: r.tool,
+      title: r.title,
+      details: r.details,
+      body: r.body,
+      // "running" lasts only while an approved action runs.
+      status: r.status === "approved" || r.status === "rejected" ? r.status : "pending",
+      createdAt: sqlTime(r.created_at)!,
+      decidedAt: sqlTime(r.decided_at),
+      result: r.result,
+      error: r.error,
+    })),
   };
 }
 

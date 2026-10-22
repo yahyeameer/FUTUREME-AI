@@ -9,7 +9,8 @@ import { dockerMcpConfigured, dockerToolDefs } from "./docker-mcp";
 import { isDockerTool, runDockerTool } from "./docker-tools";
 import { activePack } from "./packs";
 import { isTwinTool, runTwinTool, TWIN_TOOL_DEFS } from "./twin";
-import { listFiles, readFile, rememberConversation, saveFile, searchMemory } from "./memory";
+import { CONNECTOR_TOOL_DEFS, CONNECTOR_TOOL_NAMES, isConnectorTool, runConnectorTool } from "./connectors/tools";
+import { listFiles, readFile, rememberConversation, saveFile, savedFileTarget, searchMemory } from "./memory";
 import { PLATFORMS } from "./social/parse";
 import { formatHits, getPersona, searchSocial, socialPromptBlock } from "./social/store";
 import { personaMarkdown } from "./social/persona";
@@ -240,8 +241,8 @@ export const ALL_TOOLS: ToolDefinition[] = [
     function: {
       name: "save_file",
       description:
-        "Save a text file in the user's vault (Files folder), such as a draft, a list or a plan they asked you to keep. " +
-        "A file with the same name is replaced. Allowed types: .md (default), .txt, .csv, .json.",
+        "Save a new text file in the user's vault (Files folder), such as a draft, a list or a plan they asked you to keep. " +
+        "Replacing a file that already exists waits for the user's approval. Allowed types: .md (default), .txt, .csv, .json.",
       parameters: {
         type: "object",
         properties: { name: { type: "string", description: "File name, such as reading-list.md" }, content: { type: "string" } },
@@ -305,6 +306,7 @@ export const ALL_TOOLS: ToolDefinition[] = [
     },
   },
   ...TWIN_TOOL_DEFS,
+  ...CONNECTOR_TOOL_DEFS,
 ];
 
 export const toolDefs = (names: readonly string[]) => ALL_TOOLS.filter((t) => names.includes(t.function.name));
@@ -321,6 +323,9 @@ export const TOOLS = toolDefs([
   "save_file",
   "read_file",
   "list_files",
+  "web_search",
+  "fetch_url",
+  ...CONNECTOR_TOOL_NAMES,
 ]);
 
 export interface ToolResult {
@@ -445,6 +450,9 @@ async function executeTool(db: Db, name: string, rawArgs: string): Promise<ToolR
       const args = SaveFileArgs.safeParse(json);
       if (!args.success) return invalid(args.error);
       try {
+        // A new file is saved straight away; replacing one that's there is a change, so it waits for approval.
+        const target = savedFileTarget(args.data.name);
+        if (target.exists) return runConnectorTool(db, "edit_file", { path: target.path, mode: "replace", content: args.data.content });
         const saved = saveFile(args.data.name, args.data.content);
         return { output: `Saved ${saved}.`, citations: [saved] };
       } catch (err) {
@@ -481,6 +489,8 @@ async function executeTool(db: Db, name: string, rawArgs: string): Promise<ToolR
       return { output: personaMarkdown(persona), citations: ["Social/persona-from-your-accounts.md"] };
     }
     default:
+      // Email, calendar, chat channels, tasks and files: reading runs, the rest waits for approval (connectors/tools.ts).
+      if (isConnectorTool(name)) return runConnectorTool(db, name, json);
       // The voice twin's propose-only tools (calls, emails, commitments) live in twin.ts.
       if (isTwinTool(name)) return runTwinTool(db, name, json);
       // Promise Keeper, used only on a live call. Loaded lazily: twin-calls.ts imports this module.
@@ -932,6 +942,16 @@ export function goalsWithTasks(db: Db): GoalWithTasks[] {
   const goals = db.prepare("SELECT id, title, why FROM goals ORDER BY id DESC").all() as Omit<GoalWithTasks, "tasks">[];
   const tasks = db.prepare("SELECT id, title, due_date, status, completed_at FROM tasks WHERE goal_id = ? ORDER BY id");
   return goals.map((g) => ({ ...g, tasks: tasks.all(g.id) as GoalWithTasks["tasks"] }));
+}
+
+/** Adds one task to an existing goal (the agent's add_task, once the user approves). Returns the new task's id. */
+export function addTask(db: Db, goalId: number, title: string, dueInDays?: number): number {
+  const goal = db.prepare("SELECT title FROM goals WHERE id = ?").get(goalId) as { title: string } | undefined;
+  if (!goal) throw new Error(`No goal #${goalId}.`);
+  const due = addDays(dueInDays);
+  const id = Number(db.prepare("INSERT INTO tasks (goal_id, title, due_date) VALUES (?, ?, ?)").run(goalId, title, due).lastInsertRowid);
+  writeTaskNote(goal.title, title, due, false);
+  return id;
 }
 
 export function completeTask(db: Db, taskId: number): void {

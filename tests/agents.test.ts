@@ -62,7 +62,34 @@ describe("agent team file", () => {
     for (const name of ["root", "voice_horizon", "voice_next_year", "voice_skeptic", "voice_mentor", "council_chair", "verifier", "researcher", "night_shift", "helper_memory", "helper_web", "mission_lead", "supervisor"]) {
       expect(team.has(name), name).toBe(true);
     }
-    expect(team.get("root")!.tools).toEqual(["search_memory", "search_social", "get_persona", "propose_memory", "propose_plan", "delegate_task", "spawn_agent", "save_file", "read_file", "list_files", "docker_mcp"]);
+    expect(team.get("root")!.tools).toEqual([
+      "search_memory",
+      "search_social",
+      "get_persona",
+      "propose_memory",
+      "propose_plan",
+      "delegate_task",
+      "spawn_agent",
+      "save_file",
+      "read_file",
+      "list_files",
+      "web_search",
+      "fetch_url",
+      "get_current_time",
+      "email_search",
+      "email_read",
+      "email_draft",
+      "email_send",
+      "calendar_list_events",
+      "calendar_create_event",
+      "send_message",
+      "list_tasks",
+      "add_task",
+      "complete_task",
+      "edit_file",
+      "delete_file",
+      "docker_mcp",
+    ]);
     expect(team.get("helper_memory")!.tools).toEqual(["search_memory"]);
     expect(team.get("supervisor")!.tools).toEqual([]);
     expect(team.get("voice_skeptic")!.tools).toEqual(["search_memory"]);

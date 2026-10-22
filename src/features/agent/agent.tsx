@@ -16,9 +16,10 @@ import { ProvenanceBadge } from "@/features/memory/provenance";
 import { pendingApprovals } from "@/lib/derive";
 import { cn, pluralize, relativeDay } from "@/lib/utils";
 import { useWorkspace } from "@/lib/workspace-store";
-import { agentLog, agentTools, logKind, toolUsage, vaultFiles, type LogEntry, type ToolInfo, type VaultFile } from "./agent-data";
+import { agentLog, agentTools, cardUsage, logKind, toolUsage, vaultFiles, type LogEntry, type ToolInfo, type VaultFile } from "./agent-data";
 import { NightShiftPanel, Packs, Privacy, Research, SupervisorLog, Team } from "./agent-team";
 import { DockerTools } from "./docker-tools";
+import { Integrations } from "./integrations";
 
 export function Agent() {
   const { workspace } = useWorkspace();
@@ -135,9 +136,20 @@ export function Agent() {
           <SectionHead id="tools-heading" title="Tools" note="What the agent can call on its own, and what it has to ask for." />
           <div className="grid grid-cols-[minmax(0,1fr)] gap-4 md:grid-cols-2">
             {tools.map((t) => (
-              <ToolCard key={t.name} tool={t} usage={usage.get(t.name)} />
+              <ToolCard key={t.name} tool={t} usage={cardUsage(usage, t)} />
             ))}
           </div>
+        </RevealItem>
+
+        {/* Integrations */}
+        <RevealItem as="section" aria-labelledby="integrations-heading" id="integrations">
+          <SectionHead
+            id="integrations-heading"
+            title="Integrations"
+            note="Email, calendar, chat channels, tasks and files. Reading runs on its own; sending, adding, changing and deleting wait for you here."
+            dot={workspace.agentActions?.requests.some((r) => r.status === "pending") ? "warning" : undefined}
+          />
+          <Integrations />
         </RevealItem>
 
         {/* Docker MCP */}
@@ -351,7 +363,7 @@ function ToolCard({ tool, usage }: { tool: ToolInfo; usage?: { count: number; la
               <gate.icon aria-hidden /> {gate.label}
             </Badge>
           </div>
-          <p className="mt-0.5 font-mono text-[11px] text-subtle">{tool.name}</p>
+          <p className="mt-0.5 font-mono text-[11px] break-words text-subtle">{(tool.names ?? [tool.name]).join(" · ")}</p>
         </div>
       </div>
       <p className="mt-3 flex-1 text-[13px] leading-relaxed text-muted-foreground">{tool.description}</p>
