@@ -13,6 +13,10 @@
 [![Obsidian vault](https://img.shields.io/badge/Memory-Obsidian%20vault-7C3AED?logo=obsidian&logoColor=white)](#memory-vault)
 [![License](https://img.shields.io/badge/License-Apache--2.0-blue)](LICENSE)
 
+### ▶ [**Try it live: tomora-ai.duckdns.org**](https://tomora-ai.duckdns.org)
+
+Open the link, press **Use it** on the sign-in page, and you get a private workspace of your own in two clicks. No account, nothing to install.
+
 **Nebius × NVIDIA Global AI Hackathon 2026 · Personal AI track**
 
 [What it is](#-what-it-is) · [How it works](#-how-it-works) · [Brand](#-the-tomora-brand) · [Voice twin](#-the-standout-your-voice-twin) · [Share it](#-share-it-a-private-future-self-for-everyone) · [Agents](#-the-agent-works-on-its-own) · [Nemotron](#-nemotron-native-not-just-a-chat-endpoint) · [Features](#-every-feature) · [Deploy](#-deploy-it) · [What's next](#-whats-next)
