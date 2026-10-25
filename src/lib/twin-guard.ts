@@ -140,6 +140,9 @@ export const retentionDays = () => Math.max(1, Math.round(num(process.env.TWIN_R
 /** ElevenLabs ends every twin call at this length, so a call can never cost more than this. */
 export const MAX_CALL_SECONDS = 600;
 
+/** The call length actually used: TWIN_MAX_CALL_SECONDS (a demo server keeps calls short), between 60 and 600 seconds. */
+export const maxCallSeconds = () => Math.min(MAX_CALL_SECONDS, Math.max(60, Math.round(num(process.env.TWIN_MAX_CALL_SECONDS, MAX_CALL_SECONDS))));
+
 const monthStart = (now: Date) => `${now.toISOString().slice(0, 7)}-01 00:00:00`;
 const nextMonthStart = (now: Date) => monthStart(new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1)));
 
@@ -153,7 +156,7 @@ export function usage(db: Db, now = new Date()) {
   let minutes = 0;
   for (const c of calls) {
     const running = ["dialing", "connecting", "in_progress"].includes(c.status);
-    const secs = c.duration_secs ?? (running ? Math.min(MAX_CALL_SECONDS, (now.getTime() - new Date(`${c.started_at.replace(" ", "T")}Z`).getTime()) / 1000) : 0);
+    const secs = c.duration_secs ?? (running ? Math.min(maxCallSeconds(), (now.getTime() - new Date(`${c.started_at.replace(" ", "T")}Z`).getTime()) / 1000) : 0);
     if (secs > 0) minutes += Math.ceil(secs / 60);
   }
   const emails = (

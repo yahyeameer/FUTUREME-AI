@@ -91,7 +91,8 @@ export function Twin() {
   if (!state) return null;
 
   const pending = state.twin.approvals.filter((a) => a.status === "pending");
-  const hasVoice = state.voice.active?.status === "ready";
+  // A cloned voice, or the ready-made one chosen instead: either can hold a call.
+  const hasVoice = state.voice.active?.status === "ready" || state.voice.preset.chosen;
   return (
     <PageFrame rail={<Rules state={state} />} railTitle="Twin rules">
       <Header
@@ -245,7 +246,36 @@ function VoiceSection({ state, act }: { state: TwinState; act: Act }) {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      {!hasVoice && <ReadyVoice state={state} act={act} />}
     </section>
+  );
+}
+
+/** For people who'd rather not record: talk to the future self in a ready-made voice instead of a clone. */
+function ReadyVoice({ state, act }: { state: TwinState; act: Act }) {
+  const [busy, setBusy] = React.useState(false);
+  const available = state.voice.preset.available;
+  return (
+    <div className="mt-4 flex flex-col gap-3 rounded-2xl border border-border bg-surface p-5 shadow-card sm:flex-row sm:items-center sm:justify-between">
+      <div className="min-w-0">
+        <p className="text-[14px] font-medium">Rather not record your voice?</p>
+        <p className="mt-1 text-[13px] text-muted-foreground">
+          {available
+            ? "Talk to your future self now in a ready-made voice. Nothing is recorded or cloned, and you can clone your own voice later."
+            : "A ready-made voice needs an ElevenLabs key: add one under Voice engine below, or ask whoever runs this server."}
+        </p>
+      </div>
+      <Button
+        variant="secondary"
+        disabled={!available || busy}
+        onClick={() => {
+          setBusy(true);
+          void act(() => post({ action: "useReadyVoice", on: true }), "Your future self will speak in a ready-made voice.").finally(() => setBusy(false));
+        }}
+      >
+        {busy ? <Loader2 className="animate-spin" /> : <AudioLines />} Use a ready-made voice
+      </Button>
+    </div>
   );
 }
 

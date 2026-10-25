@@ -7,9 +7,8 @@ import { useRouter } from "next/navigation";
 import * as React from "react";
 import { useWatch } from "react-hook-form";
 import { toast } from "sonner";
-import { ClockFace, Wordmark } from "@/components/brand/mark";
-import { Orb } from "@/components/brand/orb";
-import { Presence } from "@/components/brand/presence";
+import { LivingMark } from "@/components/brand/living-mark";
+import { Wordmark } from "@/components/brand/mark";
 import { celebrate } from "@/components/motion/celebrate";
 import { ErrorState } from "@/components/states";
 import { Button } from "@/components/ui/button";
@@ -49,8 +48,8 @@ const STEPS: { short: string; title: string; lede: string; why: string; optional
 ];
 
 const ROMAN = ["I", "II", "III"];
-// The two circles of the Presence draw closer as the picture of your future fills in.
-const CONVERGENCE = [0.12, 0.42, 0.72];
+// Today travels toward the future along the mark's trajectory as the picture of your future fills in.
+const PROGRESS = [0.12, 0.45, 0.78];
 const EASE = [0.22, 1, 0.36, 1] as const;
 
 type Draft = { name: string; dream: string; year?: number };
@@ -62,7 +61,7 @@ export function Onboarding() {
   const [step, setStep] = React.useState(0);
   const [draft, setDraft] = React.useState<Draft>({ name: "", dream: "" });
   const [arriving, setArriving] = React.useState<Draft | null>(null);
-  // The orb spins up for a moment each time you move to a new step.
+  // The mark spins up for a moment each time you move to a new step.
   const [stirred, setStirred] = React.useState(false);
   const calm = React.useRef<ReturnType<typeof setTimeout>>(undefined);
   const moveTo = React.useCallback((n: number) => {
@@ -78,22 +77,22 @@ export function Onboarding() {
     router.push("/");
   };
 
-  const convergence = arriving ? 1 : CONVERGENCE[step];
+  const progress = arriving ? 1 : PROGRESS[step];
+  const ring = `Today ✦ ${draft.year ?? "Your horizon"} · ${draft.name ? `Future ${draft.name}` : "The future you"}`;
 
+  // Onboarding is its own scene: always the night sky, whatever theme the rest of the app uses.
   return (
-    <div className="relative isolate grid min-h-dvh lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]">
-      <aside className="relative hidden p-3 lg:sticky lg:top-0 lg:flex lg:h-dvh">
-        <div className="relative flex flex-1 flex-col overflow-hidden rounded-[1.5rem] bg-[linear-gradient(180deg,#171B22_0%,#101113_100%)] p-10 text-[#F3F0E8] ring-1 ring-white/[0.06]">
-          <Cosmos step={step} />
+    <div data-theme="dark" className="relative isolate min-h-dvh overflow-hidden bg-[#0A0B0E] text-foreground">
+      <Backdrop step={step} />
+      <div className="relative grid min-h-dvh lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+        <aside className="relative hidden flex-col p-10 lg:sticky lg:top-0 lg:flex lg:h-dvh xl:p-14">
           <Link href="/welcome" className="relative self-start rounded-md outline-offset-4" aria-label="TOMORA welcome page">
             <Wordmark withSymbol className="text-[#F3F0E8]" />
           </Link>
 
-          <div className="relative flex min-h-0 flex-1 flex-col items-center justify-center py-4">
-            <motion.div initial={{ opacity: 0, scale: 0.8, filter: "blur(14px)" }} animate={{ opacity: 1, scale: 1, filter: "blur(0px)" }} transition={{ duration: 1.2, ease: EASE }}>
-              <Orb size={270} horizonYear={draft.year} active={stirred || !!arriving} className="text-[#F3F0E8]">
-                <Presence convergence={convergence} size={178} horizonLabel={draft.name ? `Future ${draft.name}` : "Possible you"} />
-              </Orb>
+          <div className="relative flex min-h-0 flex-1 flex-col items-center justify-center py-6">
+            <motion.div initial={{ opacity: 0, scale: 0.85, filter: "blur(16px)" }} animate={{ opacity: 1, scale: 1, filter: "blur(0px)" }} transition={{ duration: 1.3, ease: EASE }} className="w-[min(25rem,40vh)]">
+              <LivingMark progress={progress} busy={stirred || !!arriving} ring={ring} />
             </motion.div>
             <FutureLine draft={draft} />
           </div>
@@ -101,35 +100,28 @@ export function Onboarding() {
           <div className="relative">
             <Tagline />
             <Timeline step={step} />
-            <p className="mt-6 max-w-sm text-[12px] text-[#F3F0E8]/50">Nothing is saved until you finish. Your answers stay on this TOMORA server, and you can edit or delete them in Settings.</p>
+            <p className="mt-6 max-w-sm text-[12px] text-[#F3F0E8]/45">Nothing is saved until you finish. Your answers stay on this TOMORA server, and you can edit or delete them in Settings.</p>
           </div>
-        </div>
-      </aside>
+        </aside>
 
-      <main className="relative flex min-w-0 flex-col px-5 py-8 sm:px-10 lg:px-16 lg:py-12">
-        <Glow step={step} />
-        <div className="flex items-center justify-between gap-4 lg:justify-end">
-          <Link href="/welcome" className="rounded-md lg:hidden" aria-label="TOMORA welcome page">
-            <Wordmark withSymbol />
-          </Link>
-          <Button variant="link" size="sm" className="px-0" onClick={exploreDemo}>
-            Explore with demo data
-          </Button>
-        </div>
+        <main className="relative flex min-w-0 flex-col px-5 py-6 sm:px-10 lg:px-14 lg:py-10">
+          <div className="flex items-center justify-between gap-4 lg:justify-end">
+            <Link href="/welcome" className="rounded-md lg:hidden" aria-label="TOMORA welcome page">
+              <Wordmark withSymbol className="text-[#F3F0E8]" />
+            </Link>
+            <Button variant="link" size="sm" className="px-0 text-[#E9DFC6]" onClick={exploreDemo}>
+              Explore with demo data
+            </Button>
+          </div>
 
-        {/* On a phone the orb sits above the form instead of beside it. */}
-        <div className="relative mx-auto mt-6 lg:hidden">
-          <Orb size={200} horizonYear={draft.year} active={stirred || !!arriving}>
-            <Presence convergence={convergence} size={132} />
-          </Orb>
-        </div>
+          {/* On a phone the mark sits above the form instead of beside it. */}
+          <div className="relative mx-auto mt-2 w-[min(15rem,62vw)] lg:hidden">
+            <LivingMark progress={progress} busy={stirred || !!arriving} />
+          </div>
 
-        <div className="mx-auto flex w-full max-w-xl flex-1 flex-col justify-center py-8 lg:py-10">
-          <motion.div initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.8, ease: EASE, delay: 0.15 }} className="relative overflow-hidden rounded-[1.65rem] p-px shadow-[var(--shadow-float)]">
-            {/* A light running the card's edge, like the second hand on the dial. */}
-            <div aria-hidden className="absolute top-1/2 left-1/2 aspect-square w-[160%] -translate-x-1/2 -translate-y-1/2 animate-[orbit_7s_linear_infinite] bg-[conic-gradient(from_0deg,transparent_0deg,transparent_250deg,rgb(200_146_95/0.55)_300deg,rgb(200_183_143/0.95)_340deg,transparent_360deg)]" />
-            <div aria-hidden className="absolute inset-0 bg-border" style={{ zIndex: -1 }} />
-            <div className="card relative rounded-[1.6rem] border-0 p-6 sm:p-9">
+          <div className="mx-auto flex w-full max-w-xl flex-1 flex-col justify-center py-6 lg:py-10">
+            <motion.div initial={{ opacity: 0, y: 28, filter: "blur(10px)" }} animate={{ opacity: 1, y: 0, filter: "blur(0px)" }} transition={{ duration: 0.9, ease: EASE, delay: 0.2 }} className="glass-panel glass-fields rounded-[1.75rem] p-6 sm:p-9">
+              <span aria-hidden className="glass-rim" />
               {status === "loading" ? (
                 <div aria-busy="true" aria-label="Loading">
                   <Skeleton className="h-3 w-24" />
@@ -141,12 +133,27 @@ export function Onboarding() {
               ) : (
                 <ProfileSteps key={workspace?.runtime.mode} step={step} setStep={moveTo} onDraft={setDraft} onArrive={setArriving} />
               )}
-            </div>
-          </motion.div>
-        </div>
-      </main>
+            </motion.div>
+            <p className="mt-4 text-center text-[12px] text-[#F3F0E8]/40 lg:hidden">Nothing is saved until you finish. You can edit or delete it in Settings.</p>
+          </div>
+        </main>
+      </div>
 
       <AnimatePresence>{arriving && <Arrival draft={arriving} />}</AnimatePresence>
+    </div>
+  );
+}
+
+/** The scene behind everything: aurora light that follows the steps, the turning time rings, rising embers, a fine grid. */
+function Backdrop({ step }: { step: number }) {
+  return (
+    <div aria-hidden className="pointer-events-none fixed inset-0 -z-10 overflow-hidden">
+      <motion.div className="absolute top-[-25%] size-[60rem] rounded-full bg-[radial-gradient(closest-side,rgb(200_183_143/0.2),transparent)] blur-3xl" initial={false} animate={{ left: `${-20 + step * 18}%` }} transition={{ duration: 1.6, ease: EASE }} />
+      <div className="absolute right-[-15%] bottom-[-30%] size-[55rem] animate-[aurora_26s_ease-in-out_infinite] rounded-full bg-[radial-gradient(closest-side,rgb(200_146_95/0.17),transparent)] blur-3xl" />
+      <div className="absolute top-[30%] left-[35%] size-[38rem] animate-[aurora_34s_ease-in-out_infinite_reverse] rounded-full bg-[radial-gradient(closest-side,rgb(96_116_148/0.16),transparent)] blur-3xl" />
+      <div className="absolute inset-0 opacity-[0.35] [background-image:linear-gradient(rgb(255_255_255/0.035)_1px,transparent_1px),linear-gradient(90deg,rgb(255_255_255/0.035)_1px,transparent_1px)] [background-size:64px_64px] [mask-image:radial-gradient(ellipse_at_center,#000_20%,transparent_75%)]" />
+      <Cosmos step={step} className="lg:right-1/2" />
+      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_40%,rgb(0_0_0/0.55))]" />
     </div>
   );
 }
@@ -155,7 +162,7 @@ export function Onboarding() {
 function FutureLine({ draft }: { draft: Draft }) {
   const title = `${draft.name ? `Future ${draft.name}` : "The future you"}${draft.year ? `, ${draft.year}` : ""}`;
   return (
-    <div aria-hidden className="mt-4 flex min-h-[5.5rem] w-full max-w-sm flex-col items-center text-center">
+    <div aria-hidden className="mt-6 flex min-h-[4.5rem] w-full max-w-sm flex-col items-center text-center">
       <AnimatePresence mode="wait" initial={false}>
         <motion.p key={title} initial={{ opacity: 0, y: 6, filter: "blur(6px)" }} animate={{ opacity: 1, y: 0, filter: "blur(0px)" }} exit={{ opacity: 0, y: -6, filter: "blur(6px)" }} transition={{ duration: 0.35 }} className="font-display text-[1.35rem] text-[#E9DFC6]">
           {title}
@@ -173,7 +180,7 @@ function FutureLine({ draft }: { draft: Draft }) {
 function Tagline() {
   const words = BRAND.tagline.split(" ");
   return (
-    <p className="max-w-md font-display text-[2.6rem] leading-[1.02] text-balance">
+    <p className="max-w-md font-display text-[2.3rem] leading-[1.02] text-balance xl:text-[2.6rem]">
       {words.map((w, i) => {
         const last = i === words.length - 1;
         return (
@@ -212,28 +219,17 @@ function Timeline({ step }: { step: number }) {
   );
 }
 
-/** Soft light behind the form, moving a little with each step. */
-function Glow({ step }: { step: number }) {
-  return (
-    <div aria-hidden className="pointer-events-none absolute inset-0 -z-10 overflow-hidden">
-      <motion.div className="absolute top-[-10%] size-[44rem] rounded-full bg-[radial-gradient(closest-side,var(--accent-wash),transparent)] blur-2xl" initial={false} animate={{ left: `${10 + step * 22}%` }} transition={{ duration: 1.4, ease: EASE }} />
-      <div className="absolute right-[-10%] bottom-[-20%] size-[36rem] animate-[drift_22s_ease-in-out_infinite] rounded-full bg-[radial-gradient(closest-side,rgb(200_146_95/0.1),transparent)] blur-2xl" />
-    </div>
-  );
-}
-
-/** The moment you finish: the dial opens and time runs forward to the year you named. */
+/** The moment you finish: today reaches the future, the glass opens and time runs forward to the year you named. */
 function Arrival({ draft }: { draft: Draft }) {
   return (
-    <motion.div role="status" aria-live="polite" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.4 }} className="fixed inset-0 z-[90] flex flex-col items-center justify-center overflow-hidden bg-[#101113]/90 text-[#F3F0E8] backdrop-blur-md">
-      {[0, 1, 2].map((i) => (
-        <motion.span key={i} aria-hidden className="absolute size-40 rounded-full border border-[#C8B78F]/60" initial={{ scale: 0.4, opacity: 0.9 }} animate={{ scale: 9, opacity: 0 }} transition={{ duration: 1.6, ease: "easeOut", delay: i * 0.25 }} />
+    <motion.div role="status" aria-live="polite" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.4 }} className="fixed inset-0 z-[90] flex flex-col items-center justify-center overflow-hidden bg-[#08090C]/85 text-[#F3F0E8] backdrop-blur-xl">
+      {[0, 1, 2, 3].map((i) => (
+        <motion.span key={i} aria-hidden className="absolute size-48 rounded-full border border-[#C8B78F]/50 shadow-[0_0_40px_-8px_#C8B78F]" initial={{ scale: 0.4, opacity: 0.9 }} animate={{ scale: 10, opacity: 0 }} transition={{ duration: 1.8, ease: "easeOut", delay: i * 0.22 }} />
       ))}
-      <motion.div initial={{ scale: 0.6, rotate: -90, opacity: 0 }} animate={{ scale: 1, rotate: 0, opacity: 1 }} transition={{ duration: 0.9, ease: EASE }} className="relative">
-        <span aria-hidden className="absolute inset-0 animate-[glint_1.6s_ease-in-out_infinite] rounded-full shadow-[0_0_80px_10px_rgb(200_183_143/0.35)]" />
-        <ClockFace animated className="relative size-28 text-[#F3F0E8] [&_g]:[animation-duration:2.5s]" />
+      <motion.div initial={{ scale: 0.55, rotate: -40, opacity: 0 }} animate={{ scale: 1, rotate: 0, opacity: 1 }} transition={{ duration: 0.9, ease: EASE }} className="relative w-[min(18rem,60vw)]">
+        <LivingMark progress={1} busy />
       </motion.div>
-      <motion.p initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.35, duration: 0.6 }} className="mt-8 font-display text-3xl">
+      <motion.p initial={{ opacity: 0, y: 12, filter: "blur(8px)" }} animate={{ opacity: 1, y: 0, filter: "blur(0px)" }} transition={{ delay: 0.35, duration: 0.6 }} className="mt-6 font-display text-3xl sm:text-4xl">
         {draft.name ? `Future ${draft.name}` : "Your future self"} is waiting
       </motion.p>
       {draft.year && (
@@ -352,8 +348,8 @@ function ProfileSteps({ step, setStep, onDraft, onArrive }: { step: number; setS
             ))}
           </h1>
           <p className="mt-3 text-[14px] text-muted-foreground">{s.lede}</p>
-          <p className="mt-3 flex gap-2 rounded-lg border border-border bg-surface-2/60 px-3 py-2 text-[12.5px] text-muted-foreground">
-            <span className="shrink-0 font-medium text-foreground">Why we ask</span>
+          <p className="mt-4 flex gap-2.5 rounded-xl border border-white/10 bg-white/[0.04] px-3.5 py-2.5 text-[12.5px] text-muted-foreground shadow-[inset_0_1px_0_rgb(255_255_255/0.06)]">
+            <span className="shrink-0 font-medium text-[#E9DFC6]">Why we ask</span>
             {s.why}
           </p>
           <Stagger className="mt-8 grid gap-5">

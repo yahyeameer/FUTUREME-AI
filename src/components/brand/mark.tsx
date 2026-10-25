@@ -1,26 +1,18 @@
+"use client";
+
 import { BRAND } from "@/lib/brand";
 import { cn } from "@/lib/utils";
+import { LivingEmblem } from "./living-mark";
 
 /**
- * TOMORA's mark: an old clock where the past and the future turn together. The bronze point is where you stand today,
- * the champagne ring is the future you're steering toward, joined by one trajectory. Around them, two dials turn in
- * opposite directions: the outer one forward (the future), the inner bronze one back (the past). A light circles the
- * future ring like a second hand. Everything speeds up and glows brighter when the brand link (`group/brand`) is
- * hovered. Decorative; the link around it carries the name.
+ * TOMORA's mark, the same one everywhere: the living clock in its glass sphere (living-mark.tsx), at icon size. Its
+ * lights orbit, it tilts toward the pointer, and today, the bronze point, looks at the cursor wherever it is on the
+ * page. Decorative; the link around it carries the name.
  */
 export function Mark({ className }: { className?: string }) {
   return (
-    <span
-      aria-hidden
-      className={cn(
-        "relative inline-flex size-7 shrink-0 items-center justify-center overflow-hidden rounded-full border border-white/70 bg-gradient-to-br from-white/90 to-white/30 backdrop-blur",
-        "shadow-[inset_0_1px_0_rgb(255_255_255/0.9),0_4px_12px_-6px_rgb(120_90_30/0.55)] transition-shadow duration-300 group-hover/brand:shadow-[inset_0_1px_0_rgb(255_255_255/0.9),0_0_16px_-2px_var(--accent)]",
-        "dark:border-white/15 dark:from-white/[0.16] dark:to-white/[0.03] dark:shadow-[inset_0_1px_0_rgb(255_255_255/0.14),0_0_14px_-5px_var(--accent)]",
-        className,
-      )}
-    >
-      <span className="absolute -inset-1 animate-orbit bg-[conic-gradient(from_0deg,transparent,rgb(200_183_143/0.65),transparent_40%,rgb(168_112_63/0.45),transparent_75%)] opacity-60 blur-[6px] transition-opacity group-hover/brand:opacity-100 [animation-duration:8s]" />
-      <ClockFace className="relative size-[22px]" animated />
+    <span aria-hidden className={cn("inline-flex size-7 shrink-0 transition-[filter] duration-300 group-hover/brand:drop-shadow-[0_0_10px_var(--accent)]", className)}>
+      <LivingEmblem compact progress={0.3} className="size-full" />
     </span>
   );
 }

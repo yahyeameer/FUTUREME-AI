@@ -310,8 +310,8 @@ export function Privacy() {
         ? { icon: Sparkles, label: "Model", value: "None. The demo plays scripted replies in your browser." }
         : { icon: Cloud, label: "Model", value: `${rt.model}. Messages are sent to the model provider to get a reply.` },
     { icon: Bot, label: "Agents run in", value: p.backend === "docker-agent" ? `Docker Agent, from ${p.agentFile}` : p.backend === "in-process" ? "The TOMORA server (no Docker Agent configured)" : "Your browser (demo)" },
-    p.webSearch === "brave" || p.webSearch === "duckduckgo"
-      ? { icon: Globe, label: "Web", value: `Only the research agent goes online, through ${p.webSearch === "brave" ? "Brave Search" : "DuckDuckGo"}. Your notes are never sent to search.` }
+    p.webSearch === "you" || p.webSearch === "brave" || p.webSearch === "duckduckgo"
+      ? { icon: Globe, label: "Web", value: `Only the research agent goes online, through ${({ you: "You.com", brave: "Brave Search", duckduckgo: "DuckDuckGo" } as Record<string, string>)[p.webSearch]}. Your notes are never sent to search.` }
       : { icon: Lock, label: "Web", value: p.webSearch === "off" ? "Off. No agent can reach the web." : "Not available in the demo.", tone: "off" },
   ];
   return (

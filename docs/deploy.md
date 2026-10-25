@@ -36,3 +36,37 @@ TOMORA ships as one Docker image that runs the Next.js app and the Docker Agent 
 - TOMORA is single-user. Before putting personal data on a public address, set `FUTUREME_ACCESS_CODE` so every page and API asks for it (the `/welcome` page, icons and share image stay public and carry no workspace data).
 - The research agent's page reader refuses private, loopback and link-local addresses (checked after DNS and on every redirect), so it can't be pointed at the VM's metadata service or other containers. Set `WEB_SEARCH=off` if the server shouldn't reach the internet at all.
 - Docker Agent listens only on `127.0.0.1` inside the container. Its tools are TOMORA's own MCP tools, and anything they propose still needs approval in the app.
+
+## A public demo with a private workspace for every visitor
+
+For a hackathon or a public link, set these in `.env` (next to `docker-compose.yml`) so each visitor who enters the access code gets a future self of their own, with its own database and vault:
+
+```bash
+FUTUREME_MULTI_USER=1          # a private workspace per visitor (server.ts runs each request inside it)
+FUTUREME_ACCESS_CODE=your-code # the code visitors enter
+FUTUREME_SHOW_CODE=1           # optional: show the code on the sign-in page with a one-click button
+SEED_DEMO=0                    # new visitors start at onboarding, not on demo data
+NIGHT_SHIFT_AT=off             # the night shift only serves the default workspace (the twin scheduler serves every one)
+YDC_API_KEY=...                # web research: You.com (or BRAVE_SEARCH_API_KEY). DuckDuckGo blocks most cloud servers.
+```
+
+- A visitor's workspace is a random id in a cookie. **Settings -> Your workspace code** shows it, and pasting it under "Coming back?" on the sign-in page opens the same workspace on another device. Anyone holding the code can open that workspace.
+- Data lives in `/data/workspaces/<id>/` (database, vault, key file), one folder per visitor.
+- Everyone who enters the code spends your model credits, so multi-user mode limits it per UTC day: 120 model calls and 250,000 tokens per workspace, 3,000,000 tokens for the whole server, and at most 300 workspaces. Change them with `FUTUREME_DAILY_CALLS`, `FUTUREME_DAILY_TOKENS`, `FUTUREME_SERVER_DAILY_TOKENS` and `FUTUREME_MAX_WORKSPACES` (0 turns one off). Visitors see their own use under Settings; past a limit, replies explain it and when it resets.
+- Test it: start a multi-user server, then `E2E_MULTI_USER=1 E2E_BASE_URL=http://127.0.0.1:3000 npx playwright test e2e/judge-workspaces.spec.ts`.
+
+### Voice for judges, on one ElevenLabs key
+
+Judges usually don't have an ElevenLabs account, so a demo server can lend them yours. Set `ELEVENLABS_API_KEY` in `.env` (a key on the server is used by every workspace) and `TWIN_PUBLIC_URL` to the server's https address. On `/twin`, each judge can then either clone their own voice after the consent recording, or press **Use a ready-made voice** and talk to their future self straight away, with nothing recorded. Browser calls need no phone number; calling judges' phones needs a paid Twilio number, since a trial only calls numbers you verified yourself.
+
+Keep it cheap:
+
+```bash
+TWIN_MAX_CALL_SECONDS=180          # each call ends after three minutes (60 to 600)
+TWIN_DAILY_VOICE_CALLS=3           # voice calls per workspace per day (multi-user default 3)
+TWIN_SERVER_DAILY_VOICE_CALLS=30   # for the whole server per day (multi-user default 30)
+TWIN_VOICE_TTL_DAYS=3              # cloned voices are deleted after three days, at ElevenLabs and here
+TWIN_PRESET_VOICE_ID=              # the ready-made voice (default: ElevenLabs' premade "Rachel")
+```
+
+The worst case per day is then `TWIN_SERVER_DAILY_VOICE_CALLS × TWIN_MAX_CALL_SECONDS` of ElevenLabs agent time (here 90 minutes). Cloning a voice needs an ElevenLabs plan that includes voice cloning, and each cloned voice takes one of the plan's voice slots until it's deleted.

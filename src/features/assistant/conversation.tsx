@@ -3,8 +3,7 @@
 import { ArrowDown } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import * as React from "react";
-import { Orb } from "@/components/brand/orb";
-import { Presence } from "@/components/brand/presence";
+import { LivingEmblem } from "@/components/brand/living-mark";
 import { PageFrame } from "@/components/layout/page-frame";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
@@ -83,9 +82,12 @@ export function Conversation() {
     <PageFrame rail={<FutureSelfContext />} railTitle="Context" toolbar={toolbar} className="pb-0 sm:pb-0">
       <div className="flex flex-1 flex-col">
         <section className={cn("flex flex-col items-center text-center", messages.length ? "pt-0 pb-8" : "pt-6 pb-10")}>
-          <Orb size={messages.length ? 180 : 240} horizonYear={workspace.profile?.horizonYear} active={!!pending && !pending.error}>
-            <Presence convergence={convergence(workspace.tasks)} state={pending && !pending.error ? "thinking" : "idle"} size={messages.length ? 112 : 150} className="text-foreground" />
-          </Orb>
+          <LivingEmblem
+            className={cn("transition-[width] duration-500", messages.length ? "w-[10.5rem]" : "w-[14rem]")}
+            progress={convergence(workspace.tasks)}
+            busy={!!pending && !pending.error}
+            label={`Today and your future self. ${Math.round(convergence(workspace.tasks) * 100)}% of planned tasks are done.`}
+          />
           <p className={cn("mt-5 max-w-md font-display leading-snug text-balance italic", messages.length ? "text-[19px]" : "text-[22px] sm:text-[24px]")}>{OPENING}</p>
           <p className="mt-3 max-w-sm text-[12px] text-subtle">
             TOMORA speaks as one possible future you, based on what you&apos;ve shared. It remembers what&apos;s in your vault and asks before changing anything.

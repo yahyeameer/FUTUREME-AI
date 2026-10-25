@@ -4,6 +4,7 @@
 #                               outputs, parallel tool calls, live reasoning in the chat and photo input
 #   AGENT_RUNTIME=docker-agent  the team runs in Docker Agent from agents/futureme.yaml instead
 #   LLM_PROVIDER=local   every agent runs on Docker Model Runner on this machine (see docker-compose.local.yml)
+#   FUTUREME_MULTI_USER=1  every visitor gets a private workspace (own database and vault), see server.ts
 #   no NEBIUS_API_KEY    (or LLM_PROVIDER=mock) both use the built-in stand-in model, so the demo always runs
 set -e
 AGENT_RUNTIME="${AGENT_RUNTIME:-nemotron}"
@@ -64,4 +65,9 @@ if [ -n "$SUPABASE_URL" ] && [ "$CLOUD_PROVIDER" != "off" ]; then
   node_modules/.bin/tsx scripts/cloud-sync.ts --loop &
 fi
 
+if [ "$FUTUREME_MULTI_USER" = "1" ]; then
+  # Every visitor who enters the access code gets a private workspace (see server.ts). The twin scheduler above visits
+  # every workspace; the night shift only serves the default one, so a multi-user server normally sets NIGHT_SHIFT_AT=off.
+  exec node_modules/.bin/tsx server.ts
+fi
 exec node_modules/.bin/next start -H 0.0.0.0 -p "${PORT:-3000}"

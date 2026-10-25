@@ -1,8 +1,10 @@
 "use client";
 
-import { ArrowRight, AudioLines, Check, KeyRound, Library, Lock, Menu, MessageSquareText, Server, ShieldCheck, X } from "lucide-react";
+import { ArrowRight, AudioLines, Check, Cpu, KeyRound, Library, Lock, Menu, MessageSquareText, Server, ShieldCheck, X } from "lucide-react";
+import { motion } from "motion/react";
 import Link from "next/link";
 import * as React from "react";
+import { LivingMark } from "@/components/brand/living-mark";
 import { Wordmark } from "@/components/brand/mark";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -11,6 +13,8 @@ import { recalculate } from "@/lib/scenario-math";
 import { formatSpan } from "@/lib/simulator-paths";
 import { cn } from "@/lib/utils";
 import { BranchingPreview, exampleRoads } from "./branching-preview";
+import { Cosmos } from "@/features/onboarding/cosmos";
+import { Journey } from "./journey";
 
 const SECTIONS = [
   { id: "how", label: "How it works" },
@@ -32,6 +36,7 @@ export function Landing() {
       <Header />
       <main id="main" tabIndex={-1} className="outline-none">
         <Hero />
+        <Roads />
         <HowItWorks />
         <Futures />
         <FutureSelf />
@@ -47,7 +52,7 @@ export function Landing() {
 function Header() {
   const [open, setOpen] = React.useState(false);
   return (
-    <header className="sticky top-0 z-40 border-b border-border/70 bg-background/90 backdrop-blur-md">
+    <header data-theme="dark" className="sticky top-0 z-40 border-b border-white/[0.07] bg-[#07080B]/90 text-foreground backdrop-blur-xl backdrop-saturate-150">
       <div className="mx-auto flex h-14 max-w-6xl items-center gap-6 px-4 sm:px-6">
         <Link href="/welcome" className="rounded-md outline-offset-4" aria-label={`${BRAND.name}, top of page`}>
           <Wordmark withSymbol />
@@ -60,7 +65,7 @@ function Header() {
           ))}
         </nav>
         <div className="ml-auto flex items-center gap-2">
-          <Button asChild variant="primary" size="sm" className="hidden sm:inline-flex">
+          <Button asChild size="sm" className="hidden border-0 bg-[#C8B78F] text-[#14120D] shadow-[0_0_24px_-6px_#C8B78F] hover:bg-[#D6C79F] sm:inline-flex">
             <Link href={START}>Explore my future</Link>
           </Button>
           <Button variant="ghost" size="icon" className="md:hidden" aria-expanded={open} aria-controls="mobile-sections" aria-label={open ? "Close menu" : "Open menu"} onClick={() => setOpen((o) => !o)}>
@@ -102,27 +107,120 @@ function Section({ id, eyebrow, title, lede, children, className }: { id: string
 }
 
 function Hero() {
+  const words = BRAND.tagline.split(" ");
+  const last = words.pop();
   return (
-    <section aria-labelledby="hero-title" className="relative overflow-hidden">
-      <div aria-hidden className="pointer-events-none absolute inset-x-0 top-0 h-[36rem] bg-[radial-gradient(60%_60%_at_75%_0%,var(--accent-wash),transparent_70%)]" />
-      <div className="relative mx-auto grid max-w-6xl items-center gap-12 px-4 pt-14 pb-20 sm:px-6 sm:pt-20 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,1fr)] lg:gap-16 lg:pb-28">
+    <section data-theme="dark" aria-labelledby="hero-title" className="relative isolate overflow-hidden bg-[#07080B] text-foreground">
+      <div aria-hidden className="pointer-events-none absolute inset-0 -z-10">
+        <div className="absolute top-[-30%] left-[-15%] size-[48rem] animate-[aurora_24s_ease-in-out_infinite] rounded-full bg-[radial-gradient(closest-side,rgb(200_146_95/0.22),transparent)] blur-3xl" />
+        <div className="absolute top-[-10%] right-[-20%] size-[52rem] animate-[aurora_30s_ease-in-out_infinite_reverse] rounded-full bg-[radial-gradient(closest-side,rgb(200_183_143/0.2),transparent)] blur-3xl" />
+        <div className="absolute bottom-[-35%] left-[25%] size-[40rem] animate-[aurora_36s_ease-in-out_infinite] rounded-full bg-[radial-gradient(closest-side,rgb(96_116_148/0.18),transparent)] blur-3xl" />
+        <div className="absolute inset-0 opacity-50 [background-image:linear-gradient(rgb(255_255_255/0.035)_1px,transparent_1px),linear-gradient(90deg,rgb(255_255_255/0.035)_1px,transparent_1px)] [background-size:72px_72px] [mask-image:radial-gradient(ellipse_70%_60%_at_60%_40%,#000,transparent_75%)]" />
+        <Cosmos className="left-1/4 [mask-image:linear-gradient(to_right,transparent,#000_35%)]" />
+        <div className="absolute inset-x-0 bottom-0 h-40 bg-gradient-to-b from-transparent to-[#07080B]" />
+      </div>
+
+      <div className="relative mx-auto grid max-w-6xl items-center gap-12 px-4 pt-14 pb-14 sm:px-6 sm:pt-20 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)] lg:gap-8 lg:pt-24 lg:pb-20">
         <div className="min-w-0">
-          <p className="t-eyebrow">{BRAND.category}</p>
-          <h1 id="hero-title" className="mt-5 font-display text-[3.2rem] leading-[0.98] tracking-[-0.02em] text-balance sm:text-[4.6rem]">
-            {BRAND.tagline}
-          </h1>
-          <p className="mt-6 max-w-[34rem] text-[16px] leading-relaxed text-muted-foreground sm:text-[17px]">{BRAND.description}</p>
-          <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-            <Button asChild variant="primary" size="lg">
-              <Link href={START}>
-                Explore my future <ArrowRight />
-              </Link>
-            </Button>
-            <Button asChild variant="secondary" size="lg">
-              <a href="#how">See how it works</a>
-            </Button>
-          </div>
-          <p className="mt-6 max-w-md text-[12.5px] text-subtle">{BRAND.uncertainty}</p>
+          <Rise delay={0}>
+            <p className="inline-flex max-w-full items-center gap-2.5 rounded-full border border-white/10 bg-white/[0.05] py-1 pr-3.5 pl-1.5 text-[12px] text-[#F3F0E8]/80 shadow-[inset_0_1px_0_rgb(255_255_255/0.08)] backdrop-blur-md">
+              <span className="rounded-full bg-[#C8B78F] px-2 py-0.5 text-[10.5px] font-semibold tracking-wide text-[#14120D] uppercase">New</span>
+              <span className="truncate">{BRAND.category} · powered by NVIDIA Nemotron</span>
+            </p>
+          </Rise>
+          <Rise delay={0.08}>
+            <h1 id="hero-title" className="mt-7 font-display text-[3.4rem] leading-[0.95] tracking-[-0.025em] text-balance text-[#F7F3EA] sm:text-[5.4rem]">
+              {words.join(" ")}{" "}
+              <span className="animate-[gradient-pan_6s_ease-in-out_infinite] bg-[linear-gradient(100deg,#C8925F_0%,#F7F1E1_35%,#C8B78F_60%,#C8925F_100%)] bg-[length:220%_100%] bg-clip-text pr-2 text-transparent italic">{last}</span>
+            </h1>
+          </Rise>
+          <Rise delay={0.16}>
+            <p className="mt-7 max-w-[34rem] text-[16.5px] leading-relaxed text-[#F3F0E8]/70 sm:text-[18px]">{BRAND.description}</p>
+          </Rise>
+          <Rise delay={0.24}>
+            <div className="mt-9 flex flex-col gap-3 sm:flex-row">
+              <Button asChild size="lg" className="group/cta h-12 border-0 bg-[#C8B78F] px-6 text-[15px] text-[#14120D] shadow-[0_0_0_1px_rgb(247_241_225/0.25),0_10px_40px_-8px_rgb(200_183_143/0.75)] transition-[box-shadow,background-color] hover:bg-[#D6C79F] hover:shadow-[0_0_0_1px_rgb(247_241_225/0.35),0_14px_56px_-6px_rgb(200_183_143/0.95)]">
+                <Link href={START}>
+                  Explore my future <ArrowRight className="transition-transform group-hover/cta:translate-x-0.5" />
+                </Link>
+              </Button>
+              <Button asChild size="lg" variant="ghost" className="h-12 border border-white/12 bg-white/[0.04] px-6 text-[15px] text-[#F3F0E8] backdrop-blur-md hover:bg-white/[0.08]">
+                <a href="#how">See how it works</a>
+              </Button>
+            </div>
+          </Rise>
+          <Rise delay={0.32}>
+            <p className="mt-7 max-w-md text-[12.5px] text-[#F3F0E8]/45">{BRAND.uncertainty}</p>
+          </Rise>
+        </div>
+
+        <Rise delay={0.12} className="relative mx-auto w-full max-w-[19rem] sm:max-w-[27rem] lg:max-w-none">
+          <LivingMark progress={0.35} ring={BRAND.tagline} label={`${BRAND.name}: today and the future you're steering toward`} />
+          <FloatCard className="top-[14%] -left-[14%] [animation-delay:-1s]" eyebrow="Your future self" title="Future Amina · 2036" />
+          <FloatCard className="top-[58%] -right-[2%] [animation-delay:-3s] sm:-right-[10%]" eyebrow="Compared" title="3 roads, re-ranked" />
+          <FloatCard className="bottom-[0%] left-[2%] [animation-delay:-5s]" eyebrow="This week" title="Ship one small tool" check />
+        </Rise>
+      </div>
+
+      <div className="relative mx-auto max-w-6xl px-4 pb-16 sm:px-6 lg:pb-20">
+        <ul className="glass-panel grid gap-px overflow-hidden rounded-2xl sm:grid-cols-2 lg:grid-cols-4">
+          {FACTS.map((f) => (
+            <li key={f.title} className="flex items-start gap-3 px-5 py-4">
+              <f.icon className="mt-0.5 size-4 shrink-0 text-[#C8B78F]" aria-hidden />
+              <span>
+                <span className="block text-[13.5px] font-medium text-[#F3F0E8]">{f.title}</span>
+                <span className="block text-[12px] text-[#F3F0E8]/55">{f.body}</span>
+              </span>
+            </li>
+          ))}
+        </ul>
+      </div>
+    </section>
+  );
+}
+
+const FACTS = [
+  { icon: Cpu, title: "NVIDIA Nemotron", body: "On Nebius Token Factory" },
+  { icon: Lock, title: "A private workspace", body: "Your future self is yours alone" },
+  { icon: Library, title: "Memory you can read", body: "Plain notes you can edit or delete" },
+  { icon: ShieldCheck, title: "Asks before acting", body: "Nothing changes without your OK" },
+] as const;
+
+/** Fades and lifts in once, on load. */
+function Rise({ children, delay = 0, className }: { children: React.ReactNode; delay?: number; className?: string }) {
+  return (
+    <motion.div initial={{ opacity: 0, y: 22, filter: "blur(10px)" }} animate={{ opacity: 1, y: 0, filter: "blur(0px)" }} transition={{ duration: 0.9, delay, ease: [0.22, 1, 0.36, 1] }} className={className}>
+      {children}
+    </motion.div>
+  );
+}
+
+/** A small glass card drifting around the mark: what TOMORA does, as a glimpse. Decorative. */
+function FloatCard({ eyebrow, title, check = false, className }: { eyebrow: string; title: string; check?: boolean; className?: string }) {
+  return (
+    <div aria-hidden className={cn("glass-panel absolute hidden animate-float rounded-xl px-3.5 py-2.5 [animation-duration:6s] sm:block", className)}>
+      <p className="font-mono text-[9.5px] tracking-[0.2em] text-[#C8B78F] uppercase">{eyebrow}</p>
+      <p className="mt-0.5 flex items-center gap-1.5 text-[13px] whitespace-nowrap text-[#F3F0E8]">
+        {check && <Check className="size-3.5 text-[#C8B78F]" strokeWidth={3} />}
+        {title}
+      </p>
+    </div>
+  );
+}
+
+/** The branching example, right after the hero: one goal, several futures, each with its trade-offs. */
+function Roads() {
+  return (
+    <section aria-labelledby="roads-title" className="relative">
+      <div className="mx-auto grid max-w-6xl items-center gap-10 px-4 py-20 sm:px-6 sm:py-24 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)] lg:gap-16">
+        <div>
+          <p className="t-eyebrow">One goal, several futures</p>
+          <h2 id="roads-title" className="mt-3 font-display text-[2.1rem] leading-[1.05] tracking-[-0.01em] text-balance sm:text-[2.75rem]">
+            See the roads before you take one.
+          </h2>
+          <p className="mt-4 max-w-[30rem] text-[15px] leading-relaxed text-muted-foreground">
+            Name where you want to go and TOMORA lays out clearly different ways there, each with its time, weekly hours, risk and the assumptions it rests on. Pick one to see its route.
+          </p>
         </div>
         <BranchingPreview />
       </div>
@@ -130,25 +228,10 @@ function Hero() {
   );
 }
 
-const STEPS = [
-  { title: "Understand me", body: "A short conversation about where you are, what you want and what's in the way. Skip anything you'd rather not share, and change it later." },
-  { title: "Explore futures", body: "Clearly different roads to your goal: how you might learn, pay and where. Each one names its assumptions, ranges and risks." },
-  { title: "Compare and choose", body: "Every road is rated against your money, your time and the risk you can take. Change a number and they re-rank on the spot." },
-  { title: "Act, review, adapt", body: "Your future self turns the road you chose into the next few steps. You check in as life changes, and the plan changes with it." },
-];
-
 function HowItWorks() {
   return (
-    <Section id="how" eyebrow="How it works" title="From where you are to a plan you can act on." lede="TOMORA follows one journey. Each screen in the app serves a step of it.">
-      <ol className="mt-12 grid gap-px overflow-hidden rounded-2xl border border-border bg-border sm:grid-cols-2 lg:grid-cols-4">
-        {STEPS.map((s, i) => (
-          <li key={s.title} className="bg-surface p-6">
-            <span className="font-mono text-[11px] text-accent-ink tabular-nums">0{i + 1}</span>
-            <h3 className="mt-4 text-[16px] font-semibold tracking-[-0.01em]">{s.title}</h3>
-            <p className="mt-2 text-[13.5px] leading-relaxed text-muted-foreground">{s.body}</p>
-          </li>
-        ))}
-      </ol>
+    <Section id="how" eyebrow="How it works" title="From where you are to a plan you can act on." lede="TOMORA follows one journey. Each screen in the app serves a step of it. Pick a step, or watch it play.">
+      <Journey />
     </Section>
   );
 }

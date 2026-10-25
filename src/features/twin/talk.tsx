@@ -40,7 +40,15 @@ export function TalkSection({ state, act, onState }: { state: TwinState; act: Ac
   return (
     <section aria-labelledby="talk-h" id="talk" className="scroll-mt-24">
       <SectionHeading id="talk-h">Talk to your future self</SectionHeading>
-      {state.voice.active && state.voice.active.provider !== "elevenlabs" ? (
+      {state.voice.preset.chosen && state.voice.active?.status !== "ready" && (
+        <p className="mb-4 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg border border-border bg-surface-2/60 px-3.5 py-2.5 text-[12.5px] text-muted-foreground">
+          Your future self is speaking in a ready-made voice, not yours.
+          <Button variant="link" size="sm" className="h-auto px-0 text-[12.5px]" onClick={() => void act(() => post({ action: "useReadyVoice", on: false }), "Record and clone your own voice below.")}>
+            Clone my own voice instead
+          </Button>
+        </p>
+      )}
+      {state.voice.active && state.voice.active.provider !== "elevenlabs" && !state.voice.preset.chosen ? (
         <EmptyState icon={PhoneCall} title="Calls run on ElevenLabs">
           Your voice is cloned with another engine, which can play your voice but can&apos;t hold a live call. To call, delete your voice and clone it with ElevenLabs. You can still hear your voice under Your voice.
         </EmptyState>
@@ -181,20 +189,60 @@ function BrowserCall({ act, paused, year }: { act: Act; paused: boolean; year: n
 
 function PhoneCalls({ state, act }: { state: TwinState; act: Act }) {
   const c = state.calls;
-  if (!c.ready.phone) {
-    return (
-      <article className="rounded-2xl border border-dashed border-border-strong p-5">
-        <p className="t-label">On your phone</p>
-        <p className="mt-2 text-[13px] text-muted-foreground">
-          To get calls from your future self, import a Twilio number into ElevenLabs and set ELEVENLABS_PHONE_NUMBER_ID on the server.
-        </p>
-      </article>
-    );
-  }
+  if (!c.ready.phone) return <PhoneSetup act={act} />;
   return (
     <article className="rounded-2xl border border-border bg-surface p-5 shadow-card">
-      <p className="t-label">On your phone</p>
+      <div className="flex items-center justify-between gap-3">
+        <p className="t-label">On your phone</p>
+        {c.ready.phoneSource === "app" && (
+          <Button variant="link" size="sm" className="h-auto px-0 text-[12px]" onClick={() => void act(() => post({ action: "savePhoneNumberId", id: "" }), "Phone number removed.")}>
+            Use a different number
+          </Button>
+        )}
+      </div>
       {c.phone.verified ? <Schedule state={state} act={act} /> : <VerifyPhone state={state} act={act} />}
+    </article>
+  );
+}
+
+/** No phone number yet: how to get one (a Twilio number imported into your own ElevenLabs account), and where it goes. */
+function PhoneSetup({ act }: { act: Act }) {
+  const [id, setId] = React.useState("");
+  const [busy, setBusy] = React.useState(false);
+  return (
+    <article className="rounded-2xl border border-dashed border-border-strong p-5">
+      <p className="t-label">On your phone</p>
+      <p className="mt-2 text-[13px] text-muted-foreground">Your future self can call your own phone. It needs a phone number in your ElevenLabs account:</p>
+      <ol className="mt-3 list-decimal space-y-1.5 pl-5 text-[13px] text-muted-foreground">
+        <li>
+          Get a number from{" "}
+          <a href="https://www.twilio.com/try-twilio" target="_blank" rel="noreferrer" className="text-accent-ink underline underline-offset-2">
+            Twilio
+          </a>{" "}
+          (a trial account comes with one and can call your own verified phone).
+        </li>
+        <li>
+          In ElevenLabs, open{" "}
+          <a href="https://elevenlabs.io/app/agents/phone-numbers" target="_blank" rel="noreferrer" className="text-accent-ink underline underline-offset-2">
+            Agents → Phone numbers
+          </a>{" "}
+          and import it from Twilio with your Account SID and Auth Token.
+        </li>
+        <li>Copy the phone number&apos;s ID that ElevenLabs shows and paste it here.</li>
+      </ol>
+      <form
+        className="mt-4 flex flex-col gap-2 sm:flex-row"
+        onSubmit={(e) => {
+          e.preventDefault();
+          setBusy(true);
+          void act(() => post({ action: "savePhoneNumberId", id }), "Phone number saved. Now verify your own phone.").finally(() => setBusy(false));
+        }}
+      >
+        <Input value={id} onChange={(e) => setId(e.target.value)} placeholder="ElevenLabs phone number ID" aria-label="ElevenLabs phone number ID" autoComplete="off" spellCheck={false} className="font-mono text-[12.5px]" />
+        <Button type="submit" variant="secondary" disabled={busy || id.trim().length < 4}>
+          {busy ? <Loader2 className="animate-spin" /> : <Phone />} Save number
+        </Button>
+      </form>
     </article>
   );
 }
