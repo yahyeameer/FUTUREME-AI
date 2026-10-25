@@ -1,10 +1,11 @@
 // MCP server giving TOMORA's Docker Agent team its tools: memory search, the user's imported accounts, memory and plan
-// proposals, and web research.
+// proposals, web research, and the integrations (email, calendar, chat channels, tasks, files).
 // Proposals land in SQLite as pending approvals; nothing is written to the vault until the user approves in the app.
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
 import { openDb } from "../src/lib/db";
+import { CONNECTOR_TOOLS, connectorGate } from "../src/lib/connectors/tools";
 import { runTool } from "../src/lib/futureme";
 import { PLATFORMS } from "../src/lib/social/parse";
 
@@ -134,7 +135,7 @@ server.registerTool(
   "save_file",
   {
     description:
-      "Save a text file in the user's vault (Files folder), such as a draft, a list or a plan they asked you to keep. A file with the same name is replaced. Allowed types: .md (default), .txt, .csv, .json.",
+      "Save a new text file in the user's vault (Files folder), such as a draft, a list or a plan they asked you to keep. Replacing a file that already exists waits for the user's approval. Allowed types: .md (default), .txt, .csv, .json.",
     inputSchema: { name: z.string().min(1).max(120), content: z.string().min(1) },
     annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: false },
   },
@@ -234,6 +235,22 @@ server.registerTool(
   },
   async (args) => text((await runTool(db, "stop_recording", JSON.stringify(args))).output),
 );
+
+// ---------- Integrations: email, calendar, chat channels, tasks, files ----------
+// Defined once in connectors/tools.ts. Reading runs; anything that sends, writes or changes something waits for the
+// user's approval on the Agent page (sending email and chat messages always does).
+for (const t of CONNECTOR_TOOLS) {
+  const gate = connectorGate(t.name);
+  server.registerTool(
+    t.name,
+    {
+      description: gate === "approval" && !t.description.includes("approval") ? `${t.description} Waits for the user's approval.` : t.description,
+      inputSchema: t.schema.shape,
+      annotations: { readOnlyHint: !!t.run, destructiveHint: t.name === "delete_file" || t.name === "edit_file", openWorldHint: t.name.startsWith("email_") || t.name.startsWith("calendar_") || t.name === "send_message" },
+    },
+    async (args) => text((await runTool(db, t.name, JSON.stringify(args))).output),
+  );
+}
 
 server.connect(new StdioServerTransport()).catch((err) => {
   console.error(err);

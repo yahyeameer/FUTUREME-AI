@@ -19,6 +19,8 @@ import { agentFilePath, agentTeam } from "./agents";
 import { listCouncils } from "./council";
 import { dockerMcpState } from "./docker-mcp";
 import { listDockerRequests } from "./docker-tools";
+import { googleClientConfigured, googleConnection } from "./connectors/google";
+import { integrationStatus, listActionRequests } from "./connectors/tools";
 import { listRuns, type RunRecord } from "./delegation";
 import { listMissions } from "./missions";
 import { getProvider, LOCAL_LLM_URL } from "./llm";
@@ -349,7 +351,10 @@ export function buildWorkspace(db: Db): Workspace {
     .map((m): Message => {
       proposedBy.set(`msg-${m.id}`, m.approvals ? (JSON.parse(m.approvals) as number[]).map(String) : null);
       const citations = m.citations ? (JSON.parse(m.citations) as string[]) : [];
-      const tools = m.tools ? (JSON.parse(m.tools) as string[]) : [];
+      // Older replies stored bare tool names; newer ones store each call with a line on what it did.
+      const calls = m.tools ? (JSON.parse(m.tools) as (string | { name: string; detail?: string; failed?: boolean })[]).map((t) => (typeof t === "string" ? { name: t } : t)) : [];
+      const detailed = calls.some((c) => "detail" in c && c.detail);
+      const tools = calls.map((c) => c.name);
       const counts = new Map<string, number>();
       for (const t of tools) counts.set(t, (counts.get(t) ?? 0) + 1);
       return {
@@ -358,7 +363,9 @@ export function buildWorkspace(db: Db): Workspace {
         content: m.content,
         createdAt: sqlTime(m.created_at)!,
         citations: citations.map((p) => ({ memoryId: p, title: titleOf.get(p) ?? p })),
-        tools: tools.length
+        tools: detailed
+          ? calls.map((c) => ({ name: c.name, label: toolLabel(c.name), status: c.failed ? ("failed" as const) : ("done" as const), detail: c.detail }))
+          : tools.length
           ? [...counts].map(([name, n]) => ({
               name,
               label: toolLabel(name),
@@ -405,6 +412,12 @@ export function buildWorkspace(db: Db): Workspace {
       conversation.find((m) => proposedBy.get(m.id)?.includes(a.id)) ??
       conversation.find((m) => m.role === "assistant" && proposedBy.get(m.id) === null && m.createdAt >= a.createdAt);
     if (reply) (reply.approvalIds ??= []).push(a.id);
+  }
+  // Emails, events, tasks and file changes the reply asked for, so its approval cards show right under it.
+  const actionIds = new Set((db.prepare("SELECT id FROM approvals WHERE kind = 'agent_action'").all() as { id: number }[]).map((r) => String(r.id)));
+  for (const m of conversation) {
+    const mine = proposedBy.get(m.id)?.filter((id) => actionIds.has(id));
+    if (mine?.length) m.actionIds = mine;
   }
 
   const issues = (db.prepare("SELECT date, content, note_path FROM daily_issues ORDER BY date").all() as { date: string; content: string; note_path: string | null }[]).map(
@@ -491,6 +504,7 @@ export function buildWorkspace(db: Db): Workspace {
       error: r.error ?? undefined,
     })),
     dockerMcp: dockerMcp(db),
+    agentActions: agentActions(db),
     missions: missions.map((m) => ({
       id: String(m.id),
       goal: m.goal,
@@ -535,6 +549,26 @@ function toRunInfo(r: RunRecord): AgentRunInfo {
     startedAt: sqlTime(r.started_at)!,
     finishedAt: sqlTime(r.finished_at),
     simulated: false,
+  };
+}
+
+function agentActions(db: Db): Workspace["agentActions"] {
+  return {
+    integrations: integrationStatus(db),
+    google: { clientConfigured: googleClientConfigured(), ...googleConnection(db) },
+    requests: listActionRequests(db).map((r) => ({
+      id: String(r.id),
+      tool: r.tool,
+      title: r.title,
+      details: r.details,
+      body: r.body,
+      // "running" lasts only while an approved action runs.
+      status: r.status === "approved" || r.status === "rejected" ? r.status : "pending",
+      createdAt: sqlTime(r.created_at)!,
+      decidedAt: sqlTime(r.decided_at),
+      result: r.result,
+      error: r.error,
+    })),
   };
 }
 

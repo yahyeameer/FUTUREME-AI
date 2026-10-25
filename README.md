@@ -143,7 +143,7 @@ Recordings are converted to WAV in the browser so every engine accepts them, kep
 
 ## 🤖 The agent works on its own
 
-TOMORA isn't one chatbot. `agents/futureme.yaml` defines a **team of 17 agents**, each with only the tools its job needs (the future self never browses; the researcher can't write plans). They run on Nemotron in the app, or under [Docker Agent](https://docker.github.io/docker-agent/) with TOMORA's MCP server.
+TOMORA isn't one chatbot. `agents/futureme.yaml` defines a **team of 17 agents**, each with only the tools its job needs (the researcher can't write plans; helpers can't save anything). They run on Nemotron in the app, or under [Docker Agent](https://docker.github.io/docker-agent/) with TOMORA's MCP server.
 
 <div align="center">
 <img src="docs/screenshots/agent.png" alt="Agent control room" width="900" />
@@ -161,6 +161,7 @@ TOMORA isn't one chatbot. `agents/futureme.yaml` defines a **team of 17 agents**
 | 🧑‍⚖️ **Supervisor** | Code rules block empty answers and unauthorized tools and flag invented links, missing notes or claims to have "sent" something; then the `supervisor` agent judges the result. The stricter verdict wins. |
 | 🔎 **Fact checker** | After each reply the `verifier` checks its claims against your notes and marks them supported (with the note), unverified or opinion. |
 | 🌐 **Web research** | The researcher searches (DuckDuckGo, or Brave with a key) and reads pages, keeps only links its tools actually returned, and proposes an AI-labelled note in `Research/`. Private and metadata addresses are refused. |
+| 📬 **Integrations** | The future self can search and read your email (Gmail, or any IMAP mailbox), check your calendar (Google, any iCal feed, or TOMORA's own), look things up on the web, and manage tasks and vault files. Sending an email or a Slack, Discord or Telegram message, adding an event or task, and changing or deleting a file all wait for your approval on the Agent page ([docs/integrations.md](docs/integrations.md)). |
 | 🐳 **Docker MCP tools** | Through the Docker MCP Gateway, the future self can use tools from Docker's MCP catalog, each in its own container. Read-only tools run on their own; anything that changes something waits for approval. |
 | 🗂️ **Memory vault** | Every goal, task, reflection, call and research note is an Obsidian-compatible Markdown file with provenance (`user-stated`, `ai-inferred` or `verified`). The agent searches it with MCP tools and can only *propose* new memories. |
 | 🔗 **Connected accounts** | Import your LinkedIn, X and Facebook exports (parsed in your browser, only your profile and your own posts are sent), or fetch a public profile through Apify's MCP server after a one-time ownership code. Your future self learns how you write and quotes your posts with dates. |
@@ -357,7 +358,7 @@ docker compose up -d --build        # http://localhost:3000
 
 > 🖥️ **Fully local model:** set `MODEL_MODE="local"` and `LOCAL_MODEL="ai/nemotron-3-nano:4b-q4_K_M"` at the top of the script. Docker Model Runner serves NVIDIA Nemotron 3 Nano on the server itself and nothing leaves it. Needs about 8 GB RAM (t3.small can't).
 
-To enable the voice twin on a deployment, `TWIN_PUBLIC_URL` must be the public https address (the AWS script sets it for you), and add your voice engine key on `/twin`. More options: [`.env.example`](.env.example), [docs/deploy.md](docs/deploy.md), [docs/docker-mcp.md](docs/docker-mcp.md), [docs/social-connectors.md](docs/social-connectors.md), [docs/supabase.md](docs/supabase.md).
+To enable the voice twin on a deployment, `TWIN_PUBLIC_URL` must be the public https address (the AWS script sets it for you), and add your voice engine key on `/twin`. More options: [`.env.example`](.env.example), [docs/deploy.md](docs/deploy.md), [docs/docker-mcp.md](docs/docker-mcp.md), [docs/integrations.md](docs/integrations.md), [docs/social-connectors.md](docs/social-connectors.md), [docs/supabase.md](docs/supabase.md).
 
 ---
 
@@ -398,6 +399,7 @@ npm run test:e2e                            # browser test of the whole loop
 ## 🧭 Honest limitations
 
 - **Not yet run against live services:** the voice twin (ElevenLabs cloning and calls, the OpenRouter and Qwen engines, AgentMail email) was tested against mock servers only. The Apify public-profile fetch was checked against Apify's real endpoints only up to authentication; actor output mapping is tested against each actor's documented output.
+- **Integrations** were tested against stand-ins: Gmail, Google Calendar, Slack and the ICS feed with recorded API shapes, and IMAP/SMTP against local mail servers (a real reply went out over SMTP after approval in the app). They haven't been run against a real Google account or mailbox yet.
 - On the server, tasks can only be marked done (no in-progress or blocked status), and memories can't be archived. Demo mode has those controls.
 - Web research needs outbound internet; DuckDuckGo can rate-limit (Brave with `BRAVE_SEARCH_API_KEY` is steadier).
 - Skill run history and "mark useful" on Daily are kept in the browser, not the database.

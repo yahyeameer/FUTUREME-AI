@@ -10,6 +10,7 @@ import { cn, formatTime } from "@/lib/utils";
 import { useWorkspace } from "@/lib/workspace-store";
 import type { Message } from "@/types";
 import { ApprovalCard } from "./approval-card";
+import { ActionCard } from "@/features/agent/integrations";
 import { RunCard } from "@/features/missions/run-card";
 import { FactCheck } from "./fact-check";
 import { ProgressBlock } from "./progress-block";
@@ -44,6 +45,7 @@ export function AssistantMessage({ message, name = "Future you", fresh = false }
   const [copied, setCopied] = React.useState(false);
   const approvals = (message.approvalIds ?? []).map((id) => workspace.approvals.find((a) => a.id === id)).filter((a) => !!a);
   const memoryIds = new Set(workspace.memories.map((m) => m.id));
+  const actions = (message.actionIds ?? []).map((id) => workspace.agentActions?.requests.find((r) => r.id === id)).filter((r) => !!r);
   const handoffs = (message.runIds ?? []).map((id) => workspace.runs.find((r) => r.id === id)).filter((r) => !!r);
 
   const copy = async () => {
@@ -90,6 +92,14 @@ export function AssistantMessage({ message, name = "Future you", fresh = false }
           <div className="mt-3 flex max-w-xl flex-col gap-2">
             {approvals.map((a) => (
               <ApprovalCard key={a.id} approval={a} />
+            ))}
+          </div>
+        )}
+
+        {actions.length > 0 && (
+          <div className="mt-3 flex max-w-xl flex-col gap-2" aria-label="Asked to do">
+            {actions.map((r) => (
+              <ActionCard key={r.id} request={r} compact />
             ))}
           </div>
         )}

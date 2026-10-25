@@ -144,6 +144,8 @@ export interface Message {
   citations: Citation[];
   tools?: ToolCall[];
   approvalIds?: string[];
+  /** Actions this reply asked for (an email, an event, a file change), ids into Workspace.agentActions.requests. */
+  actionIds?: string[];
   tone?: CoachingStyle;
   blocks?: RichBlock[];
   /** Set when the response came from deterministic demo content, not a model. */
@@ -562,6 +564,38 @@ export interface DockerMcpInfo {
   requests: DockerToolRequest[];
 }
 
+// ---------- Integrations (email, calendar, chat channels, tasks, files) ----------
+
+export interface AgentIntegration {
+  id: "google" | "email" | "calendar" | "messaging" | "tasks" | "files";
+  label: string;
+  status: "connected" | "partial" | "off";
+  via: string;
+  setup?: string;
+  tools: { name: string; gate: "auto" | "approval" }[];
+}
+
+/** Something the agent asked to do (send an email, add an event, change a file) that waits for, or got, approval. */
+export interface AgentActionRequest {
+  id: string;
+  tool: string;
+  title: string;
+  details: { label: string; value: string }[];
+  body?: string;
+  status: ApprovalStatus;
+  createdAt: string;
+  decidedAt?: string;
+  result?: string;
+  /** Why the last approval attempt failed; it stays pending so it can be tried again. */
+  error?: string;
+}
+
+export interface AgentActionsInfo {
+  integrations: AgentIntegration[];
+  requests: AgentActionRequest[];
+  google: { clientConfigured: boolean; connected: boolean; via: "env" | "app" | null; email: string | null };
+}
+
 // ---------- Activity ----------
 
 export type ActivityKind = "goal_created" | "task_completed" | "reflection_saved" | "memory_saved" | "plan_approved" | "plan_rejected" | "daily_published" | "skill_run";
@@ -632,6 +666,8 @@ export interface Workspace {
   research: ResearchRun[];
   /** Live only: the Docker MCP Gateway's tools. Absent in demo mode. */
   dockerMcp?: DockerMcpInfo;
+  /** Live only: the agent's integrations and the actions waiting for approval. Absent in demo mode. */
+  agentActions?: AgentActionsInfo;
   missions: Mission[];
   /** Recent handoffs and mission runs, newest first, each with the supervisor's review. */
   runs: AgentRunInfo[];

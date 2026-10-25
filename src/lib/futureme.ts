@@ -9,7 +9,8 @@ import { dockerMcpConfigured, dockerToolDefs } from "./docker-mcp";
 import { isDockerTool, runDockerTool } from "./docker-tools";
 import { activePack } from "./packs";
 import { isTwinTool, runTwinTool, TWIN_TOOL_DEFS } from "./twin";
-import { listFiles, readFile, rememberConversation, saveFile, searchMemory } from "./memory";
+import { CONNECTOR_TOOL_DEFS, CONNECTOR_TOOL_NAMES, isConnectorTool, runConnectorTool } from "./connectors/tools";
+import { listFiles, readFile, rememberConversation, saveFile, savedFileTarget, searchMemory } from "./memory";
 import { PLATFORMS } from "./social/parse";
 import { formatHits, getPersona, searchSocial, socialPromptBlock } from "./social/store";
 import { personaMarkdown } from "./social/persona";
@@ -18,6 +19,9 @@ import { resolveInVault, writeNote } from "./vault";
 import { fetchPage, webSearch } from "./web";
 import { AGENT_REASONING } from "./nemotron";
 import { chosenRoadBlock } from "./chosen-road";
+import { STEP_MARK } from "./reasoning-steps";
+import { toolDetail } from "./tool-detail";
+import { toolLabel } from "./tool-labels";
 
 // Core TOMORA workflow: profile -> future story -> chat with memory -> approval-gated plans -> tasks.
 
@@ -240,8 +244,8 @@ export const ALL_TOOLS: ToolDefinition[] = [
     function: {
       name: "save_file",
       description:
-        "Save a text file in the user's vault (Files folder), such as a draft, a list or a plan they asked you to keep. " +
-        "A file with the same name is replaced. Allowed types: .md (default), .txt, .csv, .json.",
+        "Save a new text file in the user's vault (Files folder), such as a draft, a list or a plan they asked you to keep. " +
+        "Replacing a file that already exists waits for the user's approval. Allowed types: .md (default), .txt, .csv, .json.",
       parameters: {
         type: "object",
         properties: { name: { type: "string", description: "File name, such as reading-list.md" }, content: { type: "string" } },
@@ -305,6 +309,7 @@ export const ALL_TOOLS: ToolDefinition[] = [
     },
   },
   ...TWIN_TOOL_DEFS,
+  ...CONNECTOR_TOOL_DEFS,
 ];
 
 export const toolDefs = (names: readonly string[]) => ALL_TOOLS.filter((t) => names.includes(t.function.name));
@@ -321,6 +326,9 @@ export const TOOLS = toolDefs([
   "save_file",
   "read_file",
   "list_files",
+  "web_search",
+  "fetch_url",
+  ...CONNECTOR_TOOL_NAMES,
 ]);
 
 export interface ToolResult {
@@ -445,6 +453,9 @@ async function executeTool(db: Db, name: string, rawArgs: string): Promise<ToolR
       const args = SaveFileArgs.safeParse(json);
       if (!args.success) return invalid(args.error);
       try {
+        // A new file is saved straight away; replacing one that's there is a change, so it waits for approval.
+        const target = savedFileTarget(args.data.name);
+        if (target.exists) return runConnectorTool(db, "edit_file", { path: target.path, mode: "replace", content: args.data.content });
         const saved = saveFile(args.data.name, args.data.content);
         return { output: `Saved ${saved}.`, citations: [saved] };
       } catch (err) {
@@ -481,6 +492,8 @@ async function executeTool(db: Db, name: string, rawArgs: string): Promise<ToolR
       return { output: personaMarkdown(persona), citations: ["Social/persona-from-your-accounts.md"] };
     }
     default:
+      // Email, calendar, chat channels, tasks and files: reading runs, the rest waits for approval (connectors/tools.ts).
+      if (isConnectorTool(name)) return runConnectorTool(db, name, json);
       // The voice twin's propose-only tools (calls, emails, commitments) live in twin.ts.
       if (isTwinTool(name)) return runTwinTool(db, name, json);
       // Promise Keeper, used only on a live call. Loaded lazily: twin-calls.ts imports this module.
@@ -571,7 +584,8 @@ export type OnDelta = (text: string) => void;
 /** Live view of an in-process run: Nemotron's reasoning and each tool call as they happen. */
 export interface AgentHooks {
   onReasoning?: (text: string) => void;
-  onTool?: (name: string, status: "running" | "done" | "failed") => void;
+  /** `detail` is one line on what a finished call did (tool-detail.ts). */
+  onTool?: (name: string, status: "running" | "done" | "failed", detail?: string) => void;
   /** The text streamed so far led into tool calls; it wasn't the reply. */
   onReset?: () => void;
 }
@@ -687,7 +701,7 @@ export function inProcessBackend(
             if (!tools.some((t) => t.function.name === c.name)) return `Error: the tool ${c.name} isn't available to you.`;
             hooks.onTool?.(c.name, "running");
             const out = (await runTool(db, c.name, c.arguments)).output;
-            hooks.onTool?.(c.name, out.startsWith("Error:") ? "failed" : "done");
+            hooks.onTool?.(c.name, out.startsWith("Error:") ? "failed" : "done", toolDetail(c.name, c.arguments, out));
             return out;
           }),
         );
@@ -738,6 +752,10 @@ export function getAgentBackend(): AgentBackend {
   return url ? dockerAgentBackend(url) : inProcessBackend(getProvider(), { extraTools: dockerMcpConfigured() ? dockerToolDefs : undefined, reasoning: AGENT_REASONING.root });
 }
 
+/** A tool call as a line in the reasoning trail: "▸ Searched your email · “grant” · 2 messages". */
+export const stepLine = (name: string, status: "done" | "failed", detail?: string) =>
+  `${STEP_MARK} ${toolLabel(name)}${status === "failed" ? " (failed)" : ""}${detail ? ` · ${detail}` : ""}`;
+
 export async function chat(db: Db, userText: string, backend: AgentBackend = getAgentBackend(), onDelta?: OnDelta, opts: ChatOptions = {}): Promise<ChatTurn> {
   const profile = getProfile(db);
   if (!profile) throw new Error("Complete onboarding first.");
@@ -758,27 +776,33 @@ export async function chat(db: Db, userText: string, backend: AgentBackend = get
   const messages: ChatMessage[] = [{ role: "system", content: systemPrompt(profile, activePack(db)?.persona, socialPromptBlock(db), chosenRoadBlock(db)) }, ...history, userMessage];
   db.prepare("INSERT INTO messages (role, content, image) VALUES ('user', ?, ?)").run(text, photo);
 
-  // Keep the reasoning trace of every step, so the reply can show how it was thought through.
-  const thoughts: string[] = [""];
+  // Keep the reasoning trace of every step, with each tool call it led to woven in as a "▸" line, so the reply can
+  // show how it was thought through and what it did along the way. The same step lines stream to the live view.
+  const trail: string[] = [""];
   const hooks: AgentHooks = {
     ...opts.hooks,
     onReasoning: (t) => {
-      thoughts[thoughts.length - 1] += t;
+      trail[trail.length - 1] += t;
       opts.hooks?.onReasoning?.(t);
     },
-    onTool: (name, status) => {
-      if (status === "running" && thoughts[thoughts.length - 1]) thoughts.push("");
-      opts.hooks?.onTool?.(name, status);
+    onTool: (name, status, detail) => {
+      opts.hooks?.onTool?.(name, status, detail);
+      if (status === "running") return;
+      const step = stepLine(name, status, detail);
+      trail.push(step, "");
+      opts.hooks?.onReasoning?.(`\n\n${step}\n\n`);
     },
   };
   const before = lastToolEventId(db);
   const reply = (await backend.run(db, messages, onDelta, hooks)) || "I lost my train of thought there. Could you say that again?";
-  const reasoning = thoughts.map((t) => t.trim()).filter(Boolean).join("\n\n---\n\n") || null;
+  const reasoning = trail.map((t) => t.trim()).filter(Boolean).join("\n\n") || null;
   const events = toolEventsSince(db, before);
   const citations = [...new Set(events.flatMap((e) => e.citations))];
   const approvals = events.flatMap((e) => (e.approval_id ? [e.approval_id] : []));
 
-  const tools = events.map((e) => e.tool);
+  // Each call with one line on what it did, read from the tool log so Docker Agent runs get them too.
+  const logged = db.prepare("SELECT tool, arguments, output FROM tool_events WHERE id > ? ORDER BY id").all(before) as { tool: string; arguments: string; output: string }[];
+  const tools = logged.map((e) => ({ name: e.tool, detail: toolDetail(e.tool, e.arguments, e.output), failed: e.output.startsWith("Error") || undefined }));
   const info = db
     .prepare("INSERT INTO messages (role, content, citations, tools, approvals, reasoning) VALUES ('assistant', ?, ?, ?, ?, ?)")
     .run(reply, JSON.stringify(citations), JSON.stringify(tools), JSON.stringify(approvals), reasoning);
@@ -788,7 +812,7 @@ export async function chat(db: Db, userText: string, backend: AgentBackend = get
   } catch (err) {
     console.error("Could not save the conversation to the vault:", err);
   }
-  return { id: Number(info.lastInsertRowid), reply, citations, approvals, tools, backend: backend.name, reasoning };
+  return { id: Number(info.lastInsertRowid), reply, citations, approvals, tools: tools.map((t) => t.name), backend: backend.name, reasoning };
 }
 
 const PHOTO = /^data:image\/(png|jpeg|webp|gif);base64,([A-Za-z0-9+/=]+)$/;
@@ -932,6 +956,16 @@ export function goalsWithTasks(db: Db): GoalWithTasks[] {
   const goals = db.prepare("SELECT id, title, why FROM goals ORDER BY id DESC").all() as Omit<GoalWithTasks, "tasks">[];
   const tasks = db.prepare("SELECT id, title, due_date, status, completed_at FROM tasks WHERE goal_id = ? ORDER BY id");
   return goals.map((g) => ({ ...g, tasks: tasks.all(g.id) as GoalWithTasks["tasks"] }));
+}
+
+/** Adds one task to an existing goal (the agent's add_task, once the user approves). Returns the new task's id. */
+export function addTask(db: Db, goalId: number, title: string, dueInDays?: number): number {
+  const goal = db.prepare("SELECT title FROM goals WHERE id = ?").get(goalId) as { title: string } | undefined;
+  if (!goal) throw new Error(`No goal #${goalId}.`);
+  const due = addDays(dueInDays);
+  const id = Number(db.prepare("INSERT INTO tasks (goal_id, title, due_date) VALUES (?, ?, ?)").run(goalId, title, due).lastInsertRowid);
+  writeTaskNote(goal.title, title, due, false);
+  return id;
 }
 
 export function completeTask(db: Db, taskId: number): void {
