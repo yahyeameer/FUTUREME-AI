@@ -2,6 +2,7 @@ import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import type { Db } from "./db";
+import { dataDir } from "./tenant";
 import { getTwinSetting, ownerName, setTwinSetting } from "./twin";
 import { chosenEngine, engineConfig, ENGINES, engineReady, enginesSnapshot, mergedConfig, OpenAISpeech, OpenRouterVoice, QWEN_CLONE_MODEL, QwenVoice, type EngineId, type EngineInput, type Speech } from "./voice-engines";
 
@@ -226,9 +227,8 @@ export function getTranscriber(db: Db): Transcriber | null {
 // ---------- Storage ----------
 
 export function voiceDir(): string {
-  const dbFile = process.env.DATABASE_PATH ?? path.join(process.cwd(), "data", "futureme.db");
   // The folder is chosen at runtime, so keep Turbopack from tracing the whole project for it.
-  return path.resolve(/* turbopackIgnore: true */ process.env.TWIN_DATA_DIR ?? path.join(path.dirname(path.resolve(/* turbopackIgnore: true */ dbFile)), "voice"));
+  return path.resolve(/* turbopackIgnore: true */ process.env.TWIN_DATA_DIR ?? path.join(dataDir(), "voice"));
 }
 
 const EXT: Record<string, string> = { "audio/webm": "webm", "audio/ogg": "ogg", "audio/mp4": "m4a", "audio/mpeg": "mp3", "audio/wav": "wav", "audio/x-wav": "wav" };

@@ -64,6 +64,7 @@ export function Settings() {
           <AppearanceSection />
           {workspace && <MemorySection />}
           {workspace && <DecisionModelSection />}
+          <WorkspaceCodeSection />
           <DataSection />
           <TwinDataSection />
         </div>
@@ -292,6 +293,32 @@ function DecisionModelSection() {
           </form>
         )}
         {!live && <p className="py-3.5 text-[12.5px] text-muted-foreground">Demo mode runs in your browser and can&apos;t call Jev.</p>}
+      </div>
+    </Section>
+  );
+}
+
+/** Multi-user servers only: the code that opens this same workspace again from another browser or device. */
+function WorkspaceCodeSection() {
+  const [code, setCode] = React.useState<string | null>(null);
+  React.useEffect(() => {
+    fetch("/api/me", { cache: "no-store" })
+      .then((r) => r.json())
+      .then((d: { workspace: string | null }) => setCode(d.workspace))
+      .catch(() => setCode(null));
+  }, []);
+  if (!code) return null;
+  return (
+    <Section id="workspace-code" title="Your workspace code" description="This server gives everyone a private workspace of their own. Keep this code to open yours again on another device, and don't share it: whoever has it can open your workspace.">
+      <div className="card flex flex-wrap items-center gap-3 px-5 py-4">
+        <Input readOnly value={code} aria-label="Workspace code" className="min-w-0 flex-1 font-mono text-[12px]" onFocus={(e) => e.currentTarget.select()} />
+        <Button
+          type="button"
+          variant="secondary"
+          onClick={() => navigator.clipboard.writeText(code).then(() => toast.success("Workspace code copied"), () => toast.error("Couldn't copy. Select the code and copy it."))}
+        >
+          Copy
+        </Button>
       </div>
     </Section>
   );

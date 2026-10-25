@@ -1,6 +1,7 @@
 import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
+import { dataDir } from "../tenant";
 
 // Encrypts account tokens before they touch the database (AES-256-GCM).
 // The key comes from FUTUREME_SECRET_KEY. Without it, a random key is created once in a file next to the database
@@ -10,9 +11,7 @@ import path from "node:path";
 const VERSION = "v1";
 
 function keyFile(): string {
-  const db = process.env.DATABASE_PATH;
-  const dir = db && db !== ":memory:" ? path.dirname(db) : path.join(process.cwd(), "data");
-  return path.resolve(/*turbopackIgnore: true*/ dir, "secret.key");
+  return path.join(dataDir(), "secret.key");
 }
 
 let cached: { source: string; key: Buffer } | null = null;

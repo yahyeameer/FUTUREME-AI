@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import matter from "gray-matter";
+import { currentWorkspace, workspaceDir } from "./tenant";
 
 // Obsidian-compatible Markdown vault: one note per file, YAML frontmatter, [[wiki-links]].
 
@@ -45,6 +46,9 @@ export interface Note {
 }
 
 export function vaultRoot(): string {
+  // In multi-user mode every workspace has its own vault next to its own database.
+  const workspace = currentWorkspace();
+  if (workspace) return path.join(workspaceDir(workspace), "vault");
   // The vault lives wherever VAULT_DIR points at runtime, so keep the bundler from tracing it.
   return path.resolve(/*turbopackIgnore: true*/ process.env.VAULT_DIR ?? path.join(process.cwd(), "data", "vault"));
 }

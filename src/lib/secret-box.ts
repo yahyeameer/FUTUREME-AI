@@ -1,6 +1,7 @@
 import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
+import { dataDir } from "./tenant";
 
 // Encrypts secrets the user enters in the app (voice provider API keys) before they're stored in the database.
 // The key comes from FUTUREME_SECRET, or else from a random key file made once next to the database, readable only
@@ -9,8 +10,7 @@ import path from "node:path";
 const keys = new Map<string, Buffer>();
 
 function keyFile(): string {
-  const dbFile = process.env.DATABASE_PATH ?? path.join(process.cwd(), "data", "futureme.db");
-  return path.join(path.dirname(path.resolve(/* turbopackIgnore: true */ dbFile)), "secret.key");
+  return path.join(dataDir(), "secret.key");
 }
 
 function masterKey(): Buffer {
