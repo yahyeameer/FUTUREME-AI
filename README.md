@@ -98,7 +98,7 @@ The public welcome page lives at **`/welcome`** (open even when the access lock 
 | **Qwen TTS** (Alibaba Model Studio) | Your consent recording is enrolled for `qwen3-tts-vc` | — |
 | **Self-hosted** | Preset voices from any OpenAI-style `/audio/speech` server (Qwen3-TTS, Kokoro, Orpheus on Nebius, vLLM or your own box) | — |
 
-**How a call works.** ElevenLabs handles speech-to-text, your cloned voice (Flash v2.5) and turn-taking. For every reply it calls TOMORA as a **custom LLM** at `/api/twin/llm/v1/chat/completions`, which runs the `twin_voice` agent on Nemotron with your memory. So the voice is yours and the words are your future self's. Each call has its own random `call_ref` and a secret header, so nobody else can speak through your voice.
+**How a call works.** ElevenLabs handles speech-to-text, your cloned voice and turn-taking. For every reply it calls TOMORA as a **custom LLM** at `/api/twin/llm/v1/chat/completions`, which runs the `twin_voice` agent on Nemotron with your memory, with reasoning off and the reply streamed. So the voice is yours and the words are your future self's. Each call has its own random `call_ref` and a secret header, so nobody else can speak through your voice.
 
 **Guardrails that are code, not prompts.** A fixed AI-disclosure opener on every call and email (added by the app, not the model) · contacts-only · daily limits (10 proposed calls, 50 emails, 6 calls to you) · a kill switch · a monthly cost cap · calling hours per country and no premium-rate numbers · a `stop_recording` tool if someone declines recording · retention of other people's data for 30 days · export or delete all twin data from Settings · an access code that locks the whole app before it goes public.
 
@@ -121,6 +121,7 @@ Recordings are converted to WAV in the browser so every engine accepts them, kep
 
 **Talk to your twin** needs `TWIN_PUBLIC_URL` (TOMORA's public https address) and an ElevenLabs key.
 
+- **Sounding human and quick:** the voice is Eleven v4 Turbo (expressive, about 100 ms; `TWIN_VOICE_MODEL=eleven_flash_v2_5` is a little faster), with slightly lower stability so the tone varies, and ElevenLabs reads numbers and times the way people say them. If Nemotron hasn't started answering after 1.2 seconds (usually while it searches your notes), the twin says a short filler such as "Hmm, let me think", at most once per reply.
 - **In the browser:** "Call now" on `/twin` (or "Call your future self" on Home) starts a WebRTC call with a short-lived token.
 - **On your phone:** set `ELEVENLABS_PHONE_NUMBER_ID` to a Twilio number imported into ElevenLabs. TOMORA calls your number and reads a six-digit code you type in; the twin only ever calls that verified number.
 - When a call ends, its transcript and ElevenLabs' summary (marked as AI-written) are filed under `Calls/`.
