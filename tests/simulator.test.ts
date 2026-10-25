@@ -75,12 +75,12 @@ describe("the Future Simulator", () => {
     await simulatePaths(db, "Become an AI engineer", null, provider);
     expect(calls).toHaveLength(1);
     const { messages, opts } = calls[0];
-    expect(opts).toMatchObject({ reasoning: "on", schema: SIMULATION_SCHEMA });
+    expect(opts).toMatchObject({ reasoning: "on", schema: SIMULATION_SCHEMA, maxTokens: 32_000 });
     const system = String(messages[0].content);
     expect(system).toContain(SIMULATION_FRAMING);
     expect(system).toMatch(/never promise a job/i);
     expect(system).toMatch(/always include a self-study route, a formal education route and a route that combines paid work with study/);
-    expect(system).toMatch(/between 6 and 12 plausible, clearly different routes/);
+    expect(system).toMatch(/between 6 and 10 plausible, clearly different routes/);
     // Grounded in the profile.
     expect(system).toContain("Junior web developer");
     expect(system).toContain("Limited savings");
@@ -124,6 +124,29 @@ describe("the Future Simulator", () => {
     await expect(simulatePaths(db, "Become an AI engineer", null, reply(two))).rejects.toThrow(/at least three usable routes/);
     await expect(simulatePaths(db, "Become an AI engineer", null, reply("I think you should study."))).rejects.toThrow(/at least three usable routes/);
     expect(listSimulations(db)).toHaveLength(0);
+  });
+
+  it("plans again without reasoning when the reasoned reply is cut off", async () => {
+    const modes: (string | undefined)[] = [];
+    const full = JSON.stringify(standInSimulation({ goal: "Become an AI engineer" }));
+    const cutOff: LlmProvider = {
+      name: "nebius:test",
+      complete: async (_m, _t, opts) => {
+        modes.push(opts?.reasoning);
+        return opts?.reasoning === "on" ? { content: full.slice(0, 900), toolCalls: [], truncated: true } : { content: full, toolCalls: [] };
+      },
+    };
+    const sim = await simulatePaths(db, "Become an AI engineer", null, cutOff);
+    expect(modes).toEqual(["on", "off"]);
+    expect(sim.result.paths.length).toBe(8);
+  });
+
+  it("ignores a cut-off reply even when the part that arrived parses", async () => {
+    const full = standInSimulation({ goal: "Become an AI engineer" });
+    let calls = 0;
+    const p: LlmProvider = { name: "t", complete: async () => ({ content: JSON.stringify(full), toolCalls: [], truncated: ++calls === 1 }) };
+    await simulatePaths(db, "Become an AI engineer", null, p);
+    expect(calls).toBe(2);
   });
 
   it("rejects goals that are empty or too long", async () => {
@@ -198,9 +221,9 @@ describe("normalizing a model's simulation", () => {
     expect(out.how_to_choose).toBe("");
   });
 
-  it("keeps at most twelve routes", () => {
+  it("keeps at most ten routes", () => {
     const many = Array.from({ length: 15 }, (_, i) => path(`R${i}`));
-    expect(normalizeSimulation({ paths: many }, "g")!.paths).toHaveLength(12);
+    expect(normalizeSimulation({ paths: many }, "g")!.paths).toHaveLength(10);
   });
 
   it("returns null without three paths", () => {
