@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 const ERRORS: Record<string, string> = {
   wrong: "That code isn't right.",
   wait: "Too many wrong codes. Wait 15 minutes and try again.",
+  full: "This demo is full for now. If you have a workspace code, use it below to open your workspace.",
 };
 
 /**

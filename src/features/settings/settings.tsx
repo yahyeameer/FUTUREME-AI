@@ -298,27 +298,50 @@ function DecisionModelSection() {
   );
 }
 
-/** Multi-user servers only: the code that opens this same workspace again from another browser or device. */
+/** Multi-user servers only: the code that opens this same workspace again from another browser or device, and how much
+ * of today's model budget this workspace has used. */
 function WorkspaceCodeSection() {
-  const [code, setCode] = React.useState<string | null>(null);
+  type Budget = { usage: { calls: number; tokens: number }; limits: { calls: number; tokens: number } };
+  const [me, setMe] = React.useState<{ workspace: string | null; budget?: Budget } | null>(null);
   React.useEffect(() => {
     fetch("/api/me", { cache: "no-store" })
       .then((r) => r.json())
-      .then((d: { workspace: string | null }) => setCode(d.workspace))
-      .catch(() => setCode(null));
+      .then(setMe)
+      .catch(() => setMe(null));
   }, []);
+  const code = me?.workspace;
   if (!code) return null;
+  const b = me.budget;
+  const share = b ? Math.max(b.limits.calls ? b.usage.calls / b.limits.calls : 0, b.limits.tokens ? b.usage.tokens / b.limits.tokens : 0) : 0;
   return (
     <Section id="workspace-code" title="Your workspace code" description="This server gives everyone a private workspace of their own. Keep this code to open yours again on another device, and don't share it: whoever has it can open your workspace.">
-      <div className="card flex flex-wrap items-center gap-3 px-5 py-4">
-        <Input readOnly value={code} aria-label="Workspace code" className="min-w-0 flex-1 font-mono text-[12px]" onFocus={(e) => e.currentTarget.select()} />
-        <Button
-          type="button"
-          variant="secondary"
-          onClick={() => navigator.clipboard.writeText(code).then(() => toast.success("Workspace code copied"), () => toast.error("Couldn't copy. Select the code and copy it."))}
-        >
-          Copy
-        </Button>
+      <div className="card px-5">
+        <div className="flex flex-wrap items-center gap-3 py-4">
+          <Input readOnly value={code} aria-label="Workspace code" className="min-w-0 flex-1 font-mono text-[12px]" onFocus={(e) => e.currentTarget.select()} />
+          <Button
+            type="button"
+            variant="secondary"
+            onClick={() => navigator.clipboard.writeText(code).then(() => toast.success("Workspace code copied"), () => toast.error("Couldn't copy. Select the code and copy it."))}
+          >
+            Copy
+          </Button>
+        </div>
+        {b && (b.limits.calls > 0 || b.limits.tokens > 0) && (
+          <div className="border-t border-border py-4">
+            <div className="flex items-baseline justify-between gap-3 text-[13px]">
+              <span className="font-medium">Today&apos;s model budget</span>
+              <span className="text-muted-foreground tabular-nums">
+                {b.limits.calls > 0 && `${b.usage.calls} of ${b.limits.calls} calls`}
+                {b.limits.calls > 0 && b.limits.tokens > 0 && " · "}
+                {b.limits.tokens > 0 && `${Math.round(b.usage.tokens / 1000)}k of ${Math.round(b.limits.tokens / 1000)}k tokens`}
+              </span>
+            </div>
+            <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-surface-3" role="meter" aria-label="Today's model budget used" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(Math.min(1, share) * 100)}>
+              <div className={cn("h-full rounded-full transition-[width]", share >= 0.9 ? "bg-destructive" : "bg-gradient-to-r from-bronze to-accent")} style={{ width: `${Math.min(1, share) * 100}%` }} />
+            </div>
+            <p className="mt-2 text-[12px] text-subtle">Shared demo servers limit each workspace per day. It resets at midnight UTC.</p>
+          </div>
+        )}
       </div>
     </Section>
   );

@@ -1,4 +1,7 @@
+import fs from "node:fs";
+import path from "node:path";
 import { ACCESS_COOKIE, accessCode, accessToken, checkCode } from "@/lib/access";
+import { baseDataDir } from "@/lib/tenant";
 import { isWorkspaceId, multiUser, newWorkspaceId, WORKSPACE_COOKIE } from "@/lib/workspace-id";
 
 // Signs in with FUTUREME_ACCESS_CODE and sets the access cookie. A few wrong codes in a row from one address are slowed.
@@ -21,6 +24,18 @@ function blocked(key: string, max: number) {
 function count(key: string) {
   const t = tries.get(key);
   tries.set(key, !t || Date.now() - t.since > WINDOW_MS ? { n: 1, since: Date.now() } : { n: t.n + 1, since: t.since });
+}
+
+/** How many new workspaces this server will hand out (FUTUREME_MAX_WORKSPACES, default 300; 0 = no limit). */
+function workspaceRoom(): boolean {
+  const raw = Number(process.env.FUTUREME_MAX_WORKSPACES ?? 300);
+  const max = Number.isFinite(raw) && raw >= 0 ? Math.floor(raw) : 300;
+  if (!max) return true;
+  try {
+    return fs.readdirSync(path.join(baseDataDir(), "workspaces")).length < max;
+  } catch {
+    return true;
+  }
 }
 
 /** A relative Location: behind a proxy request.url names the internal host (http://localhost:3000), not the public one. */
@@ -51,6 +66,8 @@ export async function POST(request: Request) {
   const cookies = [cookie(ACCESS_COOKIE, accessToken(code.trim()))];
   if (multiUser()) {
     const resume = String(form?.get("workspace") ?? "").trim().toLowerCase();
+    // Coming back to a workspace always works; a new one only while there's room.
+    if (!isWorkspaceId(resume) && !workspaceRoom()) return back("full");
     cookies.push(cookie(WORKSPACE_COOKIE, isWorkspaceId(resume) ? resume : newWorkspaceId()));
   }
   return redirect(next, cookies);

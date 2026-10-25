@@ -52,5 +52,5 @@ YDC_API_KEY=...                # web research: You.com (or BRAVE_SEARCH_API_KEY)
 
 - A visitor's workspace is a random id in a cookie. **Settings -> Your workspace code** shows it, and pasting it under "Coming back?" on the sign-in page opens the same workspace on another device. Anyone holding the code can open that workspace.
 - Data lives in `/data/workspaces/<id>/` (database, vault, key file), one folder per visitor.
-- Everyone who enters the code spends your model credits, so watch usage on a public link.
+- Everyone who enters the code spends your model credits, so multi-user mode limits it per UTC day: 120 model calls and 250,000 tokens per workspace, 3,000,000 tokens for the whole server, and at most 300 workspaces. Change them with `FUTUREME_DAILY_CALLS`, `FUTUREME_DAILY_TOKENS`, `FUTUREME_SERVER_DAILY_TOKENS` and `FUTUREME_MAX_WORKSPACES` (0 turns one off). Visitors see their own use under Settings; past a limit, replies explain it and when it resets.
 - Test it: start a multi-user server, then `E2E_MULTI_USER=1 E2E_BASE_URL=http://127.0.0.1:3000 npx playwright test e2e/judge-workspaces.spec.ts`.

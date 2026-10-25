@@ -1,4 +1,5 @@
 import OpenAI from "openai";
+import { chargeCall, chargeTokens } from "./budget";
 import { mockProvider } from "./mock-llm";
 
 // Nebius Token Factory exposes an OpenAI-compatible API, so the standard client works with a different base URL.
@@ -91,6 +92,9 @@ function openAiCompatible(name: string, client: OpenAI, model: string, features:
   return {
     name,
     async complete(messages, tools, opts = {}) {
+      // Spending limits (see budget.ts): refuse the call before it costs anything, then count what it used.
+      chargeCall();
+      const spent = (u: Completion["usage"]) => chargeTokens((u?.prompt ?? 0) + (u?.completion ?? 0));
       const reasoning = features.nemotron ? reasoningFor(opts.reasoning) : undefined;
       const body = {
         model,
@@ -108,6 +112,7 @@ function openAiCompatible(name: string, client: OpenAI, model: string, features:
 
       if (!opts.onText && !opts.onReasoning) {
         const res = await client.chat.completions.create(body);
+        spent(usageOf(res.usage as NemotronUsage));
         const msg = res.choices[0]?.message as (OpenAI.Chat.ChatCompletionMessage & { reasoning_content?: string | null }) | undefined;
         return {
           content: msg?.content ?? null,
@@ -147,6 +152,7 @@ function openAiCompatible(name: string, client: OpenAI, model: string, features:
           if (c.function?.arguments) slot.arguments += c.function.arguments;
         }
       }
+      spent(usage);
       return {
         content: content || null,
         toolCalls: calls.filter(Boolean).map((c, i) => ({ id: c.id || `call_${i}`, name: c.name, arguments: c.arguments })),
