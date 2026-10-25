@@ -150,9 +150,9 @@ function UnderstandScene() {
 
 function FuturesScene() {
   const roads = [
-    { d: "M30 120 C 120 120, 150 40, 300 40", label: "A · Self-study", y: 40 },
-    { d: "M30 120 C 120 120, 170 120, 300 120", label: "B · Work and study", y: 120 },
-    { d: "M30 120 C 120 120, 150 200, 300 200", label: "C · Formal education", y: 200 },
+    { d: "M30 120 C 110 120, 140 40, 260 40", label: "A · Self-study", y: 40 },
+    { d: "M30 120 C 110 120, 160 120, 260 120", label: "B · Work and study", y: 120 },
+    { d: "M30 120 C 110 120, 140 200, 260 200", label: "C · Formal education", y: 200 },
   ];
   return (
     <svg viewBox="0 0 420 240" className="w-full" role="img" aria-label="Three different roads branching from today">
@@ -164,9 +164,9 @@ function FuturesScene() {
       {roads.map((r, i) => (
         <g key={r.label}>
           <motion.path d={r.d} stroke="#C8B78F" strokeOpacity="0.85" strokeWidth="2" fill="none" initial={{ pathLength: 0 }} animate={{ pathLength: 1 }} transition={{ delay: 0.15 + i * 0.3, duration: 1, ease: EASE }} />
-          <motion.g initial={{ opacity: 0, scale: 0.6 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.9 + i * 0.3, duration: 0.4 }} style={{ transformOrigin: `300px ${r.y}px` }}>
-            <circle cx="300" cy={r.y} r="9" fill="#0B0C10" stroke="#C8B78F" strokeWidth="1.5" />
-            <text x="318" y={r.y + 4} className="fill-[#F3F0E8]/85 text-[11.5px]">
+          <motion.g initial={{ opacity: 0, scale: 0.6 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.9 + i * 0.3, duration: 0.4 }} style={{ transformOrigin: `260px ${r.y}px` }}>
+            <circle cx="260" cy={r.y} r="9" fill="#0B0C10" stroke="#C8B78F" strokeWidth="1.5" />
+            <text x="276" y={r.y + 4} className="fill-[#F3F0E8]/85 text-[11.5px]">
               {r.label}
             </text>
           </motion.g>

@@ -66,8 +66,8 @@ if [ -n "$SUPABASE_URL" ] && [ "$CLOUD_PROVIDER" != "off" ]; then
 fi
 
 if [ "$FUTUREME_MULTI_USER" = "1" ]; then
-  # Every visitor who enters the access code gets a private workspace (see server.ts). The schedulers above only serve
-  # the default workspace, so a multi-user server normally sets NIGHT_SHIFT_AT=off and leaves the twin keys empty.
+  # Every visitor who enters the access code gets a private workspace (see server.ts). The twin scheduler above visits
+  # every workspace; the night shift only serves the default one, so a multi-user server normally sets NIGHT_SHIFT_AT=off.
   exec node_modules/.bin/tsx server.ts
 fi
 exec node_modules/.bin/next start -H 0.0.0.0 -p "${PORT:-3000}"

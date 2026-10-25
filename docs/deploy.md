@@ -46,7 +46,7 @@ FUTUREME_MULTI_USER=1          # a private workspace per visitor (server.ts runs
 FUTUREME_ACCESS_CODE=your-code # the code visitors enter
 FUTUREME_SHOW_CODE=1           # optional: show the code on the sign-in page with a one-click button
 SEED_DEMO=0                    # new visitors start at onboarding, not on demo data
-NIGHT_SHIFT_AT=off             # the night shift and twin schedulers only serve the default workspace
+NIGHT_SHIFT_AT=off             # the night shift only serves the default workspace (the twin scheduler serves every one)
 YDC_API_KEY=...                # web research: You.com (or BRAVE_SEARCH_API_KEY). DuckDuckGo blocks most cloud servers.
 ```
 

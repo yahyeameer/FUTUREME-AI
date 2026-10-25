@@ -180,17 +180,23 @@ export function setSetting(db: Database.Database, key: string, value: string | n
 export function openDb(file = process.env.DATABASE_PATH ?? path.join(process.cwd(), "data", "futureme.db")) {
   if (file !== ":memory:") fs.mkdirSync(path.dirname(file), { recursive: true });
   const db = new Database(file);
-  db.pragma("journal_mode = WAL");
-  db.pragma("foreign_keys = ON");
-  db.pragma("busy_timeout = 5000");
-  db.exec(SCHEMA);
-  db.exec(TWIN_SCHEMA);
-  db.exec(MEMORY_SCHEMA);
-  db.exec(SOCIAL_SCHEMA);
-  db.exec(DECISION_SCHEMA);
-  db.exec(CALENDAR_SCHEMA);
-  migrate(db);
-  migrateTwin(db);
+  try {
+    db.pragma("journal_mode = WAL");
+    db.pragma("foreign_keys = ON");
+    db.pragma("busy_timeout = 5000");
+    db.exec(SCHEMA);
+    db.exec(TWIN_SCHEMA);
+    db.exec(MEMORY_SCHEMA);
+    db.exec(SOCIAL_SCHEMA);
+    db.exec(DECISION_SCHEMA);
+    db.exec(CALENDAR_SCHEMA);
+    migrate(db);
+    migrateTwin(db);
+  } catch (err) {
+    // A broken file: don't leave it open behind the error.
+    db.close();
+    throw err;
+  }
   return db;
 }
 

@@ -15,11 +15,11 @@
 
 **Nebius × NVIDIA Global AI Hackathon 2026 · Personal AI track**
 
-[What it is](#-what-it-is) · [Brand](#-the-tomora-brand) · [Voice twin](#-the-standout-your-voice-twin) · [Agents](#-the-agent-works-on-its-own) · [Nemotron](#-nemotron-native-not-just-a-chat-endpoint) · [Features](#-every-feature) · [Deploy](#-deploy-it) · [What's next](#-whats-next)
+[What it is](#-what-it-is) · [How it works](#-how-it-works) · [Brand](#-the-tomora-brand) · [Voice twin](#-the-standout-your-voice-twin) · [Share it](#-share-it-a-private-future-self-for-everyone) · [Agents](#-the-agent-works-on-its-own) · [Nemotron](#-nemotron-native-not-just-a-chat-endpoint) · [Features](#-every-feature) · [Deploy](#-deploy-it) · [What's next](#-whats-next)
 
 <br/>
 
-<img src="docs/screenshots/welcome.png" alt="The TOMORA welcome page: Tomorrow starts with you, with a branching preview of three possible roads" width="900" />
+<img src="docs/screenshots/welcome.png" alt="The TOMORA welcome page: a night-sky hero with the living mark, a glass sphere with orbiting lights, and the headline Tomorrow starts with you" width="900" />
 
 </div>
 
@@ -48,6 +48,25 @@ TOMORA follows one journey: **understand me → explore futures → compare path
 
 ---
 
+## 🧭 How it works
+
+One journey, four steps, and every screen in the app serves one of them. The welcome page plays it as an interactive tour: the steps sit on a lit rail and advance by themselves (pausing while you point at them), and a glass screen acts each one out.
+
+<div align="center">
+<img src="docs/screenshots/how-it-works.png" alt="How it works: four steps on a lit rail, with the second step, Explore futures, drawing three roads from today" width="900" />
+</div>
+
+| Step | What happens | Where in the app |
+| --- | --- | --- |
+| **1 · Understand me** | A short conversation about where you are, what you want and what's in the way. Skip anything; change it later. It's saved as notes you can read, edit or delete. | Onboarding, Settings, Memory Vault |
+| **2 · Explore futures** | Clearly different roads to your goal (how you might learn, pay and where), each naming its assumptions, ranges and risks. | Future Simulator, Future Reflection |
+| **3 · Compare and choose** | Every road is rated against your money, your time and the risk you can take. Change a number and they re-rank on the spot, with plain arithmetic, not another model call. | Future Simulator, Council |
+| **4 · Act, review, adapt** | Your future self turns the road you chose into the next few steps, which wait for your approval. You check in as life changes, and the plan changes with it. | Future Self, Life Roadmap, TOMORA Daily, Voice Twin |
+
+The tour's scenes are illustrations with fixed example data (`src/features/landing/journey.tsx`); nothing on the welcome page calls a model.
+
+---
+
 ## 🪞 The TOMORA brand
 
 | | |
@@ -55,15 +74,15 @@ TOMORA follows one journey: **understand me → explore futures → compare path
 | **Name** | TOMORA · Personal Future Intelligence |
 | **Tagline** | Tomorrow starts with you. |
 | **Promise** | Explore the futures your choices could create. |
-| **Symbol** | An old clock where the past and the future turn together: a bronze ring of the past turns backward while the future dial turns forward, around today (a bronze point) and the future you named (a champagne ring), with a light running like a second hand. `src/components/brand/mark.tsx` (`Mark`, `ClockFace`, `Wordmark`), the larger time-orb in `src/components/brand/orb.tsx`, and `src/app/icon.svg`. |
+| **Symbol** | **The living mark.** An old clock where the past and the future turn together (a bronze ring of the past turns backward, the future dial forward, around today as a bronze point and the future you named as a champagne ring), set inside a glass sphere with lights on three tilted orbits. It **tilts toward your pointer**, its layers shift with depth, and today's point **looks at the cursor like an eye** and pulses. On Home and Future Self it sits as far along its trajectory as the share of your planned tasks that are done, and it spins up while your future self is answering. The same mark is the logo everywhere, down to the 28-pixel sidebar icon. `src/components/brand/living-mark.tsx` (`LivingMark`, `LivingEmblem`), pointer tracking in `use-gaze.ts`, the icon-size `Mark` and still `ClockFace` in `mark.tsx`, and `src/app/icon.svg` for the favicon. |
 | **Palette** | Ink `#101113`, deep midnight `#171B22`, warm ivory `#F3F0E8`, muted champagne `#C8B78F` (used sparingly for the one important action and selected states), slate `#858A93`. Tokens in `src/app/globals.css`, raw values in `src/lib/brand.ts`. |
 | **Type** | Instrument Serif for the wordmark and editorial headings, Geist for interface text, Newsreader for long-form reading, all self-hosted through `next/font`. |
-| **Motion** | The clock turns slowly and glows on hover. Onboarding is the most animated screen: rising embers, turning time rings, a live preview of your future self as you type, and an arrival moment when you finish. Everything respects reduced-motion settings (OS or Settings → Appearance). |
+| **Motion** | **Onboarding is a night scene:** aurora light that follows the steps, turning time rings, rising embers, a frosted-glass form with a light running round its edge, a live preview of your future self as you type, and the living mark carrying today toward the future with each answer. When you finish, they meet. **The welcome page** opens on the same night sky with the large living mark, floating glass cards, a gradient headline and a glowing call to action. Everything respects reduced-motion settings (OS or Settings → Appearance); on touch screens, with no pointer to follow, the mark drifts on its own. |
 
 Everything brand-facing reads from **`src/lib/brand.ts`**. Storage and integration identifiers keep their original names on purpose, so nothing breaks for existing installs: the `futureme.db` database, the `futureme_access` cookie, `FUTUREME_*` environment variables, the `agents/futureme.yaml` team file, the `futureme` MCP server and Docker image names, and all API routes.
 
 <div align="center">
-<img src="docs/screenshots/onboarding.png" alt="TOMORA onboarding: the time-orb, a live preview of your future self, and the first of three short steps" width="900" />
+<img src="docs/screenshots/onboarding.png" alt="TOMORA onboarding: a night scene with the living mark and a live preview of your future self, beside the first of three steps in a frosted-glass card" width="900" />
 </div>
 
 The public welcome page lives at **`/welcome`** (open even when the access lock is on, and carries no workspace data). New visitors land there; **Explore my future** goes to `/start`, which opens onboarding for someone new and the app for someone returning.
@@ -87,7 +106,7 @@ The public welcome page lives at **`/welcome`** (open even when the access lock 
 | 🛡️ **Call Screen** | Calls to the twin's number are answered as your AI twin: it says it's an AI, asks who's calling and why, and files the message in your vault under `Calls/`. Block numbers from the call log. |
 | 👥 **Reach your contacts** | The twin proposes calls and emails to people **you** added. Approve and it dials or sends. Contact calls run a separate `twin_proxy` agent with **no memory search**, so nothing from your vault leaks. It takes messages and never agrees to anything for you. |
 | ✉️ **Its own inbox** | The twin gets an AgentMail address, so it never writes as you. Incoming mail from a contact gets a drafted reply waiting for approval; mail is treated as untrusted text. |
-| 🎛️ **Voice engine picker** | Paste a key in the app, press **Test** to hear a line, and pick the engine. Keys are AES-256-GCM encrypted and only the last four characters are ever shown. |
+| 🎛️ **Voice engine picker** | Paste a key in the app, press **Test** to hear a line, and pick the engine. Keys are AES-256-GCM encrypted and only the last four characters are ever shown. On a shared server every person brings their own key and their own phone number, kept in their own workspace. |
 
 **Voice engines** (picked on `/twin`):
 
@@ -98,11 +117,18 @@ The public welcome page lives at **`/welcome`** (open even when the access lock 
 | **Qwen TTS** (Alibaba Model Studio) | Your consent recording is enrolled for `qwen3-tts-vc` | — |
 | **Self-hosted** | Preset voices from any OpenAI-style `/audio/speech` server (Qwen3-TTS, Kokoro, Orpheus on Nebius, vLLM or your own box) | — |
 
-**How a call works.** ElevenLabs handles speech-to-text, your cloned voice and turn-taking. For every reply it calls TOMORA as a **custom LLM** at `/api/twin/llm/v1/chat/completions`, which runs the `twin_voice` agent on Nemotron with your memory, with reasoning off and the reply streamed. So the voice is yours and the words are your future self's. Each call has its own random `call_ref` and a secret header, so nobody else can speak through your voice.
+**How a call works.** ElevenLabs handles speech-to-text, your cloned voice and turn-taking. For every reply it calls TOMORA as a **custom LLM** at `/api/twin/llm/v1/chat/completions`, which runs the `twin_voice` agent on Nemotron with your memory, with reasoning off and the reply streamed. So the voice is yours and the words are your future self's. Each call has its own random `call_ref` and a secret header, so nobody else can speak through your voice. On a multi-user server the address carries the workspace's **handle** (`/api/twin/llm/ws/<handle>/v1`), a one-way hash of its id, so the call reaches the right person's future self; the workspace's own secret is still required.
 
 **Guardrails that are code, not prompts.** A fixed AI-disclosure opener on every call and email (added by the app, not the model) · contacts-only · daily limits (10 proposed calls, 50 emails, 6 calls to you) · a kill switch · a monthly cost cap · calling hours per country and no premium-rate numbers · a `stop_recording` tool if someone declines recording · retention of other people's data for 30 days · export or delete all twin data from Settings · an access code that locks the whole app before it goes public.
 
-> ⚠️ **Honest status.** The voice twin is built end to end, covered by unit tests and clicked through in a browser against **mock** ElevenLabs, OpenRouter, Qwen and AgentMail servers. It has **not yet been run against the live services**. Real calls need a paid ElevenLabs key, and phone calls also need a Twilio number imported into ElevenLabs. Treat these paths as ready to try, not proven.
+> ⚠️ **Honest status.** The voice twin is built end to end, covered by 60+ unit tests and clicked through in a browser against **mock** ElevenLabs, OpenRouter, Qwen and AgentMail servers. It has **not yet been run against the live services**. Real calls need an ElevenLabs key (cloning your voice needs a paid ElevenLabs plan), and phone calls also need a Twilio number imported into ElevenLabs. Treat these paths as ready to try, not proven.
+
+**Try it yourself.** Everything is set up from the **Voice Twin** page (`/twin`); nothing has to be changed on the server except `TWIN_PUBLIC_URL`.
+
+1. **Your key.** Create an ElevenLabs account and an API key (Settings → API keys). On `/twin`, under Voice engine → ElevenLabs, paste it, press **Test**, then **Save**.
+2. **Your voice.** Record the consent phrase (three code words and "I agree"), add a sample or two, and press **Hear yourself**.
+3. **In the browser.** Press **Call now**, allow the microphone, and talk to your future self in your own voice.
+4. **On your phone.** Get a number from Twilio (a trial account includes one and can call your own verified phone), import it in ElevenLabs under **Agents → Phone numbers → Import from Twilio**, and paste the phone number ID into the **On your phone** card. TOMORA calls you with a six-digit code to verify your number; after that you can ask for a call now or schedule one.
 
 <details>
 <summary><b>Full voice twin reference (setup, env vars, public launch checklist)</b></summary>
@@ -123,11 +149,11 @@ Recordings are converted to WAV in the browser so every engine accepts them, kep
 
 - **Sounding human and quick:** the voice is Eleven v4 Turbo (expressive, about 100 ms; `TWIN_VOICE_MODEL=eleven_flash_v2_5` is a little faster), with slightly lower stability so the tone varies, and ElevenLabs reads numbers and times the way people say them. If Nemotron hasn't started answering after 1.2 seconds (usually while it searches your notes), the twin says a short filler such as "Hmm, let me think", at most once per reply.
 - **In the browser:** "Call now" on `/twin` (or "Call your future self" on Home) starts a WebRTC call with a short-lived token.
-- **On your phone:** set `ELEVENLABS_PHONE_NUMBER_ID` to a Twilio number imported into ElevenLabs. TOMORA calls your number and reads a six-digit code you type in; the twin only ever calls that verified number.
+- **On your phone:** paste the ID of a Twilio number imported into ElevenLabs on `/twin` (or set `ELEVENLABS_PHONE_NUMBER_ID` for the whole server; it wins when set). TOMORA calls your number and reads a six-digit code you type in; the twin only ever calls that verified number.
 - When a call ends, its transcript and ElevenLabs' summary (marked as AI-written) are filed under `Calls/`.
-- `scripts/twin-scheduler.ts --loop` dials scheduled calls and files transcripts every 30 seconds. The Docker image always runs it (`TWIN_SCHEDULER=off` disables it).
+- `scripts/twin-scheduler.ts --loop` dials scheduled calls and files transcripts every 30 seconds. The Docker image always runs it (`TWIN_SCHEDULER=off` disables it). On a multi-user server it visits every workspace and places each one's calls with that person's own key and phone number (`src/lib/twin-scheduler.ts`).
 
-**Reach your contacts.** Calls need `ELEVENLABS_PHONE_NUMBER_ID`; email needs `AGENTMAIL_API_KEY`. At dial time the kill switch, daily limit and the contact's number are checked again. For Call Screen, assign the same Twilio number to the twin's ElevenLabs agent; TOMORA turns on its initiation webhook (`/api/twin/inbound`). To receive mail, point an AgentMail `message.received` webhook at `/api/twin/email` and set `AGENTMAIL_WEBHOOK_SECRET` (Svix signatures are verified).
+**Reach your contacts.** Calls need a phone number (saved on `/twin`, or `ELEVENLABS_PHONE_NUMBER_ID`); email needs `AGENTMAIL_API_KEY`. At dial time the kill switch, daily limit and the contact's number are checked again. For Call Screen, assign the same Twilio number to the twin's ElevenLabs agent; TOMORA turns on its initiation webhook (`/api/twin/inbound`). To receive mail, point an AgentMail `message.received` webhook at `/api/twin/email` and set `AGENTMAIL_WEBHOOK_SECRET` (Svix signatures are verified).
 
 **Before putting it on a public address:**
 
@@ -161,7 +187,7 @@ TOMORA isn't one chatbot. `agents/futureme.yaml` defines a **team of 17 agents**
 | 🤝 **Handoffs** | Mid-conversation the future self can `delegate_task` to the researcher or council, or `spawn_agent` a temporary helper with a role and a subset of read-only tools. The reply shows who did it, with which tools, and the supervisor's verdict. |
 | 🧑‍⚖️ **Supervisor** | Code rules block empty answers and unauthorized tools and flag invented links, missing notes or claims to have "sent" something; then the `supervisor` agent judges the result. The stricter verdict wins. |
 | 🔎 **Fact checker** | After each reply the `verifier` checks its claims against your notes and marks them supported (with the note), unverified or opinion. |
-| 🌐 **Web research** | The researcher searches (DuckDuckGo, or Brave with a key) and reads pages, keeps only links its tools actually returned, and proposes an AI-labelled note in `Research/`. Private and metadata addresses are refused. |
+| 🌐 **Web research** | The researcher searches (**You.com** with `YDC_API_KEY`, Brave with `BRAVE_SEARCH_API_KEY`, or DuckDuckGo, which blocks most cloud servers) and reads pages, keeps only links its tools actually returned, and proposes an AI-labelled note in `Research/`. Private and metadata addresses are refused. |
 | 📬 **Integrations** | The future self can search and read your email (Gmail, or any IMAP mailbox), check your calendar (Google, any iCal feed, or TOMORA's own), look things up on the web, and manage tasks and vault files. Sending an email or a Slack, Discord or Telegram message, adding an event or task, and changing or deleting a file all wait for your approval on the Agent page ([docs/integrations.md](docs/integrations.md)). |
 | 🐳 **Docker MCP tools** | Through the Docker MCP Gateway, the future self can use tools from Docker's MCP catalog, each in its own container. Read-only tools run on their own; anything that changes something waits for approval. |
 | 🗂️ **Memory vault** | Every goal, task, reflection, call and research note is an Obsidian-compatible Markdown file with provenance (`user-stated`, `ai-inferred` or `verified`). The agent searches it with MCP tools and can only *propose* new memories. |
@@ -267,14 +293,47 @@ Browser ─► Next.js app ─┬─► Nemotron team in-process (default) ─�
                                      │
            SQLite (goals, tasks, approvals, tool log, agent runs) + Markdown vault ◄┘
 
-ElevenLabs call ─► /api/twin/llm/v1/chat/completions ─► twin_voice agent on Nemotron
+ElevenLabs call ─► /api/twin/llm[/ws/<handle>]/v1/chat/completions ─► twin_voice agent on Nemotron
 ```
 
 - **Default runtime** (`AGENT_RUNTIME=nemotron`): the team runs in the app with all the Nemotron features above. `AGENT_RUNTIME=docker-agent` (or `DOCKER_AGENT_URL`) routes chat through Docker Agent and the MCP server instead.
 - **Every tool call is logged**, so the UI shows exactly what the agent remembered, proposed and did.
+- **Multi-user mode** (`FUTUREME_MULTI_USER=1`): a small custom server (`server.ts`) runs each request inside its visitor's workspace (`src/lib/tenant.ts`), so `db()`, the vault and the key files resolve to that person's own folder. Every page, action and API route already went through those few functions, so none of them had to change.
+- **Spending limits** (`src/lib/budget.ts`): every real model call is counted per workspace and for the whole server, and refused before it costs anything once a daily limit is reached.
 - **Private local mode:** `docker compose -f docker-compose.yml -f docker-compose.local.yml up --build` runs the model on your own machine with Docker Model Runner, so no conversation leaves it.
 - **Two paid model providers:** Nemotron on Nebius for everything generative, and optionally Jev by TypeSafe AI for route decisions (USD 0.042 per million input tokens; a typical decision is a few thousand tokens, well under a cent).
 - **Tested:** unit and workflow tests (Vitest), and CI runs the browser end-to-end test twice (in-process and through Docker Agent), loads every agent file, pushes and pulls a persona pack, and smoke-tests the container.
+
+---
+
+## 🌐 Share it: a private future self for everyone
+
+Send one link to judges, testers or friends. Each person who enters the access code gets **their own private workspace**: their own onboarding, future self, memory vault, plans, voice twin and keys. Nobody sees anyone else's.
+
+<div align="center">
+<img src="docs/screenshots/sign-in.png" alt="The sign-in page showing the access code with a one-click Use it button" width="720" />
+</div>
+
+| | |
+| --- | --- |
+| **One-click sign-in** | With `FUTUREME_SHOW_CODE=1` the sign-in page shows the access code and a **Use it** button, so a judge is in with two clicks. |
+| **Come back on another device** | Settings → **Your workspace code** shows a private code; pasting it under "Coming back?" on the sign-in page opens the same workspace. Anyone holding it can open that workspace. |
+| **Spending limits** | Per UTC day: 120 model calls and 250,000 tokens per workspace, 3,000,000 tokens for the whole server, and at most 300 workspaces (returning visitors always get in). Past a limit, replies say so and when it resets; Settings shows each person's use. |
+| **Voice, per person** | Each workspace saves its own ElevenLabs key and phone number on `/twin`; ElevenLabs' callbacks and the call scheduler find the right workspace by itself. |
+| **Where data lives** | `/data/workspaces/<id>/`: one database, vault and key file per person. |
+
+```bash
+FUTUREME_MULTI_USER=1          # a private workspace per visitor
+FUTUREME_ACCESS_CODE=your-code # the code visitors enter
+FUTUREME_SHOW_CODE=1           # optional: show it on the sign-in page with a one-click button
+SEED_DEMO=0                    # new visitors start at onboarding
+NIGHT_SHIFT_AT=off             # the night shift only serves the default workspace
+YDC_API_KEY=...                # web research that works from a cloud server
+TWIN_PUBLIC_URL=https://you.duckdns.org   # for voice calls
+# Limits (0 turns one off): FUTUREME_DAILY_CALLS, FUTUREME_DAILY_TOKENS, FUTUREME_SERVER_DAILY_TOKENS, FUTUREME_MAX_WORKSPACES
+```
+
+Without `FUTUREME_MULTI_USER` TOMORA stays a single-user app, exactly as before. More in [docs/deploy.md](docs/deploy.md#a-public-demo-with-a-private-workspace-for-every-visitor). A browser test (`e2e/judge-workspaces.spec.ts`) signs two judges in through the real page and checks that each one sees only their own future self.
 
 ---
 
@@ -355,7 +414,7 @@ docker compose up -d --build        # http://localhost:3000
 4. **Check it** after 10 to 15 minutes: the link shows a padlock and asks for the access code; `/daily` shows the demo issue; `http://<ip>:3000` does *not* open; and it survives a reboot. On the server, `cat ~/futureme-url.txt` prints the link.
 5. **Change settings later:** `cd ~/futureme-ai && nano .env && sudo systemctl restart futureme`. Update with `git pull && sudo systemctl restart futureme`.
 
-> 💸 Rough cost against AWS credits: t3.small ≈ $20/month including the public IPv4 address and disk. A nicer name is free with DuckDNS: `echo you.duckdns.org | sudo tee /etc/futureme-domain && sudo systemctl restart futureme`.
+> 💸 Rough cost against AWS credits: t3.small ≈ $20/month including the public IPv4 address and disk; larger types such as `m7i-flex.large` are about four times that. A nicer name is free with DuckDNS (create it at duckdns.org and point it at your Elastic IP), then `echo you.duckdns.org | sudo tee /etc/futureme-domain && sudo systemctl restart futureme`; Caddy gets the certificate by itself. For a public demo, add the multi-user settings from [Share it](#-share-it-a-private-future-self-for-everyone).
 
 > 🖥️ **Fully local model:** set `MODEL_MODE="local"` and `LOCAL_MODEL="ai/nemotron-3-nano:4b-q4_K_M"` at the top of the script. Docker Model Runner serves NVIDIA Nemotron 3 Nano on the server itself and nothing leaves it. Needs about 8 GB RAM (t3.small can't).
 
@@ -402,10 +461,10 @@ npm run test:e2e                            # browser test of the whole loop
 - **Not yet run against live services:** the voice twin (ElevenLabs cloning and calls, the OpenRouter and Qwen engines, AgentMail email) was tested against mock servers only. The Apify public-profile fetch was checked against Apify's real endpoints only up to authentication; actor output mapping is tested against each actor's documented output.
 - **Integrations** were tested against stand-ins: Gmail, Google Calendar, Slack and the ICS feed with recorded API shapes, and IMAP/SMTP against local mail servers (a real reply went out over SMTP after approval in the app). They haven't been run against a real Google account or mailbox yet.
 - On the server, tasks can only be marked done (no in-progress or blocked status), and memories can't be archived. Demo mode has those controls.
-- Web research needs outbound internet; DuckDuckGo can rate-limit (Brave with `BRAVE_SEARCH_API_KEY` is steadier).
+- Web research needs outbound internet. DuckDuckGo refuses most cloud servers, so a hosted deployment should set `YDC_API_KEY` (You.com) or `BRAVE_SEARCH_API_KEY`. The You.com parser was checked against a live API response; its unit tests use a recorded sample.
 - Skill run history and "mark useful" on Daily are kept in the browser, not the database.
 - The decision layer's thresholds and weights are untuned starting points, and its evaluation set is small and labelled by the implementer. Nemotron's cost estimates aren't verified unless you enter a looked-up price ([docs/decision-layer.md](docs/decision-layer.md#limitations-and-what-still-needs-real-world-validation)).
-- Single-user app: lock it with `FUTUREME_ACCESS_CODE` before putting real data on a public address.
+- Without multi-user mode TOMORA is a single-user app: lock it with `FUTUREME_ACCESS_CODE` before putting real data on a public address. In multi-user mode the night shift, Call Screen (calls *to* the twin's number), the twin's inbox and Supabase sync still serve only the default workspace, and a workspace is only as private as its workspace code: there are no personal accounts or passwords.
 - **Verified against live Nemotron (Nebius Token Factory, Oct 2026):** future-self chat, including the memory tool and the honesty rules. The Future Simulator returned 8 schema-valid roads live only with the truncation fix from PR #29; without it, live runs can come back short and the app refuses them with "didn't return at least three usable routes" rather than showing partial results.
 - **Scenario arithmetic** (`src/lib/scenario-math.ts`) is deterministic and unit-tested; it stretches timelines by effort and adds slips, but it can't see fixed calendars (terms, hiring cycles), so more hours never shorten a road in its estimate.
 
@@ -417,7 +476,7 @@ Ideas that build directly on what's already here:
 
 1. **Shareable call clip.** Turn the best 30 seconds of a "Call From the Future" into a captioned clip to share, with the AI disclosure burned in. The best possible demo of the product, made by its users.
 2. **Dial-a-Council.** Put the four council voices on one phone call: ask your hard question out loud and hear the skeptic and the mentor argue it out, then get the brief by email.
-3. **Twin-to-Twin.** Let two TOMORA users' twins schedule a meeting or swap updates on their behalf, with both owners approving. It needs more than one user, which is why it isn't built yet.
+3. **Twin-to-Twin.** Let two TOMORA users' twins schedule a meeting or swap updates on their behalf, with both owners approving. Multi-user mode now puts many people on one server, so this is the natural next step.
 4. **Local Nemotron by default for private mode.** Ship a one-click "private" profile on Nemotron Nano through Docker Model Runner, and a GPU recipe on Nebius for the full model on your own VM.
 5. **Real Apify fetch, end to end.** Run the public-profile fetch against live Apify actors (Instagram, TikTok, YouTube) and harden it with real-world data.
 6. **Voice engines in production.** Validate OpenRouter (Fish Audio) and Qwen cloning on real keys, and let calls run on a self-hosted voice on Nebius.
