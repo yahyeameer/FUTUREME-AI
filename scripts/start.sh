@@ -1,5 +1,5 @@
 #!/bin/sh
-# Container entrypoint: runs the web app with FutureMe's agent team, the night-shift and twin schedulers side by side.
+# Container entrypoint: runs the web app with TOMORA's agent team, the night-shift and twin schedulers side by side.
 #   AGENT_RUNTIME=nemotron      (default) the app runs the team itself on Nemotron: per-agent reasoning, structured
 #                               outputs, parallel tool calls, live reasoning in the chat and photo input
 #   AGENT_RUNTIME=docker-agent  the team runs in Docker Agent from agents/futureme.yaml instead

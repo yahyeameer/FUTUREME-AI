@@ -1,6 +1,7 @@
 import { parseJsonReply, runAgent, type AgentName } from "./agents";
 import { SCHEMAS } from "./nemotron";
 import { profileContext, runCouncil } from "./council";
+import { withChosenRoad } from "./chosen-road";
 import type { Db } from "./db";
 import { getProfile, type DelegateRequest, type SpawnRequest } from "./futureme";
 import { RESEARCH_MARKER, SUBTASK_MARKER } from "./mock-llm";
@@ -102,7 +103,7 @@ export async function runSubAgent(db: Db, task: SubTask, opts: { missionId?: num
       output = [summary, ...kept.map((f) => `- ${f.point} (${f.url})`)].join("\n");
       ({ citations, usedTools, backend, exactEvents } = fromRun(run));
     } else {
-      const context = [`You were created by FutureMe's main agent for one task, as: ${role}.`, profile && profileContext(profile)].filter(Boolean).join("\n");
+      const context = [`You were created by TOMORA's main agent for one task, as: ${role}.`, profile && withChosenRoad(db, profileContext(profile))].filter(Boolean).join("\n");
       const run = await runAgent(
         db,
         agent as AgentName,

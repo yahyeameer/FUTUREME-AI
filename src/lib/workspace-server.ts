@@ -19,12 +19,19 @@ import { agentFilePath, agentTeam } from "./agents";
 import { listCouncils } from "./council";
 import { dockerMcpState } from "./docker-mcp";
 import { listDockerRequests } from "./docker-tools";
+import { googleClientConfigured, googleConnection } from "./connectors/google";
+import { integrationStatus, listActionRequests } from "./connectors/tools";
 import { listRuns, type RunRecord } from "./delegation";
 import { listMissions } from "./missions";
 import { getProvider, LOCAL_LLM_URL } from "./llm";
 import { listNightShifts, nextRunAt, nightShiftSchedule } from "./night-shift";
 import { activePack, listPacks } from "./packs";
 import { listResearch } from "./research";
+import { getChosenRoad } from "./chosen-road";
+import { jevStatus } from "./decision/jev";
+import { listDecisions } from "./decision/store";
+import { listSimulations } from "./simulator";
+import { toPaths } from "./simulator-paths";
 import { skillsFor } from "./skills";
 import { TEAM } from "./team-info";
 import { toolLabel } from "./tool-labels";
@@ -53,7 +60,7 @@ import type {
   Workspace,
 } from "@/types";
 
-// Maps FutureMe's backend (SQLite + Markdown vault) onto the frontend's typed Workspace.
+// Maps TOMORA's backend (SQLite + Markdown vault) onto the frontend's typed Workspace.
 // It only reads through the backend's own functions or plain SQL, and writes through them where they exist.
 
 // ---------- Coaching style ----------
@@ -104,7 +111,7 @@ function sourceOf(note: Note, provenance: Provenance): string {
     case "Tasks":
       return provenance === "verified" ? "Completed task" : "Task from an approved plan";
     case "Daily":
-      return "FutureMe Daily";
+      return "TOMORA Daily";
     case "Research":
       return "Web research summary";
     case "Social": {
@@ -202,15 +209,15 @@ function runtime(): Workspace["runtime"] {
   return {
     mode: "live",
     agent: process.env.DOCKER_AGENT_URL
-      ? `Docker Agent team (agents/futureme.yaml, ${agentTeam().length} agents) with FutureMe's MCP tools${dockerMcpState().status === "connected" ? " and the Docker MCP Gateway" : ""}`
-      : "FutureMe's agent team, running in the app server",
+      ? `Docker Agent team (agents/futureme.yaml, ${agentTeam().length} agents) with TOMORA's MCP tools${dockerMcpState().status === "connected" ? " and the Docker MCP Gateway" : ""}`
+      : "TOMORA's agent team, running in the app server",
     model: standIn
       ? "Built-in stand-in model (no Nebius key configured)"
       : local
         ? `${model.slice(6)} on Docker Model Runner, on this machine`
         : model.replace(/^nebius:/, "Nemotron on Nebius Token Factory: "),
     simulated: standIn,
-    storage: "SQLite and an Obsidian-compatible Markdown vault on the FutureMe server",
+    storage: "SQLite and an Obsidian-compatible Markdown vault on the TOMORA server",
     inference: standIn
       ? "None. The stand-in model runs inside the app server."
       : local
@@ -344,7 +351,10 @@ export function buildWorkspace(db: Db): Workspace {
     .map((m): Message => {
       proposedBy.set(`msg-${m.id}`, m.approvals ? (JSON.parse(m.approvals) as number[]).map(String) : null);
       const citations = m.citations ? (JSON.parse(m.citations) as string[]) : [];
-      const tools = m.tools ? (JSON.parse(m.tools) as string[]) : [];
+      // Older replies stored bare tool names; newer ones store each call with a line on what it did.
+      const calls = m.tools ? (JSON.parse(m.tools) as (string | { name: string; detail?: string; failed?: boolean })[]).map((t) => (typeof t === "string" ? { name: t } : t)) : [];
+      const detailed = calls.some((c) => "detail" in c && c.detail);
+      const tools = calls.map((c) => c.name);
       const counts = new Map<string, number>();
       for (const t of tools) counts.set(t, (counts.get(t) ?? 0) + 1);
       return {
@@ -353,7 +363,9 @@ export function buildWorkspace(db: Db): Workspace {
         content: m.content,
         createdAt: sqlTime(m.created_at)!,
         citations: citations.map((p) => ({ memoryId: p, title: titleOf.get(p) ?? p })),
-        tools: tools.length
+        tools: detailed
+          ? calls.map((c) => ({ name: c.name, label: toolLabel(c.name), status: c.failed ? ("failed" as const) : ("done" as const), detail: c.detail }))
+          : tools.length
           ? [...counts].map(([name, n]) => ({
               name,
               label: toolLabel(name),
@@ -401,6 +413,12 @@ export function buildWorkspace(db: Db): Workspace {
       conversation.find((m) => m.role === "assistant" && proposedBy.get(m.id) === null && m.createdAt >= a.createdAt);
     if (reply) (reply.approvalIds ??= []).push(a.id);
   }
+  // Emails, events, tasks and file changes the reply asked for, so its approval cards show right under it.
+  const actionIds = new Set((db.prepare("SELECT id FROM approvals WHERE kind = 'agent_action'").all() as { id: number }[]).map((r) => String(r.id)));
+  for (const m of conversation) {
+    const mine = proposedBy.get(m.id)?.filter((id) => actionIds.has(id));
+    if (mine?.length) m.actionIds = mine;
+  }
 
   const issues = (db.prepare("SELECT date, content, note_path FROM daily_issues ORDER BY date").all() as { date: string; content: string; note_path: string | null }[]).map(
     (row, i) => toEdition(JSON.parse(row.content) as DailyIssue, i + 1, row.note_path),
@@ -446,6 +464,20 @@ export function buildWorkspace(db: Db): Workspace {
       memoryId: c.note_path ?? undefined,
       simulated: false,
     })),
+    simulations: listSimulations(db).map((s) => ({
+      id: String(s.id),
+      goal: s.goal,
+      createdAt: sqlTime(s.created_at)!,
+      paths: toPaths(s.result.paths),
+      situation: s.situation,
+      sharedUnknowns: s.result.shared_unknowns,
+      howToChoose: s.result.how_to_choose,
+      grounding: { profile: s.grounding.profile, notes: s.grounding.notes.map((p) => ({ memoryId: p, title: titleOf.get(p) ?? p })), social: s.grounding.social },
+      memoryId: s.note_path ?? undefined,
+      simulated: s.backend === "mock",
+      decisions: listDecisions(db, s.id).map((d) => ({ id: d.id, kind: d.kind, parentId: d.parentId, createdAt: sqlTime(d.createdAt)!, request: d.request, result: d.result, choice: d.choice ? { ...d.choice, at: sqlTime(d.choice.at)! } : null, outcome: d.outcome ? { ...d.outcome, at: sqlTime(d.outcome.at)! } : null })),
+    })),
+    chosenRoad: chosenRoadView(db),
     nightShifts: nightShifts.map((n) => ({
       id: String(n.id),
       trigger: n.trigger,
@@ -472,6 +504,7 @@ export function buildWorkspace(db: Db): Workspace {
       error: r.error ?? undefined,
     })),
     dockerMcp: dockerMcp(db),
+    agentActions: agentActions(db),
     missions: missions.map((m) => ({
       id: String(m.id),
       goal: m.goal,
@@ -516,6 +549,26 @@ function toRunInfo(r: RunRecord): AgentRunInfo {
     startedAt: sqlTime(r.started_at)!,
     finishedAt: sqlTime(r.finished_at),
     simulated: false,
+  };
+}
+
+function agentActions(db: Db): Workspace["agentActions"] {
+  return {
+    integrations: integrationStatus(db),
+    google: { clientConfigured: googleClientConfigured(), ...googleConnection(db) },
+    requests: listActionRequests(db).map((r) => ({
+      id: String(r.id),
+      tool: r.tool,
+      title: r.title,
+      details: r.details,
+      body: r.body,
+      // "running" lasts only while an approved action runs.
+      status: r.status === "approved" || r.status === "rejected" ? r.status : "pending",
+      createdAt: sqlTime(r.created_at)!,
+      decidedAt: sqlTime(r.decided_at),
+      result: r.result,
+      error: r.error,
+    })),
   };
 }
 
@@ -564,6 +617,7 @@ function platform(db: Db): AgentPlatform {
     nextNightShift: at ? nextRunAt(at).toISOString() : undefined,
     packs: listPacks(),
     activePack: activePack(db)?.id ?? null,
+    decisionModel: jevStatus(db),
   };
 }
 
@@ -647,7 +701,7 @@ function activity(db: Db, goals: { id: number; title: string; created_at: string
     if (a.kind === "plan" && a.status === "rejected") items.push({ id: `ap-${a.id}`, kind: "plan_rejected", title: `Plan declined: ${payload.goal}`, at: sqlTime(a.decided_at)! });
   }
   const daily = db.prepare("SELECT date, created_at FROM daily_issues").all() as { date: string; created_at: string }[];
-  for (const d of daily) items.push({ id: `daily-${d.date}`, kind: "daily_published", title: `FutureMe Daily for ${d.date} went to press`, at: sqlTime(d.created_at)!, href: "/daily" });
+  for (const d of daily) items.push({ id: `daily-${d.date}`, kind: "daily_published", title: `TOMORA Daily for ${d.date} went to press`, at: sqlTime(d.created_at)!, href: "/daily" });
   return items.sort((a, b) => b.at.localeCompare(a.at)).slice(0, 40);
 }
 
@@ -726,7 +780,7 @@ export function createMemory(input: unknown) {
 export function updateMemory(id: string, input: unknown) {
   const full = existingNotePath(id);
   const note = readNote(id);
-  if (!VAULT_FOLDERS.includes(note.folder as VaultFolder)) throw new Error("This note is outside FutureMe's folders. Edit it in Obsidian.");
+  if (!VAULT_FOLDERS.includes(note.folder as VaultFolder)) throw new Error("This note is outside TOMORA's folders. Edit it in Obsidian.");
   const patch = MemoryInput.partial().parse(input);
   const current = splitBody(note.body);
   const title = patch.title ?? note.title;
@@ -745,6 +799,12 @@ export function updateMemory(id: string, input: unknown) {
 export function deleteMemories(ids: unknown) {
   const list = z.array(z.string()).min(1).max(200).parse(ids);
   for (const id of list) fs.unlinkSync(existingNotePath(id));
+}
+
+function chosenRoadView(db: Db): Workspace["chosenRoad"] {
+  const r = getChosenRoad(db);
+  if (!r) return null;
+  return { simulationId: String(r.simulationId), index: r.index, goal: r.goal, path: toPaths([r.path])[0], chosenAt: r.chosenAt, memoryId: r.notePath ?? undefined };
 }
 
 export async function generateReflection(db: Db) {

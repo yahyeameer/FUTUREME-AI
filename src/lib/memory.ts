@@ -5,7 +5,7 @@ import type { Db } from "./db";
 import { readNote, resolveInVault, vaultRoot, writeNote, type Note, type SearchHit } from "./vault";
 
 // The agent's long-term memory: the Obsidian vault, indexed in the database.
-//   - Every Markdown note in the vault (FutureMe's own folders and anything the user adds in Obsidian) is copied into the
+//   - Every Markdown note in the vault (TOMORA's own folders and anything the user adds in Obsidian) is copied into the
 //     `notes` table with a full-text index, so search_memory reads from the database instead of re-reading every file.
 //     The index catches up with the vault before each search, so edits made in Obsidian are seen straight away.
 //   - Every conversation with the future self is appended to Conversations/, so nothing said is forgotten.
@@ -177,6 +177,12 @@ function fileName(name: string): string {
   return `${path.basename(base, path.extname(base)).slice(0, 80)}${ext}`;
 }
 
+/** Where save_file would put a file of this name, and whether one is already there. */
+export function savedFileTarget(name: string, root = vaultRoot()): { path: string; exists: boolean } {
+  const rel = `Files/${fileName(name)}`;
+  return { path: rel, exists: fs.existsSync(resolveInVault(rel, root)) };
+}
+
 /** Saves (or replaces) a text file in the vault's Files folder. Returns its vault path. */
 export function saveFile(name: string, content: string, root = vaultRoot()): string {
   if (Buffer.byteLength(content, "utf8") > MAX_FILE_BYTES) throw new Error(`Files are limited to ${MAX_FILE_BYTES / 1000} KB.`);
@@ -211,4 +217,30 @@ export function readFile(rel: string, root = vaultRoot()): { path: string; conte
 export function listFiles(folder?: string, root = vaultRoot()): string[] {
   const prefix = folder?.trim().replace(/^\/+|\/+$/g, "");
   return memoryFiles(root).filter((p) => !prefix || p.startsWith(`${prefix}/`));
+}
+
+/** The vault path of an existing text file or note, cleaned. Throws when it isn't there or isn't a text file. */
+export function existingFile(rel: string, root = vaultRoot()): { path: string; bytes: number } {
+  const clean = posix(path.normalize(rel.trim().replace(/^\/+/, "")));
+  if (!FILE_TYPES.has(path.extname(clean).toLowerCase())) throw new Error("Only .md, .txt, .csv and .json files can be changed.");
+  const full = resolveInVault(clean, root);
+  if (!fs.existsSync(full)) throw new Error(`No file at ${clean}. Use list_files to see what's there.`);
+  return { path: clean, bytes: fs.statSync(full).size };
+}
+
+/** Adds to the end of a file, or replaces its whole text. Used by edit_file once the user approves. */
+export function editFile(rel: string, mode: "append" | "replace", content: string, root = vaultRoot()): string {
+  const file = existingFile(rel, root);
+  const full = resolveInVault(file.path, root);
+  const next = mode === "append" ? `${fs.readFileSync(full, "utf8").trimEnd()}\n\n${content.trim()}\n` : content;
+  if (Buffer.byteLength(next, "utf8") > MAX_FILE_BYTES) throw new Error(`Files are limited to ${MAX_FILE_BYTES / 1000} KB.`);
+  fs.writeFileSync(full, next, "utf8");
+  return file.path;
+}
+
+/** Deletes a file from the vault. Used by delete_file once the user approves. */
+export function deleteFile(rel: string, root = vaultRoot()): string {
+  const file = existingFile(rel, root);
+  fs.rmSync(resolveInVault(file.path, root));
+  return file.path;
 }

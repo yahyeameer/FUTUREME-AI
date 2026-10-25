@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-// Turns the data exports people can download from LinkedIn, X and Facebook into one shape FutureMe can learn from.
+// Turns the data exports people can download from LinkedIn, X and Facebook into one shape TOMORA can learn from.
 // Runs in the browser (so the archive never leaves the person's device, only what is read here does) and on the server.
 //
 // What is read: your profile, your career and education, your skills, and posts you wrote yourself.
@@ -9,7 +9,7 @@ import { z } from "zod";
 
 export const PLATFORMS = ["linkedin", "x", "facebook", "instagram", "tiktok", "youtube"] as const;
 export type Platform = (typeof PLATFORMS)[number];
-/** Platforms with a data export FutureMe can read. The others are fetched from their public profile (see apify.ts). */
+/** Platforms with a data export TOMORA can read. The others are fetched from their public profile (see apify.ts). */
 export const EXPORT_PLATFORMS = ["linkedin", "x", "facebook"] as const satisfies readonly Platform[];
 
 export const PLATFORM_NAMES: Record<Platform, string> = {

@@ -20,7 +20,7 @@ export async function POST(request: Request) {
           image: validPhoto(image) ? image : undefined,
           hooks: {
             onReasoning: (t) => send({ type: "reasoning", text: t }),
-            onTool: (name, status) => send({ type: "tool", name, status }),
+            onTool: (name, status, detail) => send({ type: "tool", name, status, detail }),
             onReset: () => send({ type: "reset" }),
           },
         });

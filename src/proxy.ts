@@ -6,7 +6,7 @@ import { ACCESS_COOKIE, hasAccess, isOpenPath } from "./lib/access";
 export function proxy(request: NextRequest) {
   const { pathname, search } = request.nextUrl;
   if (isOpenPath(pathname) || hasAccess(request.cookies.get(ACCESS_COOKIE)?.value)) return NextResponse.next();
-  if (pathname.startsWith("/api/")) return NextResponse.json({ error: "Sign in to FutureMe first." }, { status: 401 });
+  if (pathname.startsWith("/api/")) return NextResponse.json({ error: "Sign in to TOMORA first." }, { status: 401 });
   const login = new URL("/login", request.url);
   login.searchParams.set("next", `${pathname}${search}`);
   return NextResponse.redirect(login);

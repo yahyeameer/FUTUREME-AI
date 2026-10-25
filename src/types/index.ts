@@ -1,9 +1,11 @@
-// Shared domain types for the FutureMe frontend.
+// Shared domain types for the TOMORA frontend.
 // Both the demo service (browser) and the live service (Next.js API over SQLite + the Markdown vault) produce these.
+
+import type { BranchResult, DecisionRequest, DecisionResult } from "@/lib/decision/contract";
 
 export type ServiceMode = "demo" | "live";
 
-/** Tone of the future-self conversation. Changes how FutureMe speaks, not who it is. */
+/** Tone of the future-self conversation. Changes how TOMORA speaks, not who it is. */
 export type CoachingStyle = "reflective" | "strategic" | "encouraging" | "analytical";
 
 /**
@@ -43,7 +45,7 @@ export interface Memory {
   createdAt: string;
   updatedAt: string;
   archived: boolean;
-  /** When false, FutureMe will not retrieve this memory in conversations. */
+  /** When false, TOMORA will not retrieve this memory in conversations. */
   retrievable: boolean;
   relatedMemoryIds: string[];
   relatedMilestoneIds: string[];
@@ -142,6 +144,8 @@ export interface Message {
   citations: Citation[];
   tools?: ToolCall[];
   approvalIds?: string[];
+  /** Actions this reply asked for (an email, an event, a file change), ids into Workspace.agentActions.requests. */
+  actionIds?: string[];
   tone?: CoachingStyle;
   blocks?: RichBlock[];
   /** Set when the response came from deterministic demo content, not a model. */
@@ -199,7 +203,107 @@ export interface Reflection {
   path?: string;
 }
 
-// ---------- FutureMe Daily ----------
+// ---------- Future Simulator ----------
+
+/** Where the person starts from. Every route is rated against it. */
+export interface Situation {
+  /** City and country, in their words. */
+  location: string;
+  /** ISO code, e.g. USD or KES. Routes are priced in it. */
+  currency: string;
+  monthlyIncome: number;
+  savings: number;
+  /** Hours a week they can give the goal. */
+  hoursPerWeek: number;
+  /** People who rely on their income. */
+  dependents: number;
+  risk: "low" | "medium" | "high";
+}
+
+/** One route to a goal: a conditional scenario that holds only if its assumptions do. */
+export interface SimulatedPath {
+  name: string;
+  kind: "self_study" | "formal_education" | "work_and_study" | "bootcamp" | "apprenticeship" | "other";
+  funding: "savings" | "income" | "employer" | "scholarship" | "loan" | "free";
+  place: "local" | "remote" | "relocate";
+  summary: string;
+  months: { min: number; max: number };
+  cost: { min: number; max: number; currency: string; note: string };
+  hoursPerWeek: number;
+  /** Whether they can keep earning on this route. */
+  keepsIncome: boolean;
+  riskLevel: "low" | "medium" | "high";
+  /** The model's 0–100 view of how realistic the route is for them where they live. */
+  fitScore: number;
+  prerequisites: string[];
+  risks: { risk: string; mitigation: string }[];
+  assumptions: string[];
+  firstSteps: string[];
+  /** Why this route might or might not suit the user, from what they've shared. */
+  fit: string;
+}
+
+export interface Simulation {
+  id: string;
+  goal: string;
+  createdAt: string;
+  /** Every route the simulator found, in the model's order. The page ranks them against `situation`. */
+  paths: SimulatedPath[];
+  /** The starting point it was run with; null for runs without one. */
+  situation: Situation | null;
+  sharedUnknowns: string[];
+  howToChoose: string;
+  /** What the simulator read: the profile, matching notes, and the persona from imported accounts. */
+  grounding: { profile: boolean; notes: Citation[]; social: string[] };
+  /** Set once the comparison was saved to the vault. */
+  memoryId?: string;
+  simulated: boolean;
+  /** Decision checks on these routes, newest first (see src/lib/decision). */
+  decisions?: DecisionView[];
+}
+
+// ---------- Decision layer (rules + Jev) ----------
+
+export interface DecisionView {
+  id: string;
+  kind: "rank_paths" | "branch_condition";
+  /** For a branch check: the route decision it belongs to. */
+  parentId: string | null;
+  createdAt: string;
+  request: DecisionRequest | BranchRequestView;
+  result: DecisionResult | BranchResult;
+  choice: { optionId: string | null; kind: "accepted" | "override" | "rejected"; reason: string | null; at: string } | null;
+  outcome: { text: string; at: string } | null;
+}
+
+export interface BranchRequestView {
+  decisionId: string;
+  optionId: string;
+  assumption: string;
+  evidence: string;
+  source: string | null;
+}
+
+/** What the person adds for a decision on top of their starting point. */
+export interface DecisionInputs {
+  monthlyCosts: number | null;
+  allowDebt: boolean;
+  verifiedPrices: { optionId: string; amount: number; currency: string; sourceUrl: string; retrievedAt: string }[];
+}
+
+/** The road the user chose in the simulator. Every agent reads it with their profile. */
+export interface ChosenRoad {
+  simulationId: string;
+  /** The road's index in that simulation's `paths`. */
+  index: number;
+  goal: string;
+  path: SimulatedPath;
+  chosenAt: string;
+  /** The "Chosen road" note in the vault. */
+  memoryId?: string;
+}
+
+// ---------- TOMORA Daily ----------
 
 export interface SourceRef {
   kind: "task" | "milestone" | "memory" | "reflection";
@@ -424,6 +528,8 @@ export interface AgentPlatform {
   nextNightShift?: string;
   packs: Pack[];
   activePack: string | null;
+  /** Jev (TypeSafe) for route decisions. Never the key itself. */
+  decisionModel?: { configured: boolean; keySource: "env" | "app" | null; keyHint: string | null; model: string };
 }
 
 // ---------- Docker MCP tools ----------
@@ -456,6 +562,38 @@ export interface DockerMcpInfo {
   detail?: string;
   tools: DockerMcpTool[];
   requests: DockerToolRequest[];
+}
+
+// ---------- Integrations (email, calendar, chat channels, tasks, files) ----------
+
+export interface AgentIntegration {
+  id: "google" | "email" | "calendar" | "messaging" | "tasks" | "files";
+  label: string;
+  status: "connected" | "partial" | "off";
+  via: string;
+  setup?: string;
+  tools: { name: string; gate: "auto" | "approval" }[];
+}
+
+/** Something the agent asked to do (send an email, add an event, change a file) that waits for, or got, approval. */
+export interface AgentActionRequest {
+  id: string;
+  tool: string;
+  title: string;
+  details: { label: string; value: string }[];
+  body?: string;
+  status: ApprovalStatus;
+  createdAt: string;
+  decidedAt?: string;
+  result?: string;
+  /** Why the last approval attempt failed; it stays pending so it can be tried again. */
+  error?: string;
+}
+
+export interface AgentActionsInfo {
+  integrations: AgentIntegration[];
+  requests: AgentActionRequest[];
+  google: { clientConfigured: boolean; connected: boolean; via: "env" | "app" | null; email: string | null };
 }
 
 // ---------- Activity ----------
@@ -520,10 +658,16 @@ export interface Workspace {
   skillRuns: SkillRun[];
   platform: AgentPlatform;
   councils: CouncilSession[];
+  /** Future Simulator runs, newest first. Optional for snapshots saved before the simulator existed. */
+  simulations?: Simulation[];
+  /** The road chosen in the simulator, if any. */
+  chosenRoad?: ChosenRoad | null;
   nightShifts: NightShift[];
   research: ResearchRun[];
   /** Live only: the Docker MCP Gateway's tools. Absent in demo mode. */
   dockerMcp?: DockerMcpInfo;
+  /** Live only: the agent's integrations and the actions waiting for approval. Absent in demo mode. */
+  agentActions?: AgentActionsInfo;
   missions: Mission[];
   /** Recent handoffs and mission runs, newest first, each with the supervisor's review. */
   runs: AgentRunInfo[];

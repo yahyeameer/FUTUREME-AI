@@ -1,4 +1,5 @@
 import type { ChatMessage, Completion, LlmProvider, ToolCall } from "./llm";
+import { standInSimulation, type SimulationInput } from "./simulator-paths";
 import { yearsInWords } from "./utils";
 
 // Deterministic stand-in for the model, used in tests and when no Nebius key is configured.
@@ -16,6 +17,7 @@ export const SUBTASK_MARKER = "[subtask]";
 export const SUPERVISE_MARKER = "[supervise]";
 export const MISSION_PLAN_MARKER = "[mission-plan]";
 export const MISSION_REPORT_MARKER = "[mission-report]";
+export const SIMULATE_MARKER = "[simulate]";
 /** A side-by-side answer with tools off, with and without the persona from imported accounts. */
 export const COMPARE_MARKER = "[compare]";
 
@@ -306,6 +308,15 @@ export const mockProvider: LlmProvider = {
 
     if (userText.startsWith(DAILY_MARKER)) {
       return { content: JSON.stringify(dailyEditorial(userText.slice(DAILY_MARKER.length).trim())), toolCalls: [] };
+    }
+    if (userText.startsWith(SIMULATE_MARKER)) {
+      let input: SimulationInput = { goal: "reach my goal" };
+      try {
+        input = JSON.parse(userText.slice(SIMULATE_MARKER.length).trim());
+      } catch {
+        // simulate a generic goal
+      }
+      return { content: JSON.stringify(standInSimulation(input)), toolCalls: [] };
     }
     if (userText.startsWith(STORY_MARKER)) {
       return { content: story(userText.slice(STORY_MARKER.length).trim()), toolCalls: [] };

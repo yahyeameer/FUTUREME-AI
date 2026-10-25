@@ -1,4 +1,4 @@
-// The night shift: publishes the day's FutureMe Daily and writes a morning brief while the user sleeps.
+// The night shift: publishes the day's TOMORA Daily and writes a morning brief while the user sleeps.
 //   npm run night-shift            run once now
 //   npm run night-shift -- --loop  wait for NIGHT_SHIFT_AT (default 05:30, server time) every day; the container does this
 import { openDb } from "../src/lib/db";

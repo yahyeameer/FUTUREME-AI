@@ -95,7 +95,7 @@ export function MemoryVault() {
     <PageFrame width="wide" rail={<VaultRail />} railTitle="Privacy">
       <PageHeader
         eyebrow="Memory Vault"
-        title="What FutureMe remembers"
+        title="What TOMORA remembers"
         description="Every memory is a readable note you can open, correct or delete. The vault is plain Markdown with wiki-links, so it also opens in Obsidian."
         actions={
           <>
@@ -244,7 +244,7 @@ export function MemoryVault() {
           <DialogHeader>
             <DialogTitle>Delete {pluralize(selected.size, "memory", "memories")}?</DialogTitle>
             <DialogDescription>
-              {workspace.runtime.mode === "live" ? "The notes are removed from your vault. " : ""}FutureMe won&apos;t be able to recall them again. This can&apos;t be undone.
+              {workspace.runtime.mode === "live" ? "The notes are removed from your vault. " : ""}TOMORA won&apos;t be able to recall them again. This can&apos;t be undone.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
@@ -312,7 +312,7 @@ function VaultRail() {
         </ul>
         <p className="mt-3 text-[12px] text-subtle">AI interpretations and imagined scenarios are never treated as evidence that something happened.</p>
       </RailSection>
-      <RailSection title="What FutureMe can recall">
+      <RailSection title="What TOMORA can recall">
         {workspace.capabilities.memoryRetrievalControl ? (
           <p className="text-[12.5px] text-muted-foreground">
             {hidden ? `${pluralize(hidden, "memory", "memories")} excluded from conversations.` : "Every memory here can be recalled."} Open a memory to change this.

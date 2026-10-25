@@ -8,7 +8,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { usePreferences } from "@/lib/preferences";
 import { useWorkspaceContext } from "@/lib/workspace-store";
 
-/** Renders children once the workspace has loaded; sends people without a profile to onboarding. */
+/** Renders children once the workspace has loaded; sends people without a profile to the TOMORA welcome page. */
 export function WorkspaceGate({ children }: { children: React.ReactNode }) {
   const { status, workspace, error, reload } = useWorkspaceContext();
   const { set } = usePreferences();
@@ -17,7 +17,8 @@ export function WorkspaceGate({ children }: { children: React.ReactNode }) {
   const needsOnboarding = status === "ready" && !workspace?.profile && pathname !== "/settings";
 
   React.useEffect(() => {
-    if (needsOnboarding) router.replace("/onboarding");
+    // Someone new starts at the welcome page, whose "Explore my future" leads into onboarding.
+    if (needsOnboarding) router.replace("/welcome");
   }, [needsOnboarding, router]);
 
   if (status === "error") {

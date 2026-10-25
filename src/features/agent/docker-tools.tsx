@@ -26,7 +26,7 @@ export function DockerTools() {
     return (
       <div className="card p-5">
         <EmptyState icon={Container} title="Docker tools need the server">
-          On the FutureMe server the agent can use tools from Docker&apos;s MCP Toolkit, each running in its own container.
+          On the TOMORA server the agent can use tools from Docker&apos;s MCP Toolkit, each running in its own container.
         </EmptyState>
       </div>
     );
@@ -95,7 +95,7 @@ function RequestCard({ request: r }: { request: DockerToolRequest }) {
     setBusy(decision);
     await run(
       (s) => {
-        if (!s.decideDockerTool) throw new Error("Docker tools need the FutureMe server.");
+        if (!s.decideDockerTool) throw new Error("Docker tools need the TOMORA server.");
         return s.decideDockerTool(r.id, decision);
       },
       decision === "approve" ? `Ran ${r.title}.` : "Declined. Nothing ran.",

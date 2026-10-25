@@ -107,7 +107,7 @@ jobs:
           timeout 120 bash -c 'until curl -sf http://127.0.0.1:3000/daily > /dev/null; do sleep 2; done'
       - name: Smoke test
         run: |
-          curl -sf http://127.0.0.1:3000/daily | grep -q "FutureMe Daily"
+          curl -sf http://127.0.0.1:3000/daily | grep -q "TOMORA Daily"
           curl -sf http://127.0.0.1:3000/api/workspace | grep -q "farmers"
           curl -sf http://127.0.0.1:3000/api/workspace | grep -q '"vision"'
       - name: Docker Agent runtime

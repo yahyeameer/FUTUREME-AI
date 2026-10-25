@@ -19,6 +19,8 @@ export interface Completion {
   /** Nemotron's reasoning trace, when reasoning was on. */
   reasoning?: string | null;
   usage?: { prompt: number; completion: number; reasoning: number };
+  /** True when the reply stopped at the token limit, so it may be cut off mid-sentence or mid-JSON. */
+  truncated?: boolean;
 }
 
 /** "on" lets Nemotron think before it answers; "off" answers straight away (fast, cheap). */
@@ -33,6 +35,8 @@ export interface CompleteOptions {
   reasoning?: ReasoningMode;
   /** Constrains the reply to this JSON schema (structured output). Only for calls without tools. */
   schema?: JsonSchemaSpec;
+  /** Caps the reply, reasoning included. Unset leaves the server's default. */
+  maxTokens?: number;
   /** Streams the reply as it is written. */
   onText?: (text: string) => void;
   /** Streams the reasoning trace as it is written. */
@@ -92,6 +96,7 @@ function openAiCompatible(name: string, client: OpenAI, model: string, features:
         model,
         messages,
         ...(tools?.length ? { tools, tool_choice: "auto" as const } : {}),
+        ...(opts.maxTokens ? { max_tokens: opts.maxTokens } : {}),
         ...(reasoning ? { chat_template_kwargs: { enable_thinking: reasoning === "on" } } : {}),
         // Tool calling and a forced JSON reply don't mix, so the schema only applies to calls without tools.
         ...(opts.schema && !tools?.length && features.nemotron
@@ -111,6 +116,7 @@ function openAiCompatible(name: string, client: OpenAI, model: string, features:
             .map((c) => ({ id: c.id, name: c.function.name, arguments: c.function.arguments })),
           reasoning: msg?.reasoning_content ?? null,
           usage: usageOf(res.usage as NemotronUsage),
+          truncated: res.choices[0]?.finish_reason === "length",
         };
       }
 
@@ -119,9 +125,11 @@ function openAiCompatible(name: string, client: OpenAI, model: string, features:
       let content = "";
       let thought = "";
       let usage: Completion["usage"];
+      let truncated = false;
       const calls: { id: string; name: string; arguments: string }[] = [];
       for await (const chunk of stream) {
         if (chunk.usage) usage = usageOf(chunk.usage as NemotronUsage);
+        if (chunk.choices[0]?.finish_reason === "length") truncated = true;
         const delta = chunk.choices[0]?.delta as NemotronDelta | undefined;
         if (!delta) continue;
         if (delta.reasoning_content) {
@@ -144,6 +152,7 @@ function openAiCompatible(name: string, client: OpenAI, model: string, features:
         toolCalls: calls.filter(Boolean).map((c, i) => ({ id: c.id || `call_${i}`, name: c.name, arguments: c.arguments })),
         reasoning: thought || null,
         usage,
+        truncated,
       };
     },
   };

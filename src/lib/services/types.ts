@@ -2,12 +2,16 @@ import type {
   Mission,
   CoachingStyle,
   CouncilSession,
+  DecisionInputs,
+  DecisionView,
   NightShift,
   ResearchRun,
   DailyEdition,
   MemoryDraft,
   PlanProposal,
   Profile,
+  Simulation,
+  Situation,
   SkillRun,
   TaskPatch,
   TurnEvent,
@@ -49,6 +53,25 @@ export interface ReflectionService {
   generateReflection(): Promise<Workspace>;
 }
 
+/** Three conditional routes to one goal, compared side by side. */
+export interface SimulatorService {
+  simulatePaths(goal: string, situation: Situation | null): Promise<{ workspace: Workspace; simulation: Simulation }>;
+  saveSimulation(simulationId: string): Promise<Workspace>;
+  /** Makes one road the user's chosen road, which every agent then reasons with. */
+  chooseRoad(simulationId: string, index: number): Promise<Workspace>;
+  clearRoad(): Promise<Workspace>;
+}
+
+/** Route decisions: the rules, then Jev (live mode only), with the person's choice and how it went. */
+export interface DecisionService {
+  decideRoutes(simulationId: string, situation: Situation | null, inputs: DecisionInputs): Promise<{ workspace: Workspace; decision: DecisionView }>;
+  chooseDecisionRoute(decisionId: string, optionId: string | null, kind: "accepted" | "rejected", reason?: string): Promise<Workspace>;
+  checkAssumption(decisionId: string, optionId: string, assumption: string, evidence: string, source?: string): Promise<{ workspace: Workspace; check: DecisionView }>;
+  recordDecisionOutcome(decisionId: string, text: string): Promise<Workspace>;
+  deleteDecisions(simulationId: string): Promise<Workspace>;
+  saveDecisionKey(key: string | null): Promise<Workspace>;
+}
+
 export interface DailyService {
   publishEdition(): Promise<{ workspace: Workspace; edition: DailyEdition }>;
 }
@@ -57,7 +80,7 @@ export interface SkillService {
   runSkill(skillId: string, inputs: Record<string, string>, onUpdate: (run: SkillRun) => void): Promise<{ workspace: Workspace; run: SkillRun }>;
 }
 
-/** FutureMe's agent team beyond the conversation: the council, the fact checker, research, the night shift and packs. */
+/** TOMORA's agent team beyond the conversation: the council, the fact checker, research, the night shift and packs. */
 export interface AgentTeamService {
   askCouncil(question: string): Promise<{ workspace: Workspace; session: CouncilSession }>;
   saveCouncil(sessionId: string): Promise<Workspace>;
@@ -67,6 +90,10 @@ export interface AgentTeamService {
   setPack(packId: string | null): Promise<Workspace>;
   /** Live only: run (or decline) a Docker MCP tool call the agent asked to make. */
   decideDockerTool?(requestId: string, decision: "approve" | "reject"): Promise<Workspace>;
+  /** Live only: do (or decline) something the agent asked to do, such as sending an email or adding an event. */
+  decideAgentAction?(requestId: string, decision: "approve" | "reject"): Promise<Workspace>;
+  /** Live only: forget the connected Google account. */
+  disconnectGoogle?(): Promise<Workspace>;
   /** Starts a mission and returns once it is recorded; on the server it keeps running, so poll `load` while it does. */
   startMission(goal: string): Promise<{ workspace: Workspace; mission: Mission }>;
 }
@@ -79,6 +106,8 @@ export interface FutureMeService
     RoadmapService,
     MemoryService,
     ReflectionService,
+    SimulatorService,
+    DecisionService,
     DailyService,
     SkillService,
     AgentTeamService {

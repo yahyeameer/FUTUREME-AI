@@ -1,4 +1,4 @@
-# FutureMe AI: the Next.js app and its Docker Agent future-self agent in one image.
+# TOMORA: the Next.js app and its Docker Agent future-self agent in one image.
 #   docker build -t futureme .
 #   docker run -p 3000:3000 -v futureme-data:/data -e NEBIUS_API_KEY=... -e NEBIUS_MODEL=... futureme
 

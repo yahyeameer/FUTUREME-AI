@@ -1,14 +1,41 @@
 import type { AgentInfo, Pack } from "@/types";
 
-// What the browser knows about FutureMe's agent team, for labels and for demo mode, which can't read agents/futureme.yaml.
+// What the browser knows about TOMORA's agent team, for labels and for demo mode, which can't read agents/futureme.yaml.
 // tests/agents.test.ts checks this list against the YAML, so the two can't drift apart.
 export const TEAM: AgentInfo[] = [
   {
     name: "root",
     label: "Future self",
     role: "chat",
-    description: "FutureMe, the user's future self, from the year they're reaching for.",
-    tools: ["search_memory", "search_social", "get_persona", "propose_memory", "propose_plan", "delegate_task", "spawn_agent", "save_file", "read_file", "list_files", "docker_mcp"],
+    description: "TOMORA's future self, an AI persona of the user from the year they're reaching for.",
+    tools: [
+      "search_memory",
+      "search_social",
+      "get_persona",
+      "propose_memory",
+      "propose_plan",
+      "delegate_task",
+      "spawn_agent",
+      "save_file",
+      "read_file",
+      "list_files",
+      "web_search",
+      "fetch_url",
+      "get_current_time",
+      "email_search",
+      "email_read",
+      "email_draft",
+      "email_send",
+      "calendar_list_events",
+      "calendar_create_event",
+      "send_message",
+      "list_tasks",
+      "add_task",
+      "complete_task",
+      "edit_file",
+      "delete_file",
+      "docker_mcp",
+    ],
     subAgents: [],
   },
   {
@@ -124,7 +151,7 @@ export const TEAM: AgentInfo[] = [
     role: "schedule",
     description:
       "Runs overnight. Reviews the day and prepares a short morning brief with tomorrow's focus.",
-    tools: ["search_memory", "propose_plan"],
+    tools: ["search_memory", "propose_plan", "list_tasks", "calendar_list_events", "get_current_time"],
     subAgents: [],
   },
   {

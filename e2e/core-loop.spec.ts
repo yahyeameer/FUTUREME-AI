@@ -1,10 +1,14 @@
 import { expect, test } from "@playwright/test";
 
-// Runs against the FutureMe server (stand-in model by default), so every step goes through the real API routes.
+// Runs against the TOMORA server (stand-in model by default), so every step goes through the real API routes.
 test("onboarding -> reflection -> chat with memory -> approve plan -> complete task -> daily", async ({ page }) => {
+  // Someone new lands on the TOMORA welcome page; its primary CTA leads into onboarding.
   await page.goto("/");
+  await expect(page).toHaveURL(/\/welcome$/);
+  await expect(page.getByRole("heading", { level: 1, name: "Tomorrow starts with you." })).toBeVisible();
+  await page.getByRole("link", { name: /Explore my future/ }).first().click();
   await expect(page).toHaveURL(/\/onboarding$/);
-  await page.getByLabel("What should FutureMe call you?").fill("Amina");
+  await page.getByLabel("What should TOMORA call you?").fill("Amina");
   await page.getByLabel("Your ambition").fill("Lead an AI research lab in Hargeisa");
   await page.getByRole("button", { name: "Continue" }).click();
   await page.getByRole("button", { name: "Continue" }).click();
@@ -35,7 +39,7 @@ test("onboarding -> reflection -> chat with memory -> approve plan -> complete t
   await page.screenshot({ path: "e2e/screenshots/roadmap.png", fullPage: true });
 
   await page.goto("/daily");
-  await expect(page.getByRole("heading", { name: /FutureMe Daily/ })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /TOMORA Daily/ })).toBeVisible();
   await page.getByRole("button", { name: /Publish (today's|the first) edition/ }).first().click();
   await expect(page.getByRole("heading", { name: /Amina completes 1 step/ })).toBeVisible({ timeout: 30_000 });
   await page.screenshot({ path: "e2e/screenshots/daily.png", fullPage: true });
@@ -88,4 +92,42 @@ test("handoff to a helper -> supervisor -> mission", async ({ page }) => {
   const log = page.getByRole("region", { name: "Supervisor" });
   await expect(log.getByRole("button", { name: /Created: Analyst helper/ })).toBeVisible();
   await expect(log.getByRole("button", { name: /Mission task/ })).toHaveCount(3);
+});
+
+// The public welcome page: every link lands somewhere real, the preview works by keyboard, and phones don't scroll
+// sideways. Runs last, after onboarding above, so a profile exists and "Explore my future" opens the app itself.
+test("welcome page: links, keyboard preview, phone layout and brand assets", async ({ page, request }) => {
+  await page.goto("/welcome");
+  await expect(page).toHaveTitle("TOMORA: Tomorrow starts with you.");
+
+  // Every in-page link points at a section that exists.
+  const anchors = await page.locator('a[href^="#"]').evaluateAll((as) => as.map((a) => a.getAttribute("href")!));
+  expect(anchors.length).toBeGreaterThan(5);
+  for (const href of new Set(anchors)) await expect(page.locator(href)).toHaveCount(1);
+
+  // The branching preview's tabs move with the arrow keys.
+  const tabs = page.getByRole("tab");
+  await tabs.nth(1).focus();
+  await page.keyboard.press("ArrowRight");
+  await expect(tabs.nth(2)).toHaveAttribute("aria-selected", "true");
+  await expect(page.getByRole("tabpanel")).toContainText("University-focused route");
+
+  // The what-if is plain arithmetic: 6 hours a week instead of 12 doubles the example road's 1–2 years.
+  await page.getByLabel("Hours a week you can give").fill("6");
+  await expect(page.locator("#futures").getByText("2–4 years")).toBeVisible();
+
+  // With a profile, the primary CTA goes into the app (through /start, which waits for the workspace).
+  await page.getByRole("link", { name: /Explore my future/ }).first().click();
+  await expect(page).toHaveURL(/\/$/);
+
+  // Phone: no sideways scroll, and the menu opens and links work.
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/welcome");
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  await page.getByRole("button", { name: "Open menu" }).click();
+  await page.locator("#mobile-sections").getByRole("link", { name: "FAQ" }).click();
+  await expect(page.getByRole("heading", { name: "Frequently asked questions." })).toBeInViewport();
+
+  for (const path of ["/icon.svg", "/apple-icon", "/manifest.webmanifest", "/opengraph-image"]) expect((await request.get(path)).ok()).toBe(true);
+  expect(await (await request.get("/manifest.webmanifest")).json()).toMatchObject({ short_name: "TOMORA" });
 });

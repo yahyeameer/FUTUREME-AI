@@ -11,7 +11,7 @@ import { deleteSource, importSocial } from "./store";
 //   LinkedIn  "Sign In with LinkedIn using OpenID Connect": name and photo only. Posts and career need LinkedIn's
 //             partner programs, so use the data export for those.
 //   Facebook  Facebook Login with user_posts: your posts. Without App Review this works only for people with a role on
-//             the app (admins, developers, testers), which is fine for your own FutureMe.
+//             the app (admins, developers, testers), which is fine for your own TOMORA.
 // Tokens are stored encrypted (secrets.ts) and revoked at the platform when you disconnect.
 
 export interface Token {
@@ -186,14 +186,14 @@ export const PROVIDERS: Record<OAuthPlatform, Provider> = {
 
 export const oauthConfigured = (p: Platform) => isOAuthPlatform(p) && !!PROVIDERS[p].clientId() && (PROVIDERS[p].pkce || !!PROVIDERS[p].clientSecret());
 
-/** Where the platform sends the person back. Set FUTUREME_PUBLIC_URL when FutureMe runs behind a proxy or on a domain. */
+/** Where the platform sends the person back. Set FUTUREME_PUBLIC_URL when TOMORA runs behind a proxy or on a domain. */
 export const publicBase = (origin: string) => (process.env.FUTUREME_PUBLIC_URL ?? process.env.TWIN_PUBLIC_URL ?? origin).replace(/\/+$/, "");
 
 export const redirectUri = (platform: Platform, origin: string) => `${publicBase(origin)}/api/connections/oauth/${platform}/callback`;
 
 const STATE_TTL_MINUTES = 10;
 
-/** Step 1: the link to the platform's consent screen. The person has already agreed in FutureMe. */
+/** Step 1: the link to the platform's consent screen. The person has already agreed in TOMORA. */
 export function startOAuth(db: Db, platform: Platform, origin: string, consent: boolean): string {
   if (!consent) throw new Error("Agree to the connection first.");
   if (!isOAuthPlatform(platform) || !oauthConfigured(platform)) throw new Error(`Signing in with ${PLATFORM_NAMES[platform]} isn't set up on this server. Import your data export instead.`);
@@ -227,7 +227,7 @@ export async function finishOAuth(
   if (params.state) db.prepare("DELETE FROM social_oauth_states WHERE state = ?").run(params.state);
   if (params.error) throw new Error(`${PLATFORM_NAMES[platform]} said: ${params.error}. Nothing was imported.`);
   if (!row || row.platform !== platform || !params.code || !isOAuthPlatform(platform)) {
-    throw new Error("This sign-in link expired or didn't come from FutureMe. Start again from Connected accounts.");
+    throw new Error("This sign-in link expired or didn't come from TOMORA. Start again from Connected accounts.");
   }
 
   const provider = PROVIDERS[platform];

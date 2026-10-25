@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowLeft, ArrowRight, ArrowUpRight, BookmarkPlus, Check, Clock, Flag, Loader2, MessageCircle, Mountain, Quote, RefreshCw } from "lucide-react";
+import { ArrowLeft, ArrowRight, ArrowUpRight, BookmarkPlus, Check, Clock, Flag, Loader2, MessageCircle, Mountain, Quote, RefreshCw, Split } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import Link from "next/link";
 import * as React from "react";
@@ -52,7 +52,7 @@ function Cover({ onBegin, generating }: { onBegin: () => void; generating: boole
       <p className="relative t-label">A future reflection for {profile.name}</p>
       <h1 className="relative mt-5 max-w-3xl t-display text-balance">What could {profile.horizonYear} look like?</h1>
       <p className="relative mt-5 max-w-lg text-[14px] text-muted-foreground">
-        FutureMe will imagine one possible future from your dream, your situation and the obstacles you named. It&apos;s a direction to explore, not a prediction.
+        TOMORA will imagine one possible future from your dream, your situation and the obstacles you named. It&apos;s a direction to explore, not a prediction.
       </p>
       <Button variant="primary" size="lg" className="relative mt-8" onClick={onBegin} disabled={generating}>
         {generating ? (
@@ -323,7 +323,7 @@ function Chapters({ reflection, onRegenerate, generating }: { reflection: Reflec
                     <span className="mt-1 block t-meta not-italic">{letter.signoff ? `${letter.signoff} · ` : ""}writing from {year}</span>
                   </p>
                   <p className="flex flex-wrap items-center gap-x-2 gap-y-1 t-meta break-all">
-                    <ProvenanceBadge value="ai-inferred" /> imagined by FutureMe{reflection.path ? ` · saved as ${reflection.path}` : ""}
+                    <ProvenanceBadge value="ai-inferred" /> imagined by TOMORA{reflection.path ? ` · saved as ${reflection.path}` : ""}
                   </p>
                 </div>
               </motion.article>
@@ -710,6 +710,11 @@ function Finale({
           <Button asChild variant="secondary" size="lg">
             <Link href="/future-self">
               <MessageCircle /> Chat with your future
+            </Link>
+          </Button>
+          <Button asChild variant="ghost" size="lg">
+            <Link href="/simulator">
+              <Split /> Explore roads
             </Link>
           </Button>
           <Button asChild variant="ghost" size="lg">

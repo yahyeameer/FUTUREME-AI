@@ -95,7 +95,7 @@ export const SAMPLE_FILES: ExportFile[] = [
     name: "twitter-2025-09-30/data/tweets.js",
     text: `window.YTD.tweets.part0 = ${JSON.stringify(TWEETS, null, 2)}`,
   },
-  // Files a real archive has that FutureMe never reads.
+  // Files a real archive has that TOMORA never reads.
   { name: "twitter-2025-09-30/data/direct-messages.js", text: "window.YTD.direct_messages.part0 = []" },
   { name: "Basic_LinkedInDataExport/Connections.csv", text: "First Name,Last Name\nA,B" },
 ];

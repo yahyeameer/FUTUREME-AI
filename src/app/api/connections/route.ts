@@ -80,12 +80,12 @@ export async function POST(request: Request) {
         removeApifyKey(d);
         break;
       case "claimStart":
-        if (!apifyRunner(d)) throw new Error("Add your Apify key first, so FutureMe can fetch public profiles.");
+        if (!apifyRunner(d)) throw new Error("Add your Apify key first, so TOMORA can fetch public profiles.");
         extra = { claim: startClaim(d, a.platform, a.account, a.consent) };
         break;
       case "claimCheck": {
         const runner = apifyRunner(d);
-        if (!runner) throw new Error("Add your Apify key first, so FutureMe can fetch public profiles.");
+        if (!runner) throw new Error("Add your Apify key first, so TOMORA can fetch public profiles.");
         const check = await checkClaim(d, a.id, runner);
         // The person agreed to learn from this account when they asked for the code, so a verified fetch can go straight in.
         if (check.verified && a.autoImport) extra.imported = [await importClaim(d, a.id, true)];

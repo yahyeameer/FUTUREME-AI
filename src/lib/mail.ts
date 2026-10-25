@@ -23,6 +23,18 @@ export class AgentMailError extends Error {
   }
 }
 
+export interface AgentMailMessage {
+  message_id: string;
+  thread_id?: string;
+  from: string;
+  to?: string[] | string;
+  subject?: string | null;
+  preview?: string | null;
+  labels?: string[];
+  timestamp?: string;
+  created_at?: string;
+}
+
 /** A thin AgentMail REST client. `fetchImpl` is swapped out in tests. */
 export class AgentMail {
   constructor(
@@ -52,6 +64,15 @@ export class AgentMail {
 
   send(inboxId: string, m: { to: string; cc?: string; subject: string; text: string }) {
     return this.call<{ message_id: string; thread_id: string }>(`/inboxes/${encodeURIComponent(inboxId)}/messages/send`, { body: { ...m, labels: ["futureme-twin"] } });
+  }
+
+  async listMessages(inboxId: string, limit = 20) {
+    const res = await this.call<{ messages?: AgentMailMessage[] }>(`/inboxes/${encodeURIComponent(inboxId)}/messages?limit=${limit}`);
+    return res.messages ?? [];
+  }
+
+  getMessage(inboxId: string, messageId: string) {
+    return this.call<AgentMailMessage & { text?: string | null; html?: string | null }>(`/inboxes/${encodeURIComponent(inboxId)}/messages/${encodeURIComponent(messageId)}`);
   }
 
   /** Permanently deletes one message from the inbox. Already gone is fine. */

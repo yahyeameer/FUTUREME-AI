@@ -8,7 +8,7 @@ import { usePreferences } from "./preferences";
 import { createLiveService, probeLive } from "./services/live-service";
 import type { FutureMeService } from "./services/types";
 
-// Client store for the workspace snapshot. Picks the live service when the FutureMe server answers
+// Client store for the workspace snapshot. Picks the live service when the TOMORA server answers
 // (or when the user chose it), and the demo service otherwise.
 
 export interface PendingTurn {
@@ -72,16 +72,16 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
         const live = await probeLive();
         if (live) {
           svc = createLiveService();
-          reason = mode === "live" ? "You chose the FutureMe server." : "The FutureMe server is available.";
+          reason = mode === "live" ? "You chose the TOMORA server." : "The TOMORA server is available.";
         } else if (mode === "live") {
           if (!cancelled) {
-            setError("The FutureMe server isn't responding. Switch to demo mode in Settings, or try again.");
+            setError("The TOMORA server isn't responding. Switch to demo mode in Settings, or try again.");
             setStatus("error");
           }
           return;
         } else {
           svc = createDemoService();
-          reason = "The FutureMe server isn't reachable, so demo data is shown.";
+          reason = "The TOMORA server isn't reachable, so demo data is shown.";
         }
       }
       try {

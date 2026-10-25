@@ -1,4 +1,5 @@
 import { parseJsonReply, runAgent, type AgentName } from "./agents";
+import { withChosenRoad } from "./chosen-road";
 import type { Db } from "./db";
 import { getProfile, type Profile } from "./futureme";
 import { CHAIR_MARKER, COUNCIL_MARKER } from "./mock-llm";
@@ -58,7 +59,7 @@ export async function runCouncil(db: Db, rawQuestion: string): Promise<CouncilRe
   const question = rawQuestion.trim();
   if (question.length < 3) throw new Error("Ask the council a question.");
   if (question.length > 600) throw new Error("Keep the question under 600 characters.");
-  const context = { role: "system" as const, content: profileContext(profile) };
+  const context = { role: "system" as const, content: withChosenRoad(db, profileContext(profile)) };
 
   // The voices run in parallel; one failing doesn't sink the others.
   const settled = await Promise.allSettled(

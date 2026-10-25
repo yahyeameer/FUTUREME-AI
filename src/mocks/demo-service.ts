@@ -1,7 +1,10 @@
 import type { FutureMeService } from "@/lib/services/types";
 import { skillDef, skillsFor } from "@/lib/skills";
+import { emptyMeta, type DecisionResult } from "@/lib/decision/contract";
+import { buildRouteRequest, rulesOnlyResult } from "@/lib/decision/request";
 import { activeMilestone, liveMemories, nextStep } from "@/lib/derive";
 import { checkClaims, standInBrief, VOICES } from "@/lib/mock-llm";
+import { SIMULATION_FRAMING, formatCost, formatSpan, normalizeSituation, rankPaths, standInSimulation, toPaths } from "@/lib/simulator-paths";
 import { ruleChecks, verdictOf } from "@/lib/supervisor-rules";
 import { PACKS, TEAM } from "@/lib/team-info";
 import type {
@@ -19,6 +22,7 @@ import type {
   PlanProposal,
   Profile,
   Reflection,
+  Simulation,
   SkillRun,
   Task,
   TurnEvent,
@@ -130,6 +134,8 @@ export function createDemoService(): FutureMeService {
       activePack: null,
     },
     councils: state.councils ?? [],
+    simulations: state.simulations ?? [],
+    chosenRoad: state.chosenRoad ?? null,
     nightShifts: state.nightShifts ?? [],
     research: [],
     missions: (state.missions ?? []).map((m) => replay(m, Date.now())),
@@ -365,7 +371,7 @@ export function createDemoService(): FutureMeService {
       await wait(1100);
       const today = new Date().toISOString().slice(0, 10);
       if (!state.editionDates.includes(today)) state.editionDates.push(today);
-      log("daily_published", "Today's FutureMe Daily went to press", "/daily");
+      log("daily_published", "Today's TOMORA Daily went to press", "/daily");
       const workspace = commit();
       return { workspace, edition: workspace.editions[0] };
     },
@@ -393,6 +399,122 @@ export function createDemoService(): FutureMeService {
       };
       (state.councils ??= []).unshift(session);
       return { workspace: commit(), session };
+    },
+
+    async simulatePaths(goal, rawSituation) {
+      if (!state.profile) throw new Error("Complete onboarding first.");
+      const g = goal.trim();
+      if (g.length < 5) throw new Error("Describe the goal in a few words.");
+      await wait(1800);
+      const hits = searchDemo(state, `${g} ${state.profile.dream}`);
+      const p = state.profile;
+      const situation = normalizeSituation(rawSituation);
+      const raw = standInSimulation({ goal: g, name: p.name, current: p.current, resources: p.resources, challenges: p.challenges, notes: hits.map((m) => m.title), situation });
+      const simulation: Simulation = {
+        id: id("sim"),
+        goal: raw.goal,
+        createdAt: now(),
+        paths: toPaths(raw.paths),
+        situation,
+        sharedUnknowns: raw.shared_unknowns,
+        howToChoose: raw.how_to_choose,
+        grounding: { profile: true, notes: hits.map((m) => ({ memoryId: m.id, title: m.title })), social: [] },
+        simulated: true,
+      };
+      (state.simulations ??= []).unshift(simulation);
+      return { workspace: commit(), simulation };
+    },
+
+    async saveSimulation(simulationId) {
+      const s = state.simulations?.find((x) => x.id === simulationId);
+      if (!s) throw new Error("That simulation no longer exists.");
+      if (!s.memoryId) {
+        const body = [
+          `**Goal:** ${s.goal}`,
+          `> ${SIMULATION_FRAMING}`,
+          ...rankPaths(s.paths, s.situation).map(({ index }) => s.paths[index]).map((x) => `## ${x.name}\n\n${x.summary}\n\n- **Time:** ${formatSpan(x.months)}\n- **Cost:** ${formatCost(x.cost)}\n\n**Holds only if**\n\n${x.assumptions.map((a) => `- ${a}`).join("\n")}`),
+        ].join("\n\n");
+        const mem = addMemory({ title: `Simulation: ${s.goal.slice(0, 80)}`, kind: "reflection", tags: ["simulation", "imagined"], body }, "Saved from the Future Simulator", "ai-inferred");
+        s.memoryId = mem.id;
+        log("memory_saved", `Memory saved: ${mem.title}`, `/memory/${mem.id}`);
+      }
+      return commit();
+    },
+
+    async chooseRoad(simulationId, index) {
+      const s = state.simulations?.find((x) => x.id === simulationId);
+      const path = s?.paths[index];
+      if (!s || !path) throw new Error("That road isn't in this simulation.");
+      const body = `I chose this road in the Future Simulator for **${s.goal}**: **${path.name}**.\n\n> ${SIMULATION_FRAMING}\n\n${path.summary}\n\n## Holds only if\n\n${path.assumptions.map((a) => `- ${a}`).join("\n")}`;
+      const existing = state.memories.find((m) => m.tags.includes("chosen-road"));
+      if (existing) Object.assign(existing, { body, updatedAt: now() });
+      const mem = existing ?? addMemory({ title: "Chosen road", kind: "goal", tags: ["chosen-road", "simulation"], body }, "Chosen in the Future Simulator");
+      state.chosenRoad = { simulationId, index, goal: s.goal, path, chosenAt: now(), memoryId: mem.id };
+      log("goal_created", `Chose a road: ${path.name}`, "/simulator");
+      return commit();
+    },
+
+    async clearRoad() {
+      state.chosenRoad = null;
+      return commit();
+    },
+
+    // Demo mode has no Jev, so a decision here is only the rules' half: every check and calculation, no selection.
+    async decideRoutes(simulationId, rawSituation, inputs) {
+      const s = state.simulations?.find((x) => x.id === simulationId);
+      if (!s) throw new Error("That simulation no longer exists.");
+      const situation = normalizeSituation(rawSituation) ?? s.situation;
+      if (!situation) throw new Error("Add your starting point first, so the routes can be checked against it.");
+      const p = state.profile!;
+      const input = { simulationId: 0, goal: s.goal, paths: s.paths, situation, original: s.situation, extras: inputs, profile: { dream: p.dream, values: p.values.join(", "), challenges: p.challenges }, memory: [] };
+      const { request, checks } = buildRouteRequest(input, `demo-${Date.now()}`);
+      const result = rulesOnlyResult(request, checks);
+      result.reasons.push("Demo mode can't reach Jev. Run TOMORA live with a TypeSafe key to get a recommendation.");
+      const decision = { id: request.decisionId, kind: "rank_paths" as const, parentId: null, createdAt: now(), request, result, choice: null, outcome: null };
+      (s.decisions ??= []).unshift(decision);
+      return { workspace: commit(), decision };
+    },
+
+    async chooseDecisionRoute(decisionId, optionId, kind, reason) {
+      const d = state.simulations?.flatMap((x) => x.decisions ?? []).find((x) => x.id === decisionId);
+      if (!d) throw new Error("That decision no longer exists.");
+      const selected = (d.result as DecisionResult).selectedOptionId;
+      d.choice = { optionId, kind: kind === "rejected" ? "rejected" : optionId === selected ? "accepted" : "override", reason: reason?.trim() || null, at: now() };
+      return commit();
+    },
+
+    async checkAssumption(decisionId, optionId, assumption) {
+      const s = state.simulations?.find((x) => x.decisions?.some((d) => d.id === decisionId));
+      if (!s) throw new Error("That decision no longer exists.");
+      const check = {
+        id: id("check"),
+        kind: "branch_condition" as const,
+        parentId: decisionId,
+        createdAt: now(),
+        request: { decisionId, optionId, assumption, evidence: "", source: null },
+        result: { decisionId, optionId, assumption, outcome: "no_evidence" as const, producer: "rules" as const, probability: null, relevance: null, switchTo: null, reasons: ["Demo mode can't reach Jev, so this assumption wasn't checked."], meta: emptyMeta() },
+        choice: null,
+        outcome: null,
+      };
+      s.decisions!.unshift(check);
+      return { workspace: commit(), check };
+    },
+
+    async recordDecisionOutcome(decisionId, text) {
+      const d = state.simulations?.flatMap((x) => x.decisions ?? []).find((x) => x.id === decisionId);
+      if (!d) throw new Error("That decision no longer exists.");
+      d.outcome = { text: text.trim(), at: now() };
+      return commit();
+    },
+
+    async deleteDecisions(simulationId) {
+      const s = state.simulations?.find((x) => x.id === simulationId);
+      if (s) s.decisions = [];
+      return commit();
+    },
+
+    async saveDecisionKey() {
+      throw new Error("Keys are saved on the server. Run TOMORA live to add a TypeSafe key.");
     },
 
     async saveCouncil(sessionId) {
@@ -430,7 +552,7 @@ export function createDemoService(): FutureMeService {
     },
 
     async runResearch() {
-      throw new Error("Web research needs the FutureMe server. Demo mode never goes online.");
+      throw new Error("Web research needs the TOMORA server. Demo mode never goes online.");
     },
 
     async runNightShift() {
@@ -458,12 +580,12 @@ export function createDemoService(): FutureMeService {
         simulated: true,
       };
       (state.nightShifts ??= []).unshift(shift);
-      log("daily_published", "The night shift published today's FutureMe Daily", "/daily");
+      log("daily_published", "The night shift published today's TOMORA Daily", "/daily");
       return { workspace: commit(), shift };
     },
 
     async setPack() {
-      throw new Error("Persona packs need the FutureMe server.");
+      throw new Error("Persona packs need the TOMORA server.");
     },
 
     async startMission(goal) {

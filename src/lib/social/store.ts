@@ -96,7 +96,7 @@ export async function importSocial(
   raw: unknown,
   opts: { method: ImportMethod; consent: boolean; consentAt?: string; provider?: LlmProvider },
 ): Promise<{ platform: Platform; posts: number; notes: string[] }> {
-  if (!opts.consent) throw new Error("Agree to the import first, so FutureMe knows you chose to share this.");
+  if (!opts.consent) throw new Error("Agree to the import first, so TOMORA knows you chose to share this.");
   const imp = SocialImportSchema.parse(raw);
   const old = db.prepare("SELECT notes FROM social_sources WHERE platform = ?").get(imp.platform) as { notes: string } | undefined;
   if (old) removeNotes(JSON.parse(old.notes));

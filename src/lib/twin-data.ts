@@ -92,7 +92,7 @@ export function exportTwinData(db: Db) {
 /**
  * Deletes everything the twin holds. At ElevenLabs: every call's conversation, the agent and the voices. At AgentMail:
  * every message the twin received. Here: recordings, call and email notes, and all twin tables. The rest of
- * FutureMe (goals, memories, other notes) and the voice engine keys are untouched.
+ * TOMORA (goals, memories, other notes) and the voice engine keys are untouched.
  */
 export async function deleteTwinData(db: Db, voice: ElevenLabs | null, mail: AgentMail | null) {
   const convs = (db.prepare("SELECT conversation_id FROM calls WHERE conversation_id IS NOT NULL").all() as { conversation_id: string }[]).map((r) => r.conversation_id);

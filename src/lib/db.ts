@@ -1,6 +1,8 @@
 import fs from "node:fs";
 import path from "node:path";
 import Database from "better-sqlite3";
+import { CALENDAR_SCHEMA } from "./connectors/schema";
+import { DECISION_SCHEMA } from "./decision/schema";
 import { MEMORY_SCHEMA } from "./memory";
 import { SOCIAL_SCHEMA } from "./social/schema";
 import { migrateTwin, TWIN_SCHEMA } from "./twin-schema";
@@ -72,6 +74,16 @@ CREATE TABLE IF NOT EXISTS councils (
   question TEXT NOT NULL,
   voices TEXT NOT NULL,
   brief TEXT NOT NULL,
+  backend TEXT NOT NULL,
+  note_path TEXT,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE TABLE IF NOT EXISTS simulations (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  goal TEXT NOT NULL,
+  result TEXT NOT NULL,
+  situation TEXT,
+  grounding TEXT NOT NULL,
   backend TEXT NOT NULL,
   note_path TEXT,
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
@@ -175,6 +187,8 @@ export function openDb(file = process.env.DATABASE_PATH ?? path.join(process.cwd
   db.exec(TWIN_SCHEMA);
   db.exec(MEMORY_SCHEMA);
   db.exec(SOCIAL_SCHEMA);
+  db.exec(DECISION_SCHEMA);
+  db.exec(CALENDAR_SCHEMA);
   migrate(db);
   migrateTwin(db);
   return db;

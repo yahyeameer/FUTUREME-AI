@@ -1,13 +1,14 @@
 import { parseJsonReply, runAgent } from "./agents";
 import { profileContext } from "./council";
 import { generateDaily } from "./daily";
+import { withChosenRoad } from "./chosen-road";
 import type { Db } from "./db";
 import { getProfile } from "./futureme";
 import { NIGHT_MARKER } from "./mock-llm";
 import { SCHEMAS } from "./nemotron";
 
 // The night shift runs while the user sleeps (scripts/night-shift.ts, or "Run now" in the app): it publishes the day's
-// FutureMe Daily, then the night_shift agent writes a morning brief and picks tomorrow's focus from real open tasks.
+// TOMORA Daily, then the night_shift agent writes a morning brief and picks tomorrow's focus from real open tasks.
 // Any plan it proposes waits for approval like every other proposal.
 
 export interface NightShiftRecord {
@@ -46,7 +47,7 @@ export async function runNightShift(db: Db, trigger: NightShiftRecord["trigger"]
 
     const facts = { name: profile.name, today: new Date().toISOString().slice(0, 10), open, done, idleGoals };
     const run = await runAgent(db, "night_shift", [
-      { role: "system", content: profileContext(profile) },
+      { role: "system", content: withChosenRoad(db, profileContext(profile)) },
       { role: "user", content: `${NIGHT_MARKER} ${JSON.stringify(facts)}` },
     ], { schema: SCHEMAS.nightShift });
     const parsed = parseJsonReply<{ brief?: unknown; focus?: unknown; watch_out?: unknown }>(run.reply);

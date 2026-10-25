@@ -2,12 +2,18 @@ import { after, connection } from "next/server";
 import { z } from "zod";
 import { runCouncil, saveCouncilBrief } from "@/lib/council";
 import { warmDockerMcp } from "@/lib/docker-mcp";
+import { saveJevKey } from "@/lib/decision/jev";
+import { checkRouteAssumption, chooseRoute, decideRoutes, deleteDecisions, recordOutcome } from "@/lib/decision/store";
 import { decideDockerRequest } from "@/lib/docker-tools";
+import { disconnectGoogle } from "@/lib/connectors/google";
+import { decideActionRequest } from "@/lib/connectors/tools";
 import { startMission } from "@/lib/missions";
 import { runNightShift } from "@/lib/night-shift";
 import { setActivePack } from "@/lib/packs";
 import { runResearch } from "@/lib/research";
 import { db } from "@/lib/server-db";
+import { chooseRoad, clearRoad, saveSimulation, simulatePaths } from "@/lib/simulator";
+import { normalizeSituation } from "@/lib/simulator-paths";
 import { verifyMessage } from "@/lib/verify";
 import {
   buildWorkspace,
@@ -32,6 +38,16 @@ export async function GET() {
   return Response.json(buildWorkspace(db()), { headers: { "Cache-Control": "no-store" } });
 }
 
+// What the person adds for a decision. Prices they looked up must say where from and when.
+const DecisionInputs = z.object({
+  monthlyCosts: z.number().finite().min(0).max(100_000_000).nullable(),
+  allowDebt: z.boolean(),
+  verifiedPrices: z
+    .array(z.object({ optionId: z.string().regex(/^r\d{1,2}$/), amount: z.number().finite().min(0).max(100_000_000), currency: z.string().regex(/^[A-Z]{3}$/), sourceUrl: z.string().url().max(500), retrievedAt: z.string().date() }))
+    .max(12),
+});
+const DecisionId = z.string().uuid();
+
 const Action = z.discriminatedUnion("action", [
   z.object({ action: z.literal("saveProfile"), profile: z.unknown() }),
   z.object({ action: z.literal("setStyle"), style: z.string() }),
@@ -49,7 +65,19 @@ const Action = z.discriminatedUnion("action", [
   z.object({ action: z.literal("runNightShift") }),
   z.object({ action: z.literal("setPack"), id: z.string().max(80).nullable() }),
   z.object({ action: z.literal("decideDockerTool"), id: z.coerce.number().int(), decision: z.enum(["approve", "reject"]) }),
+  z.object({ action: z.literal("decideAgentAction"), id: z.coerce.number().int(), decision: z.enum(["approve", "reject"]) }),
+  z.object({ action: z.literal("disconnectGoogle") }),
   z.object({ action: z.literal("startMission"), goal: z.string().min(5).max(400) }),
+  z.object({ action: z.literal("simulatePaths"), goal: z.string().min(5).max(300), situation: z.unknown().optional() }),
+  z.object({ action: z.literal("saveSimulation"), id: z.coerce.number().int() }),
+  z.object({ action: z.literal("chooseRoad"), id: z.coerce.number().int(), index: z.number().int().min(0).max(20) }),
+  z.object({ action: z.literal("clearRoad") }),
+  z.object({ action: z.literal("decideRoutes"), id: z.coerce.number().int(), situation: z.unknown().optional(), inputs: DecisionInputs }),
+  z.object({ action: z.literal("chooseDecisionRoute"), decisionId: DecisionId, optionId: z.string().regex(/^r\d{1,2}$/).nullable(), kind: z.enum(["accepted", "rejected"]), reason: z.string().max(500).optional() }),
+  z.object({ action: z.literal("checkAssumption"), decisionId: DecisionId, optionId: z.string().regex(/^r\d{1,2}$/), assumption: z.string().min(1).max(300), evidence: z.string().max(2000), source: z.string().max(300).optional() }),
+  z.object({ action: z.literal("recordDecisionOutcome"), decisionId: DecisionId, text: z.string().min(1).max(1000) }),
+  z.object({ action: z.literal("deleteDecisions"), id: z.coerce.number().int() }),
+  z.object({ action: z.literal("saveDecisionKey"), key: z.string().max(500).nullable() }),
 ]);
 
 export async function POST(request: Request) {
@@ -106,6 +134,42 @@ export async function POST(request: Request) {
         break;
       case "decideDockerTool":
         await decideDockerRequest(d, a.id, a.decision === "approve");
+        break;
+      case "decideAgentAction":
+        await decideActionRequest(d, a.id, a.decision === "approve");
+        break;
+      case "disconnectGoogle":
+        await disconnectGoogle(d);
+        break;
+      case "simulatePaths":
+        await simulatePaths(d, a.goal, a.situation ?? null);
+        break;
+      case "saveSimulation":
+        saveSimulation(d, a.id);
+        break;
+      case "chooseRoad":
+        chooseRoad(d, a.id, a.index);
+        break;
+      case "clearRoad":
+        clearRoad(d);
+        break;
+      case "decideRoutes":
+        await decideRoutes(d, a.id, normalizeSituation(a.situation), a.inputs);
+        break;
+      case "chooseDecisionRoute":
+        chooseRoute(d, a.decisionId, a.optionId, a.kind, a.reason);
+        break;
+      case "checkAssumption":
+        await checkRouteAssumption(d, a.decisionId, a.optionId, a.assumption, a.evidence, a.source ?? null);
+        break;
+      case "recordDecisionOutcome":
+        recordOutcome(d, a.decisionId, a.text);
+        break;
+      case "deleteDecisions":
+        deleteDecisions(d, a.id);
+        break;
+      case "saveDecisionKey":
+        saveJevKey(d, a.key);
         break;
       case "startMission": {
         // The mission keeps working after this response; the app polls the workspace until it finishes.

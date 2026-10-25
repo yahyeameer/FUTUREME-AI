@@ -3,7 +3,7 @@ import { toolLabel } from "@/lib/tool-labels";
 import type { CoachingStyle, Message, SkillRun, ToolCall, TurnEvent, Workspace } from "@/types";
 import type { FutureMeService } from "./types";
 
-// Live implementation: talks to the FutureMe app server, which owns SQLite, the vault and the agent.
+// Live implementation: talks to the TOMORA app server, which owns SQLite, the vault and the agent.
 // The browser never sees API keys; it only calls this app's own routes.
 
 const TONE_KEY = "futureme.live.tone";
@@ -44,11 +44,11 @@ async function request(body?: object): Promise<Workspace> {
     cache: "no-store",
   });
   const json = await res.json().catch(() => null);
-  if (!res.ok) throw new Error(json?.error ?? `The FutureMe server returned ${res.status}.`);
+  if (!res.ok) throw new Error(json?.error ?? `The TOMORA server returned ${res.status}.`);
   return withLocalPrefs(json as Workspace);
 }
 
-/** True when the FutureMe app server answers. Used to choose between live and demo mode. */
+/** True when the TOMORA app server answers. Used to choose between live and demo mode. */
 // Generous on purpose: in `next dev` the first request compiles the route, and on Windows that alone can take
 // several seconds. Timing out early silently drops people into demo mode while their server is fine.
 export async function probeLive(timeoutMs = 20_000): Promise<boolean> {
@@ -70,7 +70,7 @@ export function createLiveService(): FutureMeService {
       res = await fetch("/api/chat", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text, image }), signal });
     } catch (err) {
       if ((err as Error).name === "AbortError") throw err;
-      yield { type: "error", error: "Couldn't reach the FutureMe server. Check your connection and try again." };
+      yield { type: "error", error: "Couldn't reach the TOMORA server. Check your connection and try again." };
       return;
     }
     if (!res.ok || !res.body) {
@@ -95,13 +95,13 @@ export function createLiveService(): FutureMeService {
           | { type: "delta"; text: string }
           | { type: "reasoning"; text: string }
           | { type: "reset" }
-          | { type: "tool"; name: string; status: ToolCall["status"] }
+          | { type: "tool"; name: string; status: ToolCall["status"]; detail?: string }
           | { type: "error"; error: string }
           | { type: "done"; id: number; reply: string; citations: string[]; approvals: number[]; tools: string[]; backend: string; reasoning: string | null };
         if (event.type === "reasoning" || event.type === "reset") {
           yield event;
         } else if (event.type === "tool") {
-          yield { type: "tool", tool: { name: event.name, label: toolLabel(event.name), status: event.status } };
+          yield { type: "tool", tool: { name: event.name, label: toolLabel(event.name), status: event.status, detail: event.detail } };
         } else if (event.type === "delta") {
           if (first) {
             yield { type: "tool", tool: { ...working, label: "Thought it through", status: "done" } };
@@ -124,7 +124,8 @@ export function createLiveService(): FutureMeService {
             citations: event.citations.map((p) => ({ memoryId: p, title: titleOf.get(p) ?? p })),
             approvalIds: event.approvals.map(String),
             reasoning: event.reasoning ?? undefined,
-            tools: [...counts].map(([name, n]) => ({
+            // The stored reply has each call with what it did; fall back to bare names.
+            tools: workspace.conversation.find((m) => m.id === `msg-${event.id}`)?.tools ?? [...counts].map(([name, n]) => ({
               name,
               label: toolLabel(name),
               status: "done" as const,
@@ -178,6 +179,31 @@ export function createLiveService(): FutureMeService {
       return { workspace, session };
     },
     saveCouncil: (id) => request({ action: "saveCouncil", id }),
+    async simulatePaths(goal, situation) {
+      const workspace = await request({ action: "simulatePaths", goal, situation });
+      const simulation = workspace.simulations?.find((s) => s.goal === goal.trim());
+      if (!simulation) throw new Error("The simulation wasn't saved.");
+      return { workspace, simulation };
+    },
+    saveSimulation: (id) => request({ action: "saveSimulation", id }),
+    chooseRoad: (id, index) => request({ action: "chooseRoad", id, index }),
+    clearRoad: () => request({ action: "clearRoad" }),
+    async decideRoutes(simulationId, situation, inputs) {
+      const workspace = await request({ action: "decideRoutes", id: simulationId, situation, inputs });
+      const decision = workspace.simulations?.find((s) => s.id === simulationId)?.decisions?.find((d) => d.kind === "rank_paths");
+      if (!decision) throw new Error("The decision wasn't saved.");
+      return { workspace, decision };
+    },
+    chooseDecisionRoute: (decisionId, optionId, kind, reason) => request({ action: "chooseDecisionRoute", decisionId, optionId, kind, reason }),
+    async checkAssumption(decisionId, optionId, assumption, evidence, source) {
+      const workspace = await request({ action: "checkAssumption", decisionId, optionId, assumption, evidence, source });
+      const check = workspace.simulations?.flatMap((s) => s.decisions ?? []).find((d) => d.parentId === decisionId);
+      if (!check) throw new Error("The check wasn't saved.");
+      return { workspace, check };
+    },
+    recordDecisionOutcome: (decisionId, text) => request({ action: "recordDecisionOutcome", decisionId, text }),
+    deleteDecisions: (id) => request({ action: "deleteDecisions", id }),
+    saveDecisionKey: (key) => request({ action: "saveDecisionKey", key }),
     verifyMessage: (id) => request({ action: "verifyMessage", id }),
     runResearch,
     async runNightShift() {
@@ -188,6 +214,8 @@ export function createLiveService(): FutureMeService {
     },
     setPack: (id) => request({ action: "setPack", id }),
     decideDockerTool: (id, decision) => request({ action: "decideDockerTool", id, decision }),
+    decideAgentAction: (id, decision) => request({ action: "decideAgentAction", id, decision }),
+    disconnectGoogle: () => request({ action: "disconnectGoogle" }),
     async startMission(goal) {
       const workspace = await request({ action: "startMission", goal });
       const mission = workspace.missions.find((m) => m.goal === goal.trim());

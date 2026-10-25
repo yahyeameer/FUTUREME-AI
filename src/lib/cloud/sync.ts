@@ -4,7 +4,7 @@ import path from "node:path";
 import type { Db } from "../db";
 import type { CloudStore, Row, Value } from "./store";
 
-// Keeps a cloud copy of FutureMe's SQLite tables and files (vault notes, voice recordings).
+// Keeps a cloud copy of TOMORA's SQLite tables and files (vault notes, voice recordings).
 // SQLite stays the working database; the cloud copy is what survives a lost disk or a move to a new server.
 //   restore: a fresh install with no data of its own pulls everything down
 //   push:    every row and file that changed since the last push goes up, and what was deleted locally is deleted there

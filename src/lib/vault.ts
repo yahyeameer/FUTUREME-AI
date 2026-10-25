@@ -17,6 +17,8 @@ export const VAULT_FOLDERS = [
   "Conversations",
   "Files",
   "Social",
+  "Drafts",
+  "Calendar",
 ] as const;
 
 export type VaultFolder = (typeof VAULT_FOLDERS)[number];
@@ -28,7 +30,7 @@ export interface NoteInput {
   tags?: string[];
   links?: string[];
   evidence?: "user-stated" | "ai-inferred" | "verified";
-  /** Where the note came from when it wasn't written in FutureMe, such as "linkedin" for an imported account. */
+  /** Where the note came from when it wasn't written in TOMORA, such as "linkedin" for an imported account. */
   source?: string;
 }
 
