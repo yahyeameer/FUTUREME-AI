@@ -127,7 +127,8 @@ function IntegrationCard({ integration: i, google }: { integration: AgentIntegra
   );
 }
 
-function ActionCard({ request: r }: { request: AgentActionRequest }) {
+/** One thing the agent asked to do. `compact` is the version shown under the reply that asked for it. */
+export function ActionCard({ request: r, compact = false }: { request: AgentActionRequest; compact?: boolean }) {
   const { run } = useWorkspace();
   const [busy, setBusy] = React.useState<"approve" | "reject" | null>(null);
   const decide = async (decision: "approve" | "reject") => {
@@ -143,7 +144,7 @@ function ActionCard({ request: r }: { request: AgentActionRequest }) {
   };
 
   return (
-    <article className={cn("card flex min-w-0 flex-col p-5", r.status === "pending" && "ring-1 ring-copper/30")}>
+    <article className={cn("card flex min-w-0 flex-col", compact ? "p-4" : "p-5", r.status === "pending" && "ring-1 ring-copper/30")}>
       <div className="flex flex-wrap items-center gap-2">
         <h3 className="min-w-0 flex-1 truncate text-[14px] font-medium">{r.title}</h3>
         <Badge tone={r.status === "pending" ? (r.error ? "destructive" : "warning") : r.status === "rejected" ? "neutral" : "success"}>

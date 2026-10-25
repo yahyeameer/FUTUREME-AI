@@ -19,6 +19,9 @@ import { resolveInVault, writeNote } from "./vault";
 import { fetchPage, webSearch } from "./web";
 import { AGENT_REASONING } from "./nemotron";
 import { chosenRoadBlock } from "./chosen-road";
+import { STEP_MARK } from "./reasoning-steps";
+import { toolDetail } from "./tool-detail";
+import { toolLabel } from "./tool-labels";
 
 // Core TOMORA workflow: profile -> future story -> chat with memory -> approval-gated plans -> tasks.
 
@@ -581,7 +584,8 @@ export type OnDelta = (text: string) => void;
 /** Live view of an in-process run: Nemotron's reasoning and each tool call as they happen. */
 export interface AgentHooks {
   onReasoning?: (text: string) => void;
-  onTool?: (name: string, status: "running" | "done" | "failed") => void;
+  /** `detail` is one line on what a finished call did (tool-detail.ts). */
+  onTool?: (name: string, status: "running" | "done" | "failed", detail?: string) => void;
   /** The text streamed so far led into tool calls; it wasn't the reply. */
   onReset?: () => void;
 }
@@ -697,7 +701,7 @@ export function inProcessBackend(
             if (!tools.some((t) => t.function.name === c.name)) return `Error: the tool ${c.name} isn't available to you.`;
             hooks.onTool?.(c.name, "running");
             const out = (await runTool(db, c.name, c.arguments)).output;
-            hooks.onTool?.(c.name, out.startsWith("Error:") ? "failed" : "done");
+            hooks.onTool?.(c.name, out.startsWith("Error:") ? "failed" : "done", toolDetail(c.name, c.arguments, out));
             return out;
           }),
         );
@@ -748,6 +752,10 @@ export function getAgentBackend(): AgentBackend {
   return url ? dockerAgentBackend(url) : inProcessBackend(getProvider(), { extraTools: dockerMcpConfigured() ? dockerToolDefs : undefined, reasoning: AGENT_REASONING.root });
 }
 
+/** A tool call as a line in the reasoning trail: "▸ Searched your email · “grant” · 2 messages". */
+export const stepLine = (name: string, status: "done" | "failed", detail?: string) =>
+  `${STEP_MARK} ${toolLabel(name)}${status === "failed" ? " (failed)" : ""}${detail ? ` · ${detail}` : ""}`;
+
 export async function chat(db: Db, userText: string, backend: AgentBackend = getAgentBackend(), onDelta?: OnDelta, opts: ChatOptions = {}): Promise<ChatTurn> {
   const profile = getProfile(db);
   if (!profile) throw new Error("Complete onboarding first.");
@@ -768,27 +776,33 @@ export async function chat(db: Db, userText: string, backend: AgentBackend = get
   const messages: ChatMessage[] = [{ role: "system", content: systemPrompt(profile, activePack(db)?.persona, socialPromptBlock(db), chosenRoadBlock(db)) }, ...history, userMessage];
   db.prepare("INSERT INTO messages (role, content, image) VALUES ('user', ?, ?)").run(text, photo);
 
-  // Keep the reasoning trace of every step, so the reply can show how it was thought through.
-  const thoughts: string[] = [""];
+  // Keep the reasoning trace of every step, with each tool call it led to woven in as a "▸" line, so the reply can
+  // show how it was thought through and what it did along the way. The same step lines stream to the live view.
+  const trail: string[] = [""];
   const hooks: AgentHooks = {
     ...opts.hooks,
     onReasoning: (t) => {
-      thoughts[thoughts.length - 1] += t;
+      trail[trail.length - 1] += t;
       opts.hooks?.onReasoning?.(t);
     },
-    onTool: (name, status) => {
-      if (status === "running" && thoughts[thoughts.length - 1]) thoughts.push("");
-      opts.hooks?.onTool?.(name, status);
+    onTool: (name, status, detail) => {
+      opts.hooks?.onTool?.(name, status, detail);
+      if (status === "running") return;
+      const step = stepLine(name, status, detail);
+      trail.push(step, "");
+      opts.hooks?.onReasoning?.(`\n\n${step}\n\n`);
     },
   };
   const before = lastToolEventId(db);
   const reply = (await backend.run(db, messages, onDelta, hooks)) || "I lost my train of thought there. Could you say that again?";
-  const reasoning = thoughts.map((t) => t.trim()).filter(Boolean).join("\n\n---\n\n") || null;
+  const reasoning = trail.map((t) => t.trim()).filter(Boolean).join("\n\n") || null;
   const events = toolEventsSince(db, before);
   const citations = [...new Set(events.flatMap((e) => e.citations))];
   const approvals = events.flatMap((e) => (e.approval_id ? [e.approval_id] : []));
 
-  const tools = events.map((e) => e.tool);
+  // Each call with one line on what it did, read from the tool log so Docker Agent runs get them too.
+  const logged = db.prepare("SELECT tool, arguments, output FROM tool_events WHERE id > ? ORDER BY id").all(before) as { tool: string; arguments: string; output: string }[];
+  const tools = logged.map((e) => ({ name: e.tool, detail: toolDetail(e.tool, e.arguments, e.output), failed: e.output.startsWith("Error") || undefined }));
   const info = db
     .prepare("INSERT INTO messages (role, content, citations, tools, approvals, reasoning) VALUES ('assistant', ?, ?, ?, ?, ?)")
     .run(reply, JSON.stringify(citations), JSON.stringify(tools), JSON.stringify(approvals), reasoning);
@@ -798,7 +812,7 @@ export async function chat(db: Db, userText: string, backend: AgentBackend = get
   } catch (err) {
     console.error("Could not save the conversation to the vault:", err);
   }
-  return { id: Number(info.lastInsertRowid), reply, citations, approvals, tools, backend: backend.name, reasoning };
+  return { id: Number(info.lastInsertRowid), reply, citations, approvals, tools: tools.map((t) => t.name), backend: backend.name, reasoning };
 }
 
 const PHOTO = /^data:image\/(png|jpeg|webp|gif);base64,([A-Za-z0-9+/=]+)$/;

@@ -144,6 +144,8 @@ export interface Message {
   citations: Citation[];
   tools?: ToolCall[];
   approvalIds?: string[];
+  /** Actions this reply asked for (an email, an event, a file change), ids into Workspace.agentActions.requests. */
+  actionIds?: string[];
   tone?: CoachingStyle;
   blocks?: RichBlock[];
   /** Set when the response came from deterministic demo content, not a model. */

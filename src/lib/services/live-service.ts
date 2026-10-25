@@ -95,13 +95,13 @@ export function createLiveService(): FutureMeService {
           | { type: "delta"; text: string }
           | { type: "reasoning"; text: string }
           | { type: "reset" }
-          | { type: "tool"; name: string; status: ToolCall["status"] }
+          | { type: "tool"; name: string; status: ToolCall["status"]; detail?: string }
           | { type: "error"; error: string }
           | { type: "done"; id: number; reply: string; citations: string[]; approvals: number[]; tools: string[]; backend: string; reasoning: string | null };
         if (event.type === "reasoning" || event.type === "reset") {
           yield event;
         } else if (event.type === "tool") {
-          yield { type: "tool", tool: { name: event.name, label: toolLabel(event.name), status: event.status } };
+          yield { type: "tool", tool: { name: event.name, label: toolLabel(event.name), status: event.status, detail: event.detail } };
         } else if (event.type === "delta") {
           if (first) {
             yield { type: "tool", tool: { ...working, label: "Thought it through", status: "done" } };
@@ -124,7 +124,8 @@ export function createLiveService(): FutureMeService {
             citations: event.citations.map((p) => ({ memoryId: p, title: titleOf.get(p) ?? p })),
             approvalIds: event.approvals.map(String),
             reasoning: event.reasoning ?? undefined,
-            tools: [...counts].map(([name, n]) => ({
+            // The stored reply has each call with what it did; fall back to bare names.
+            tools: workspace.conversation.find((m) => m.id === `msg-${event.id}`)?.tools ?? [...counts].map(([name, n]) => ({
               name,
               label: toolLabel(name),
               status: "done" as const,

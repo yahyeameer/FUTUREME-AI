@@ -233,6 +233,39 @@ describe("email through Gmail", () => {
     expect(ws.agentActions!.requests[0].title).toContain("mentor@example.org");
     expect(ws.agentActions!.integrations.find((i) => i.id === "email")).toMatchObject({ status: "connected" });
   });
+
+  it("shows each step in the reply's activity, in its reasoning trail and with its approval card", async () => {
+    connectGoogle();
+    fakeGoogle();
+    let step = 0;
+    const model: LlmProvider = {
+      name: "scripted",
+      complete: async (_m, _tools, opts) => {
+        step++;
+        opts?.onReasoning?.(step === 1 ? "They want to know if Hodan wrote. Search unread mail first." : step === 2 ? "Hodan asked about Friday. Reply yes." : "Done; tell them.");
+        if (step === 1) return { content: null, toolCalls: [{ id: "c1", name: "email_search", arguments: args({ query: "from:hodan", unread_only: true }) }] };
+        if (step === 2) return { content: null, toolCalls: [{ id: "c2", name: "email_send", arguments: args({ to: "hodan@example.org", subject: "Re: Friday", body: "Yes, Friday works.", reply_to_id: "m1" }) }] };
+        return { content: "Hodan asked about Friday. I drafted a yes; it's waiting for you.", toolCalls: [] };
+      },
+    };
+    const live: string[] = [];
+    const tools: string[] = [];
+    const turn = await chat(db, "Did Hodan write? Say yes to her.", inProcessBackend(model), undefined, {
+      hooks: { onReasoning: (t) => live.push(t), onTool: (name, status, detail) => tools.push(`${name}:${status}:${detail ?? ""}`) },
+    });
+
+    expect(tools).toContain("email_search:done:“from:hodan” · unread · 2 messages");
+    expect(tools.find((t) => t.startsWith("email_send:done:"))).toContain("waiting for your approval: Reply to hodan@example.org");
+    expect(live.join("")).toContain("▸ Searched your email · “from:hodan” · unread · 2 messages");
+    expect(turn.reasoning).toMatch(/Search unread mail first\.\n\n▸ Searched your email[^\n]*\n\nHodan asked about Friday\. Reply yes\.\n\n▸ Asked to send an email · waiting for your approval/);
+
+    const reply = buildWorkspace(db).conversation.at(-1)!;
+    expect(reply.tools).toEqual([
+      { name: "email_search", label: "Searched your email", status: "done", detail: "“from:hodan” · unread · 2 messages" },
+      expect.objectContaining({ name: "email_send", detail: expect.stringContaining("waiting for your approval") }),
+    ]);
+    expect(reply.actionIds).toEqual([String(listActionRequests(db)[0].id)]);
+  });
 });
 
 describe("email over IMAP and SMTP", () => {
@@ -382,6 +415,18 @@ describe("tasks and files", () => {
 
   it("tells the time", async () => {
     expect((await runTool(db, "get_current_time", args({ timezone: "Africa/Mogadishu" }))).output).toMatch(/Africa\/Mogadishu\)\. ISO: \d{4}-/);
+  });
+});
+
+describe("reasoning trail", () => {
+  it("splits thoughts from tool steps", async () => {
+    const { splitTrail } = await import("../src/lib/reasoning-steps");
+    expect(splitTrail("Think first.\n\n▸ Searched your email · 2 messages\n\n---\n\nThen this.\n▸ Read an email (failed) · no such id")).toEqual([
+      { kind: "thought", text: "Think first." },
+      { kind: "step", text: "Searched your email · 2 messages", failed: false },
+      { kind: "thought", text: "Then this." },
+      { kind: "step", text: "Read an email (failed) · no such id", failed: true },
+    ]);
   });
 });
 

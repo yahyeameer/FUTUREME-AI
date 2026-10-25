@@ -14,6 +14,14 @@ is offered to the in-process agent loop and to Docker Agent (through `mcp/future
 - Mail from outside is handed to the agent between markers as data, with a warning when it reads like instructions to
   an AI. The agent is told never to follow it.
 
+## In the conversation
+
+Each reply lists its steps with one line on what each did ("Searched your email · unread · 1 message", "Asked to send
+an email · waiting for your approval"). The same steps are woven into the reasoning trail where they happened, live
+while Nemotron thinks and saved with the reply, so you can read why it searched and what it found before it acted.
+Requests a reply made (an email, an event, a file change) show their approval cards right under it, so you can approve
+or decline without leaving the chat; they also stay on the Agent page.
+
 ## Tools
 
 | Tool | What it does | Runs |
