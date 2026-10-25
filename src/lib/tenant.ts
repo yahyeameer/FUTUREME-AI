@@ -1,4 +1,6 @@
 import { AsyncLocalStorage } from "node:async_hooks";
+import crypto from "node:crypto";
+import fs from "node:fs";
 import path from "node:path";
 import { isWorkspaceId, multiUser } from "./workspace-id";
 
@@ -40,4 +42,38 @@ export function dataDir(): string {
 export function workspaceDbFile(): string | undefined {
   const ws = currentWorkspace();
   return ws ? path.join(workspaceDir(ws), "futureme.db") : undefined;
+}
+
+// ---------- Public handles, for webhooks ----------
+// ElevenLabs calls back into TOMORA during a voice call without the visitor's cookie, so the address it is given names
+// the workspace by a handle instead: a one-way hash of the id. A handle can't be turned back into the id (which is what
+// opens a workspace), and the callback still has to carry the workspace's own secret.
+
+export const isHandle = (value: unknown): value is string => typeof value === "string" && /^[a-f0-9]{32}$/.test(value);
+
+export function workspaceHandle(id: string): string {
+  return crypto.createHash("sha256").update(`tomora-webhook:${id}`).digest("hex").slice(0, 32);
+}
+
+/** The handle for the current workspace, or null outside multi-user mode. */
+export const currentHandle = () => {
+  const ws = currentWorkspace();
+  return ws ? workspaceHandle(ws) : null;
+};
+
+const handles = new Map<string, string>();
+
+/** The workspace id behind a handle, found among the workspaces on this server; null if there is none. */
+export function workspaceFromHandle(handle: string): string | null {
+  if (!isHandle(handle)) return null;
+  const known = handles.get(handle);
+  if (known) return known;
+  let ids: string[] = [];
+  try {
+    ids = fs.readdirSync(path.join(baseDataDir(), "workspaces"));
+  } catch {
+    return null;
+  }
+  for (const id of ids) handles.set(workspaceHandle(id), id);
+  return handles.get(handle) ?? null;
 }

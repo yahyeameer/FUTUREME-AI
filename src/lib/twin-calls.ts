@@ -7,6 +7,7 @@ import { socialPromptBlock } from "./social/store";
 import type { ChatMessage } from "./llm";
 import { DAILY_LIMITS, getTwinSetting, isTwinPaused, ownerName, setTwinSetting, type CallProposal } from "./twin";
 import { checkBudget, checkCallTime, MAX_CALL_SECONDS, raiseFlag, retentionDays, usage } from "./twin-guard";
+import { currentHandle } from "./tenant";
 import { writeNote } from "./vault";
 import { activeVoice, checkAudio, ElevenLabsError, type AudioInput, type Conversation, type ElevenLabs } from "./voice";
 
@@ -94,11 +95,27 @@ const sqlTime = (d: Date) => d.toISOString().slice(0, 19).replace("T", " ");
 const getCall = (db: Db, id: number) => db.prepare("SELECT * FROM calls WHERE id = ?").get(id) as CallRow | undefined;
 const callRef = (c: CallRow) => `${c.id}.${c.ref_token}`;
 
-export function callsConfig() {
+/**
+ * Where calls come from. The phone number is ELEVENLABS_PHONE_NUMBER_ID on the server, or the one this workspace saved
+ * on the Voice Twin page (a Twilio number imported into the user's own ElevenLabs account).
+ */
+export function callsConfig(db?: Db) {
+  const envPhone = process.env.ELEVENLABS_PHONE_NUMBER_ID?.trim() || null;
+  const appPhone = db ? getTwinSetting(db, "phone_number_id") : null;
   return {
     publicUrl: process.env.TWIN_PUBLIC_URL?.trim().replace(/\/+$/, "") || null,
-    phoneNumberId: process.env.ELEVENLABS_PHONE_NUMBER_ID?.trim() || null,
+    phoneNumberId: envPhone || appPhone || null,
+    phoneSource: envPhone ? ("env" as const) : appPhone ? ("app" as const) : null,
   };
+}
+
+const NO_PHONE = "Phone calls need a phone number: import a Twilio number into your ElevenLabs account and paste its phone number ID on the Voice Twin page.";
+
+/** Saves (or, with an empty id, forgets) this workspace's ElevenLabs phone number ID. */
+export function savePhoneNumberId(db: Db, id: string) {
+  const value = id.trim();
+  if (value && !/^[A-Za-z0-9_-]{4,100}$/.test(value)) throw new Error("That doesn't look like an ElevenLabs phone number ID. Copy it from ElevenLabs → Phone numbers.");
+  setTwinSetting(db, "phone_number_id", value || null);
 }
 
 // ---------- The custom LLM's secret ----------
@@ -124,6 +141,9 @@ export const checkLlmSecret = (db: Db, header: string | null) => !!header && sam
 
 // ---------- The ElevenLabs agent ----------
 
+const handle = () => currentHandle();
+const handlePath = () => (handle() ? `/ws/${handle()}` : "");
+
 function agentConfig(db: Db, voiceId: string, publicUrl: string) {
   return {
     name: `${ownerName(db)}: TOMORA twin`,
@@ -136,7 +156,8 @@ function agentConfig(db: Db, voiceId: string, publicUrl: string) {
           prompt: "futureme-call:{{call_ref}}",
           llm: "custom-llm",
           custom_llm: {
-            url: `${publicUrl}/api/twin/llm/v1`,
+            // In multi-user mode the address names this workspace by its handle (see tenant.ts).
+            url: `${publicUrl}/api/twin/llm${handlePath()}/v1`,
             model_id: "futureme-twin",
             request_headers: { [SECRET_HEADER]: llmSecret(db) },
             api_type: "chat_completions",
@@ -166,7 +187,7 @@ function agentConfig(db: Db, voiceId: string, publicUrl: string) {
       // ElevenLabs deletes every conversation (audio and transcript) after the retention period.
       privacy: { retention_days: retentionDays() },
       workspace_overrides: {
-        conversation_initiation_client_data_webhook: { url: `${publicUrl}/api/twin/inbound`, request_headers: { [SECRET_HEADER]: llmSecret(db) } },
+        conversation_initiation_client_data_webhook: { url: `${publicUrl}/api/twin/inbound${handle() ? `?ws=${handle()}` : ""}`, request_headers: { [SECRET_HEADER]: llmSecret(db) } },
       },
     },
   };
@@ -420,7 +441,7 @@ export async function setOwnerPhone(db: Db, api: ElevenLabs, phone: string) {
   if (isTwinPaused(db)) throw new Error("The twin is paused. Resume it first.");
   const number = phone.trim().replace(/[\s()-]/g, "");
   if (!PHONE.test(number)) throw new Error("Use international format, like +14155550123.");
-  if (!callsConfig().phoneNumberId) throw new Error("Phone calls need ELEVENLABS_PHONE_NUMBER_ID, a Twilio number imported into ElevenLabs.");
+  if (!callsConfig(db).phoneNumberId) throw new Error(NO_PHONE);
   if (callsToday(db, "verify_phone") >= VERIFY_CALLS_PER_DAY) throw new Error(`You can ask for ${VERIFY_CALLS_PER_DAY} codes a day. Try again tomorrow.`);
   checkBudget(db);
   db.prepare("UPDATE calls SET status = 'cancelled' WHERE direction = 'self' AND status = 'scheduled'").run();
@@ -515,8 +536,8 @@ export function cancelCall(db: Db, id: number) {
 async function dial(db: Db, api: ElevenLabs, call: CallRow) {
   if (!db.prepare("UPDATE calls SET status = 'dialing', started_at = datetime('now') WHERE id = ? AND status = 'scheduled'").run(call.id).changes) return;
   const fail = (error: string) => setCall(db, call.id, { status: "failed", error });
-  const { phoneNumberId } = callsConfig();
-  if (!phoneNumberId) return fail("ELEVENLABS_PHONE_NUMBER_ID isn't set.");
+  const { phoneNumberId } = callsConfig(db);
+  if (!phoneNumberId) return fail(NO_PHONE);
   if (isTwinPaused(db)) return fail("The twin was paused.");
   try {
     checkBudget(db);
@@ -565,8 +586,8 @@ export async function dialApprovedCall(db: Db, api: ElevenLabs, callId: number, 
   const call = getCall(db, callId);
   if (call?.direction !== "outbound" || call.mode !== "contact") throw new Error("That isn't an approved call.");
   if (isTwinPaused(db)) throw new Error("The twin is paused. Resume it to place this call.");
-  const { phoneNumberId } = callsConfig();
-  if (!phoneNumberId) throw new Error("Calling contacts needs ELEVENLABS_PHONE_NUMBER_ID, a Twilio number imported into ElevenLabs.");
+  const { phoneNumberId } = callsConfig(db);
+  if (!phoneNumberId) throw new Error(NO_PHONE);
   const dialledToday = (db.prepare("SELECT COUNT(*) AS n FROM calls WHERE direction = 'outbound' AND started_at IS NOT NULL AND date(started_at) = date('now')").get() as { n: number }).n;
   if (dialledToday >= DAILY_LIMITS.outbound_call) throw new Error(`The daily limit of ${DAILY_LIMITS.outbound_call} calls to contacts is reached.`);
   checkBudget(db, now);
@@ -846,7 +867,7 @@ export function stopRecording(db: Db, json: unknown): ToolResult {
 // ---------- Snapshot for the Twin page ----------
 
 export function callsSnapshot(db: Db) {
-  const { publicUrl, phoneNumberId } = callsConfig();
+  const { publicUrl, phoneNumberId, phoneSource } = callsConfig(db);
   // Approved contact calls still waiting to be dialled show on their approval card instead.
   const calls = db.prepare("SELECT * FROM calls WHERE status NOT IN ('cancelled', 'approved') ORDER BY COALESCE(scheduled_for, created_at) DESC, id DESC LIMIT 30").all() as CallRow[];
   const openTasks = db
@@ -859,7 +880,7 @@ export function callsSnapshot(db: Db) {
     error: string | null;
   }[];
   return {
-    ready: { publicUrl: !!publicUrl, phone: !!phoneNumberId },
+    ready: { publicUrl: !!publicUrl, phone: !!phoneNumberId, phoneSource },
     phone: ownerPhone(db),
     selfCallsToday: callsToday(db),
     selfCallLimit: SELF_CALLS_PER_DAY,

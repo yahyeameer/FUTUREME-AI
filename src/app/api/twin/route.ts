@@ -8,6 +8,7 @@ import {
   confirmOwnerPhone,
   dialApprovedCall,
   removeOwnerPhone,
+  savePhoneNumberId,
   scheduleSelfCall,
   setBlocked,
   setOwnerPhone,
@@ -49,6 +50,7 @@ const Action = z.discriminatedUnion("action", [
   z.object({ action: z.literal("setPhone"), phone: z.string().max(40) }),
   z.object({ action: z.literal("confirmPhone"), code: z.string().max(20) }),
   z.object({ action: z.literal("removePhone") }),
+  z.object({ action: z.literal("savePhoneNumberId"), id: z.string().max(120) }),
   z.object({ action: z.literal("scheduleCall"), call: z.unknown() }),
   z.object({ action: z.literal("cancelCall"), id: z.number().int() }),
   z.object({ action: z.literal("dialApproved"), callId: z.number().int() }),
@@ -155,6 +157,9 @@ export async function POST(request: Request) {
         break;
       case "syncCalls":
         await syncCalls(d, needsKey(d));
+        break;
+      case "savePhoneNumberId":
+        savePhoneNumberId(d, a.id);
         break;
       case "setPhone":
         await setOwnerPhone(d, needsKey(d), a.phone);
