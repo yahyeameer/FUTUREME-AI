@@ -11,7 +11,12 @@ export const SIMULATION_FRAMING =
   "These are conditional scenarios, not predictions. Each one says: if you take this route, and these assumptions hold, this is roughly how it could go. Nobody, including this app, can know which future you will have.";
 
 export const MIN_PATHS = 3;
-export const MAX_PATHS = 12;
+export const MAX_PATHS = 10;
+/**
+ * Output budget for one simulation, reasoning included. Nemotron can think for 5k+ tokens before writing ten roads,
+ * and the server's default (8k) cut the JSON off mid-road.
+ */
+export const SIMULATION_MAX_TOKENS = 32_000;
 
 export const KINDS = ["self_study", "formal_education", "work_and_study", "bootcamp", "apprenticeship", "other"] as const;
 export const FUNDING = ["savings", "income", "employer", "scholarship", "loan", "free"] as const;
@@ -94,9 +99,9 @@ export const SIMULATION_SCHEMA = {
         keeps_income: { type: "boolean" },
         risk_level: oneOf(RISK),
         fit_score: int(0, 100),
-        prerequisites: strList(5),
-        risks: { type: "array", maxItems: 4, items: obj({ risk: str, mitigation: str }) },
-        assumptions: strList(5),
+        prerequisites: strList(4),
+        risks: { type: "array", maxItems: 3, items: obj({ risk: str, mitigation: str }) },
+        assumptions: strList(4),
         first_steps: strList(3),
         fit: str,
       }),
