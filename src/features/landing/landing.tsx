@@ -3,6 +3,7 @@
 import { ArrowRight, AudioLines, Check, KeyRound, Library, Lock, Menu, MessageSquareText, Server, ShieldCheck, X } from "lucide-react";
 import Link from "next/link";
 import * as React from "react";
+import { LivingMark } from "@/components/brand/living-mark";
 import { Wordmark } from "@/components/brand/mark";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -11,6 +12,7 @@ import { recalculate } from "@/lib/scenario-math";
 import { formatSpan } from "@/lib/simulator-paths";
 import { cn } from "@/lib/utils";
 import { BranchingPreview, exampleRoads } from "./branching-preview";
+import { Journey } from "./journey";
 
 const SECTIONS = [
   { id: "how", label: "How it works" },
@@ -105,9 +107,15 @@ function Hero() {
   return (
     <section aria-labelledby="hero-title" className="relative overflow-hidden">
       <div aria-hidden className="pointer-events-none absolute inset-x-0 top-0 h-[36rem] bg-[radial-gradient(60%_60%_at_75%_0%,var(--accent-wash),transparent_70%)]" />
+      <div aria-hidden className="pointer-events-none absolute top-[-12rem] left-[-10rem] size-[34rem] animate-[aurora_24s_ease-in-out_infinite] rounded-full bg-[radial-gradient(closest-side,rgb(200_146_95/0.14),transparent)] blur-3xl" />
       <div className="relative mx-auto grid max-w-6xl items-center gap-12 px-4 pt-14 pb-20 sm:px-6 sm:pt-20 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,1fr)] lg:gap-16 lg:pb-28">
         <div className="min-w-0">
-          <p className="t-eyebrow">{BRAND.category}</p>
+          <div className="flex items-center gap-4">
+            <div data-theme="dark" className="relative w-24 shrink-0 rounded-full bg-[radial-gradient(circle_at_35%_28%,#2B2E36,#0B0C10_72%)] shadow-[0_22px_40px_-16px_rgb(60_45_20/0.55),inset_0_1px_0_rgb(255_255_255/0.12)] ring-1 ring-black/10">
+              <LivingMark progress={0.3} />
+            </div>
+            <p className="t-eyebrow">{BRAND.category}</p>
+          </div>
           <h1 id="hero-title" className="mt-5 font-display text-[3.2rem] leading-[0.98] tracking-[-0.02em] text-balance sm:text-[4.6rem]">
             {BRAND.tagline}
           </h1>
@@ -130,25 +138,10 @@ function Hero() {
   );
 }
 
-const STEPS = [
-  { title: "Understand me", body: "A short conversation about where you are, what you want and what's in the way. Skip anything you'd rather not share, and change it later." },
-  { title: "Explore futures", body: "Clearly different roads to your goal: how you might learn, pay and where. Each one names its assumptions, ranges and risks." },
-  { title: "Compare and choose", body: "Every road is rated against your money, your time and the risk you can take. Change a number and they re-rank on the spot." },
-  { title: "Act, review, adapt", body: "Your future self turns the road you chose into the next few steps. You check in as life changes, and the plan changes with it." },
-];
-
 function HowItWorks() {
   return (
-    <Section id="how" eyebrow="How it works" title="From where you are to a plan you can act on." lede="TOMORA follows one journey. Each screen in the app serves a step of it.">
-      <ol className="mt-12 grid gap-px overflow-hidden rounded-2xl border border-border bg-border sm:grid-cols-2 lg:grid-cols-4">
-        {STEPS.map((s, i) => (
-          <li key={s.title} className="bg-surface p-6">
-            <span className="font-mono text-[11px] text-accent-ink tabular-nums">0{i + 1}</span>
-            <h3 className="mt-4 text-[16px] font-semibold tracking-[-0.01em]">{s.title}</h3>
-            <p className="mt-2 text-[13.5px] leading-relaxed text-muted-foreground">{s.body}</p>
-          </li>
-        ))}
-      </ol>
+    <Section id="how" eyebrow="How it works" title="From where you are to a plan you can act on." lede="TOMORA follows one journey. Each screen in the app serves a step of it. Pick a step, or watch it play.">
+      <Journey />
     </Section>
   );
 }

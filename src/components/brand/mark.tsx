@@ -1,16 +1,25 @@
+"use client";
+
+import { motion, useTransform, type MotionValue } from "motion/react";
+import * as React from "react";
 import { BRAND } from "@/lib/brand";
 import { cn } from "@/lib/utils";
+import { useGaze } from "./use-gaze";
 
 /**
  * TOMORA's mark: an old clock where the past and the future turn together. The bronze point is where you stand today,
  * the champagne ring is the future you're steering toward, joined by one trajectory. Around them, two dials turn in
  * opposite directions: the outer one forward (the future), the inner bronze one back (the past). A light circles the
  * future ring like a second hand. Everything speeds up and glows brighter when the brand link (`group/brand`) is
- * hovered. Decorative; the link around it carries the name.
+ * hovered. Today, the bronze point, looks toward the pointer wherever it is on the page. Decorative; the link around it
+ * carries the name.
  */
 export function Mark({ className }: { className?: string }) {
+  const tile = React.useRef<HTMLSpanElement>(null);
+  const gaze = useGaze(tile, { reach: 700 });
   return (
     <span
+      ref={tile}
       aria-hidden
       className={cn(
         "relative inline-flex size-7 shrink-0 items-center justify-center overflow-hidden rounded-full border border-white/70 bg-gradient-to-br from-white/90 to-white/30 backdrop-blur",
@@ -20,7 +29,7 @@ export function Mark({ className }: { className?: string }) {
       )}
     >
       <span className="absolute -inset-1 animate-orbit bg-[conic-gradient(from_0deg,transparent,rgb(200_183_143/0.65),transparent_40%,rgb(168_112_63/0.45),transparent_75%)] opacity-60 blur-[6px] transition-opacity group-hover/brand:opacity-100 [animation-duration:8s]" />
-      <ClockFace className="relative size-[22px]" animated />
+      <ClockFace className="relative size-[22px]" animated gaze={gaze} />
     </span>
   );
 }
@@ -29,7 +38,7 @@ export function Mark({ className }: { className?: string }) {
  * The clock itself, without the glass tile. Animated in the app; still where motion would be noise (the welcome page
  * caption, the favicon, the share image use the same drawing).
  */
-export function ClockFace({ className, animated = false }: { className?: string; animated?: boolean }) {
+export function ClockFace({ className, animated = false, gaze }: { className?: string; animated?: boolean; gaze?: { x: MotionValue<number>; y: MotionValue<number> } }) {
   const spin = (cls: string) => (animated ? cls : undefined);
   return (
     <svg viewBox="0 0 24 24" fill="none" className={className} aria-hidden>
@@ -51,13 +60,27 @@ export function ClockFace({ className, animated = false }: { className?: string;
       </g>
       {/* Today and the future, on one trajectory. */}
       <path d="M7.6 15.6 L14.6 8.6" stroke="currentColor" strokeOpacity=".45" strokeWidth="1.1" strokeLinecap="round" strokeDasharray="1.1 2" />
-      <circle cx="7.6" cy="15.6" r="2.1" fill="var(--bronze)" />
+      {gaze ? <Pupil gaze={gaze} /> : <circle cx="7.6" cy="15.6" r="2.1" fill="var(--bronze)" />}
       <circle cx="14.6" cy="8.6" r="3.7" stroke="var(--accent)" strokeWidth="1.5" />
       {/* The second hand: a light running the future ring. */}
       <g className={spin("origin-[14.6px_8.6px] animate-orbit [animation-duration:5s] group-hover/brand:[animation-duration:1.6s]")} style={{ transformBox: "view-box" }}>
         <circle cx="14.6" cy="4.1" r="1" fill="var(--accent)" className="drop-shadow-[0_0_2px_var(--accent)]" />
       </g>
     </svg>
+  );
+}
+
+/** Today, following the pointer like an eye, with a glint that leans the same way. */
+function Pupil({ gaze }: { gaze: { x: MotionValue<number>; y: MotionValue<number> } }) {
+  const x = useTransform(gaze.x, (v) => v * 1.4);
+  const y = useTransform(gaze.y, (v) => v * 1.4);
+  const gx = useTransform(gaze.x, (v) => v * 0.6);
+  const gy = useTransform(gaze.y, (v) => v * 0.6);
+  return (
+    <motion.g style={{ x, y }}>
+      <circle cx="7.6" cy="15.6" r="2.1" fill="var(--bronze)" />
+      <motion.circle cx="7" cy="15" r="0.55" fill="#FFF8EC" fillOpacity="0.85" style={{ x: gx, y: gy }} />
+    </motion.g>
   );
 }
 
