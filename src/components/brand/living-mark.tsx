@@ -12,7 +12,7 @@ import { useGaze } from "./use-gaze";
  * ring (the future you described), so the mark shows how far along you are; at 1 they meet. `busy` makes everything
  * turn faster, for moments when TOMORA is working. Decorative: pass a label to name it for screen readers.
  */
-export function LivingMark({ progress = 0.15, busy = false, ring, label, className }: { progress?: number; busy?: boolean; ring?: string; label?: string; className?: string }) {
+export function LivingMark({ progress = 0.15, busy = false, ring, label, compact = false, className }: { progress?: number; busy?: boolean; ring?: string; label?: string; compact?: boolean; className?: string }) {
   const uid = React.useId().replace(/:/g, "");
   const box = React.useRef<HTMLDivElement>(null);
   const reduce = useReducedMotionConfig();
@@ -38,16 +38,18 @@ export function LivingMark({ progress = 0.15, busy = false, ring, label, classNa
   const fast = busy ? 0.25 : 1;
   const dur = (s: number) => `${round(s * fast)}s`;
 
+  // At icon size (compact) the orbits and their lights are drawn bolder so they still read.
+  const bold = compact ? 3.2 : 1;
   const orbits = [
-    { tilt: -18, rx: 94, ry: 25, dur: 9, color: "#E9DFC6", r: 2.6 },
-    { tilt: 28, rx: 90, ry: 30, dur: 13, color: "#C8925F", r: 2.2 },
-    { tilt: 78, rx: 86, ry: 22, dur: 17, color: "#C8B78F", r: 1.8 },
-  ];
+    { tilt: -18, rx: 94, ry: 25, dur: 9, color: "#E9DFC6", r: 2.6 * bold },
+    { tilt: 28, rx: 90, ry: 30, dur: 13, color: "#C8925F", r: 2.2 * bold },
+    { tilt: 78, rx: 86, ry: 22, dur: 17, color: "#C8B78F", r: 1.8 * bold },
+  ].slice(0, compact ? 2 : 3);
   const ellipse = (rx: number, ry: number) => `M ${-rx} 0 A ${rx} ${ry} 0 1 0 ${rx} 0 A ${rx} ${ry} 0 1 0 ${-rx} 0`;
 
   return (
     <div ref={box} role={label ? "img" : undefined} aria-label={label} aria-hidden={label ? undefined : true} className={cn("relative aspect-square w-full [perspective:900px]", className)}>
-      <motion.div aria-hidden className="absolute -inset-[12%] rounded-full blur-2xl" style={{ background: halo }} animate={reduce ? undefined : { scale: [1, 1.06, 1] }} transition={{ duration: busy ? 1.6 : 5, repeat: Infinity, ease: "easeInOut" }} />
+      <motion.div aria-hidden className={cn("absolute rounded-full", compact ? "-inset-[6%] blur-sm" : "-inset-[12%] blur-2xl")} style={{ background: halo }} animate={reduce ? undefined : { scale: [1, 1.06, 1] }} transition={{ duration: busy ? 1.6 : 5, repeat: Infinity, ease: "easeInOut" }} />
       <motion.div className="absolute inset-0 [transform-style:preserve-3d]" style={{ rotateX: tiltX, rotateY: tiltY }}>
         {/* Frosted glass behind the sphere's drawing, so whatever drifts behind it blurs. */}
         <div aria-hidden className="absolute top-[21%] left-[21%] size-[58%] rounded-full bg-[radial-gradient(circle_at_32%_28%,rgb(255_255_255/0.2),rgb(255_255_255/0.04)_55%,rgb(255_255_255/0.02))] shadow-[inset_0_1px_1px_rgb(255_255_255/0.45),inset_0_-12px_30px_rgb(0_0_0/0.35),0_30px_60px_-20px_rgb(0_0_0/0.6)] ring-1 ring-white/15 backdrop-blur-md" />
@@ -83,10 +85,10 @@ export function LivingMark({ progress = 0.15, busy = false, ring, label, classNa
           <motion.g style={{ x: backX, y: backY }}>
             {orbits.map((o, i) => (
               <g key={i} transform={`translate(100 100) rotate(${o.tilt})`}>
-                <path d={ellipse(o.rx, o.ry)} stroke="currentColor" strokeOpacity="0.1" strokeWidth="0.6" />
+                <path d={ellipse(o.rx, o.ry)} stroke="currentColor" strokeOpacity={compact ? 0.22 : 0.1} strokeWidth={0.6 * bold} />
               </g>
             ))}
-            {ring && (
+            {ring && !compact && (
               <g className="origin-center animate-orbit" style={{ transformBox: "view-box", animationDuration: dur(140) }}>
                 <text className="fill-[#E9DFC6]/45 font-mono text-[5.4px] tracking-[0.42em] uppercase">
                   <textPath href={`#${uid}-ring`}>{`${ring} ✦ ${ring} ✦ `}</textPath>
@@ -142,7 +144,7 @@ export function LivingMark({ progress = 0.15, busy = false, ring, label, classNa
           <motion.g style={{ x: faceX, y: faceY }}>
             {orbits.map((o, i) => (
               <g key={i} transform={`translate(100 100) rotate(${o.tilt})`}>
-                <path d={`M ${-o.rx} 0 A ${o.rx} ${o.ry} 0 0 0 ${o.rx} 0`} stroke={o.color} strokeOpacity="0.32" strokeWidth="0.8" />
+                <path d={`M ${-o.rx} 0 A ${o.rx} ${o.ry} 0 0 0 ${o.rx} 0`} stroke={o.color} strokeOpacity={compact ? 0.55 : 0.32} strokeWidth={0.8 * bold} />
                 {!reduce && (
                   <circle r={o.r} fill={o.color} filter={`url(#${uid}-glow)`}>
                     <animateMotion dur={dur(o.dur)} repeatCount="indefinite" path={ellipse(o.rx, o.ry)} />
@@ -153,6 +155,18 @@ export function LivingMark({ progress = 0.15, busy = false, ring, label, classNa
           </motion.g>
         </svg>
       </motion.div>
+    </div>
+  );
+}
+
+/**
+ * The living mark on a dark glass jewel, so it keeps its night colours on light pages too. Use this wherever the mark
+ * sits on the app's own background (sidebar, Home, Future Self); `className` sets the size.
+ */
+export function LivingEmblem({ className, ...mark }: React.ComponentProps<typeof LivingMark>) {
+  return (
+    <div data-theme="dark" className={cn("relative shrink-0 rounded-full bg-[radial-gradient(circle_at_35%_28%,#2B2E36,#0B0C10_72%)] shadow-[0_18px_36px_-16px_rgb(60_45_20/0.55),inset_0_1px_0_rgb(255_255_255/0.12)] ring-1 ring-black/10 dark:ring-white/10", className)}>
+      <LivingMark {...mark} />
     </div>
   );
 }

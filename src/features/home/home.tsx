@@ -5,8 +5,7 @@ import { motion } from "motion/react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import * as React from "react";
-import { Orb } from "@/components/brand/orb";
-import { Presence } from "@/components/brand/presence";
+import { LivingEmblem } from "@/components/brand/living-mark";
 import { CountUp } from "@/components/motion/count-up";
 import { ProgressRing } from "@/components/motion/progress-ring";
 import { Reveal, RevealItem } from "@/components/motion/reveal";
@@ -93,9 +92,7 @@ export function Home() {
               </div>
             </div>
             <div className="hidden animate-float flex-col items-center md:flex">
-              <Orb size={230} horizonYear={profile.horizonYear}>
-                <Presence convergence={conv} size={156} className="text-foreground" />
-              </Orb>
+              <LivingEmblem className="w-[13.5rem]" progress={conv} label={`Today and your future self. ${Math.round(conv * 100)}% of planned tasks are done.`} />
               <p className="mt-2 text-center t-meta">
                 Today <span className="text-subtle">→</span> <span className="text-accent-ink">{profile.horizonYear}</span>
               </p>
