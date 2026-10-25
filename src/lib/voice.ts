@@ -504,6 +504,32 @@ export async function testEngine(db: Db, input: EngineInput & { text?: string })
 
 // ---------- Snapshot for the Twin page ----------
 
+// ---------- A ready-made voice ----------
+// For people who'd rather not record and clone their own voice (or a demo server whose plan can't clone): the future
+// self speaks in one of ElevenLabs' premade voices instead. Calls still say it's an AI twin. TWIN_PRESET_VOICE_ID picks
+// the voice (default: "Rachel", a premade voice every ElevenLabs account has).
+
+export const presetVoiceId = () => process.env.TWIN_PRESET_VOICE_ID?.trim() || "21m00Tcm4TlvDq8ikWAM";
+export const usesPresetVoice = (db: Db) => getTwinSetting(db, "voice_mode") === "preset";
+
+export function setPresetVoice(db: Db, on: boolean) {
+  if (on && !getVoiceApi(db)) throw new Error("A ready-made voice needs an ElevenLabs key: add yours under Voice engine, or ask whoever runs this server.");
+  setTwinSetting(db, "voice_mode", on ? "preset" : null);
+}
+
+/**
+ * On a shared demo server, cloned voices are deleted after TWIN_VOICE_TTL_DAYS (off by default), at ElevenLabs and here,
+ * so judges' voices don't stay in the server owner's account. True when a voice was deleted.
+ */
+export async function expireClonedVoice(db: Db, api: ElevenLabs | null, now = new Date()): Promise<boolean> {
+  const days = Number(process.env.TWIN_VOICE_TTL_DAYS ?? 0);
+  if (!Number.isFinite(days) || days <= 0) return false;
+  const cutoff = new Date(now.getTime() - days * 86_400_000).toISOString().slice(0, 19).replace("T", " ");
+  if (!voices(db).some((v) => v.created_at <= cutoff)) return false;
+  await revokeVoice(db, api);
+  return true;
+}
+
 export function voiceSnapshot(db: Db) {
   const consent = db.prepare("SELECT id, phrase, transcript, status, created_at, verified_at FROM consents ORDER BY id DESC LIMIT 1").get() as
     | Omit<ConsentRow, "code" | "recording_path">
@@ -520,5 +546,7 @@ export function voiceSnapshot(db: Db) {
     voices: voices(db).map((v) => ({ id: v.id, kind: v.kind, provider: v.provider, status: v.status, samples: (JSON.parse(v.samples) as string[]).length, createdAt: v.created_at })),
     active: active ? { kind: active.kind, status: active.status, provider: active.provider } : null,
     engines: enginesSnapshot(db),
+    /** The ready-made voice: chosen, and possible (an ElevenLabs key is set here or on the server). */
+    preset: { chosen: usesPresetVoice(db), available: !!engineConfig(db, "elevenlabs").key },
   };
 }

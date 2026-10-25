@@ -21,7 +21,7 @@ import { deleteTwinData } from "@/lib/twin-data";
 import { dismissFlag } from "@/lib/twin-guard";
 import type { Db } from "@/lib/db";
 import { chooseEngine, ENGINE_IDS, forgetEngineKey, saveEngine } from "@/lib/voice-engines";
-import { activeVoice, getTranscriber, getVoiceApi, professionalCaptcha, refreshProfessional, revokeVoice, startConsent, startProfessionalClone } from "@/lib/voice";
+import { activeVoice, getTranscriber, getVoiceApi, professionalCaptcha, refreshProfessional, revokeVoice, setPresetVoice, startConsent, startProfessionalClone } from "@/lib/voice";
 import { errorResponse, twinState } from "./state";
 
 // The Twin page's endpoint. GET returns the twin's state; POST runs one action and returns the new state.
@@ -51,6 +51,7 @@ const Action = z.discriminatedUnion("action", [
   z.object({ action: z.literal("confirmPhone"), code: z.string().max(20) }),
   z.object({ action: z.literal("removePhone") }),
   z.object({ action: z.literal("savePhoneNumberId"), id: z.string().max(120) }),
+  z.object({ action: z.literal("useReadyVoice"), on: z.boolean() }),
   z.object({ action: z.literal("scheduleCall"), call: z.unknown() }),
   z.object({ action: z.literal("cancelCall"), id: z.number().int() }),
   z.object({ action: z.literal("dialApproved"), callId: z.number().int() }),
@@ -157,6 +158,9 @@ export async function POST(request: Request) {
         break;
       case "syncCalls":
         await syncCalls(d, needsKey(d));
+        break;
+      case "useReadyVoice":
+        setPresetVoice(d, a.on);
         break;
       case "savePhoneNumberId":
         savePhoneNumberId(d, a.id);

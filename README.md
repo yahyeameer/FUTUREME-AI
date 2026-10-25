@@ -126,7 +126,7 @@ The public welcome page lives at **`/welcome`** (open even when the access lock 
 **Try it yourself.** Everything is set up from the **Voice Twin** page (`/twin`); nothing has to be changed on the server except `TWIN_PUBLIC_URL`.
 
 1. **Your key.** Create an ElevenLabs account and an API key (Settings → API keys). On `/twin`, under Voice engine → ElevenLabs, paste it, press **Test**, then **Save**.
-2. **Your voice.** Record the consent phrase (three code words and "I agree"), add a sample or two, and press **Hear yourself**.
+2. **Your voice.** Record the consent phrase (three code words and "I agree"), add a sample or two, and press **Hear yourself**. Or skip this and press **Use a ready-made voice**: your future self talks in a standard ElevenLabs voice and nothing is recorded or cloned.
 3. **In the browser.** Press **Call now**, allow the microphone, and talk to your future self in your own voice.
 4. **On your phone.** Get a number from Twilio (a trial account includes one and can call your own verified phone), import it in ElevenLabs under **Agents → Phone numbers → Import from Twilio**, and paste the phone number ID into the **On your phone** card. TOMORA calls you with a six-digit code to verify your number; after that you can ask for a call now or schedule one.
 
@@ -320,6 +320,7 @@ Send one link to judges, testers or friends. Each person who enters the access c
 | **Come back on another device** | Settings → **Your workspace code** shows a private code; pasting it under "Coming back?" on the sign-in page opens the same workspace. Anyone holding it can open that workspace. |
 | **Spending limits** | Per UTC day: 120 model calls and 250,000 tokens per workspace, 3,000,000 tokens for the whole server, and at most 300 workspaces (returning visitors always get in). Past a limit, replies say so and when it resets; Settings shows each person's use. |
 | **Voice, per person** | Each workspace saves its own ElevenLabs key and phone number on `/twin`; ElevenLabs' callbacks and the call scheduler find the right workspace by itself. |
+| **Voice for judges** | Or lend everyone your key: with `ELEVENLABS_API_KEY` on the server, each judge either clones their own voice or presses **Use a ready-made voice** and talks to their future self in the browser at once, nothing recorded. Calls stay short (`TWIN_MAX_CALL_SECONDS`), voice calls are capped per judge and per server each day, and cloned voices are deleted after `TWIN_VOICE_TTL_DAYS` ([docs/deploy.md](docs/deploy.md#voice-for-judges-on-one-elevenlabs-key)). |
 | **Where data lives** | `/data/workspaces/<id>/`: one database, vault and key file per person. |
 
 ```bash
@@ -330,6 +331,10 @@ SEED_DEMO=0                    # new visitors start at onboarding
 NIGHT_SHIFT_AT=off             # the night shift only serves the default workspace
 YDC_API_KEY=...                # web research that works from a cloud server
 TWIN_PUBLIC_URL=https://you.duckdns.org   # for voice calls
+ELEVENLABS_API_KEY=...         # optional: one key every judge's voice twin uses
+TWIN_MAX_CALL_SECONDS=180      # and keep it cheap: short calls, few per day, voices deleted after 3 days
+TWIN_DAILY_VOICE_CALLS=3
+TWIN_VOICE_TTL_DAYS=3
 # Limits (0 turns one off): FUTUREME_DAILY_CALLS, FUTUREME_DAILY_TOKENS, FUTUREME_SERVER_DAILY_TOKENS, FUTUREME_MAX_WORKSPACES
 ```
 

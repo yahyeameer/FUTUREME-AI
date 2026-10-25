@@ -40,7 +40,15 @@ export function TalkSection({ state, act, onState }: { state: TwinState; act: Ac
   return (
     <section aria-labelledby="talk-h" id="talk" className="scroll-mt-24">
       <SectionHeading id="talk-h">Talk to your future self</SectionHeading>
-      {state.voice.active && state.voice.active.provider !== "elevenlabs" ? (
+      {state.voice.preset.chosen && state.voice.active?.status !== "ready" && (
+        <p className="mb-4 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg border border-border bg-surface-2/60 px-3.5 py-2.5 text-[12.5px] text-muted-foreground">
+          Your future self is speaking in a ready-made voice, not yours.
+          <Button variant="link" size="sm" className="h-auto px-0 text-[12.5px]" onClick={() => void act(() => post({ action: "useReadyVoice", on: false }), "Record and clone your own voice below.")}>
+            Clone my own voice instead
+          </Button>
+        </p>
+      )}
+      {state.voice.active && state.voice.active.provider !== "elevenlabs" && !state.voice.preset.chosen ? (
         <EmptyState icon={PhoneCall} title="Calls run on ElevenLabs">
           Your voice is cloned with another engine, which can play your voice but can&apos;t hold a live call. To call, delete your voice and clone it with ElevenLabs. You can still hear your voice under Your voice.
         </EmptyState>

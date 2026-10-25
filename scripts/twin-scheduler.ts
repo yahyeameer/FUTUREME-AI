@@ -22,6 +22,7 @@ async function once() {
   for (const t of ticks) {
     const who = t.workspace ? ` [${t.workspace.slice(0, 6)}…]` : "";
     if (t.dialled || t.filed) console.log(`Twin scheduler${who}: ${t.dialled} call(s) placed, ${t.filed} transcript(s) filed.`);
+    if (t.expired) console.log(`Twin scheduler${who}: deleted a cloned voice older than TWIN_VOICE_TTL_DAYS.`);
     if (t.purged.calls || t.purged.emails) console.log(`Twin scheduler${who}: deleted ${t.purged.calls} old call transcript(s) and ${t.purged.emails} old email(s).`);
   }
   for (const e of errors) console.error(`Twin scheduler error${e.workspace ? ` [${e.workspace.slice(0, 6)}…]` : ""}:`, e.error);

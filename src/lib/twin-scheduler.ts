@@ -5,7 +5,7 @@ import type { AgentMail } from "./mail";
 import { baseDataDir, runInWorkspace } from "./tenant";
 import { dialDueCalls, syncCalls } from "./twin-calls";
 import { purgeExpired } from "./twin-data";
-import { getVoiceApi, type ElevenLabs } from "./voice";
+import { expireClonedVoice, getVoiceApi, type ElevenLabs } from "./voice";
 import { isWorkspaceId, multiUser } from "./workspace-id";
 
 // One pass of the voice twin's scheduler (scripts/twin-scheduler.ts runs it every 30 seconds): places scheduled calls to
@@ -18,6 +18,8 @@ export interface Tick {
   dialled: number;
   filed: number;
   purged: { calls: number; emails: number };
+  /** A cloned voice older than TWIN_VOICE_TTL_DAYS was deleted. */
+  expired: boolean;
 }
 
 /** One workspace's pass. Null when it has no ElevenLabs key yet. `voiceApi` is swapped in by tests. */
@@ -27,7 +29,8 @@ export async function tickWorkspace(db: Db, mail: AgentMail | null, voiceApi: (d
   const dialled = await dialDueCalls(db, api);
   const filed = await syncCalls(db, api);
   const purged = await purgeExpired(db, api, mail);
-  return { dialled, filed, purged };
+  const expired = await expireClonedVoice(db, api);
+  return { dialled, filed, purged, expired };
 }
 
 /** The workspaces on this server that have a database. */

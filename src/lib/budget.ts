@@ -15,6 +15,8 @@ export interface Usage {
   day: string;
   calls: number;
   tokens: number;
+  /** Voice calls started today (browser or phone). */
+  voiceCalls: number;
 }
 
 export interface Limits {
@@ -55,13 +57,13 @@ function read(file: string): Usage {
   if (!u) {
     try {
       const parsed = JSON.parse(fs.readFileSync(file, "utf8")) as Partial<Usage>;
-      u = { day: String(parsed.day ?? ""), calls: Number(parsed.calls) || 0, tokens: Number(parsed.tokens) || 0 };
+      u = { day: String(parsed.day ?? ""), calls: Number(parsed.calls) || 0, tokens: Number(parsed.tokens) || 0, voiceCalls: Number(parsed.voiceCalls) || 0 };
     } catch {
-      u = { day, calls: 0, tokens: 0 };
+      u = { day, calls: 0, tokens: 0, voiceCalls: 0 };
     }
     cache.set(file, u);
   }
-  if (u.day !== day) Object.assign(u, { day, calls: 0, tokens: 0 });
+  if (u.day !== day) Object.assign(u, { day, calls: 0, tokens: 0, voiceCalls: 0 });
   return u;
 }
 
@@ -107,6 +109,27 @@ export function chargeTokens(tokens: number) {
   const all = read(serverFile());
   mine.tokens += tokens;
   all.tokens += tokens;
+  write(workspaceFile(), mine);
+  write(serverFile(), all);
+}
+
+// Voice calls cost ElevenLabs minutes on whoever's key places them, so a shared demo server caps them per day too.
+//   TWIN_DAILY_VOICE_CALLS         per workspace (multi-user default 3)
+//   TWIN_SERVER_DAILY_VOICE_CALLS  for the whole server (multi-user default 30)
+export function voiceLimits() {
+  return { perWorkspace: limit("TWIN_DAILY_VOICE_CALLS", 3), server: limit("TWIN_SERVER_DAILY_VOICE_CALLS", 30) };
+}
+
+/** Before a voice call starts: refuses it past today's limits, and counts it. */
+export function chargeVoiceCall() {
+  const l = voiceLimits();
+  if (!l.perWorkspace && !l.server) return;
+  const mine = read(workspaceFile());
+  const all = read(serverFile());
+  if (l.server && all.voiceCalls >= l.server) throw new BudgetError("This demo server has used today's voice calls. Try again tomorrow (it resets at midnight UTC).");
+  if (l.perWorkspace && mine.voiceCalls >= l.perWorkspace) throw new BudgetError(`You've had today's ${l.perWorkspace} voice calls on this demo server. It resets at midnight UTC.`);
+  mine.voiceCalls += 1;
+  all.voiceCalls += 1;
   write(workspaceFile(), mine);
   write(serverFile(), all);
 }
