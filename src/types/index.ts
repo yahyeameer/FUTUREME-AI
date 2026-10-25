@@ -520,7 +520,7 @@ export interface AgentPlatform {
   /** Where the agents run right now. */
   backend: "docker-agent" | "in-process" | "demo";
   agentFile: string;
-  webSearch: "brave" | "duckduckgo" | "off" | "unavailable";
+  webSearch: "you" | "brave" | "duckduckgo" | "off" | "unavailable";
   /** True when the model runs on this machine (Docker Model Runner). */
   local: boolean;
   /** "HH:MM" server time, or null when the schedule is off. */

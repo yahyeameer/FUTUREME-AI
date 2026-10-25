@@ -25,7 +25,7 @@ export interface ToolInfo {
  */
 export function agentTools(ws: Workspace): ToolInfo[] {
   const web = ws.platform.webSearch;
-  const webOn = web === "brave" || web === "duckduckgo";
+  const webOn = web === "you" || web === "brave" || web === "duckduckgo";
   const usedBy = (name: string) => ws.platform.team.filter((a) => a.tools.includes(name)).map((a) => a.label);
   const offReason = web === "off" ? "Turned off on this server (WEB_SEARCH=off)." : "Needs the TOMORA server; the demo has no web access.";
   const integration = (id: string) => ws.agentActions?.integrations.find((i) => i.id === id);
@@ -94,7 +94,7 @@ export function agentTools(ws: Workspace): ToolInfo[] {
       label: "Web search",
       icon: Globe,
       description: webOn
-        ? `Searches the web through ${web === "brave" ? "Brave Search" : "DuckDuckGo"} for quick facts mid-conversation, and for the research agent's deeper reports.`
+        ? `Searches the web through ${({ you: "You.com", brave: "Brave Search", duckduckgo: "DuckDuckGo" } as Record<string, string>)[web]} for quick facts mid-conversation, and for the research agent's deeper reports.`
         : `Searches the web. ${offReason}`,
       access: webOn ? "read" : "none",
       gate: webOn ? "auto" : "unavailable",

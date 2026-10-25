@@ -2,7 +2,8 @@ import dns from "node:dns/promises";
 import net from "node:net";
 
 // Web access for the research agent: a search tool and a page reader.
-// Both run on the server only. Search uses Brave when BRAVE_SEARCH_API_KEY is set, otherwise DuckDuckGo's HTML endpoint.
+// Both run on the server only. Search uses You.com when YDC_API_KEY is set, else Brave when BRAVE_SEARCH_API_KEY is set,
+// otherwise DuckDuckGo's HTML endpoint (which blocks most cloud servers, so a hosted deployment should set a key).
 // WEB_SEARCH=off turns both off.
 
 export interface SearchResult {
@@ -11,10 +12,11 @@ export interface SearchResult {
   snippet: string;
 }
 
-export type SearchProvider = "brave" | "duckduckgo" | "off";
+export type SearchProvider = "you" | "brave" | "duckduckgo" | "off";
 
 export function searchProvider(): SearchProvider {
   if (process.env.WEB_SEARCH === "off") return "off";
+  if (process.env.YDC_API_KEY?.trim()) return "you";
   return process.env.BRAVE_SEARCH_API_KEY ? "brave" : "duckduckgo";
 }
 
@@ -24,9 +26,34 @@ const TIMEOUT_MS = 10_000;
 export async function webSearch(query: string, limit = 5): Promise<SearchResult[]> {
   const provider = searchProvider();
   if (provider === "off") throw new Error("Web search is turned off on this server (WEB_SEARCH=off).");
-  const results = provider === "brave" ? await braveSearch(query) : await duckDuckGoSearch(query);
+  const results = provider === "you" ? await youSearch(query) : provider === "brave" ? await braveSearch(query) : await duckDuckGoSearch(query);
   const seen = new Set<string>();
   return results.filter((r) => isHttpUrl(r.url) && !seen.has(r.url) && seen.add(r.url)).slice(0, limit);
+}
+
+/** You.com's Search API. The key goes in X-API-Key (and as a Bearer token, which the newer docs name). */
+async function youSearch(query: string): Promise<SearchResult[]> {
+  const key = process.env.YDC_API_KEY!.trim();
+  const res = await fetch(`https://api.you.com/v1/search?count=10&query=${encodeURIComponent(query)}`, {
+    headers: { Accept: "application/json", "X-API-Key": key, Authorization: `Bearer ${key}` },
+    signal: AbortSignal.timeout(TIMEOUT_MS),
+  });
+  if (!res.ok) throw new Error(`You.com Search returned ${res.status}.`);
+  return parseYouSearch(await res.json());
+}
+
+/** Reads You.com's results: web hits under results.web (or the older top-level hits), each with a title, url and snippets. Exported for tests. */
+export function parseYouSearch(json: unknown): SearchResult[] {
+  type Hit = { url?: unknown; title?: unknown; description?: unknown; snippets?: unknown };
+  const j = json as { results?: { web?: Hit[] }; hits?: Hit[] } | null;
+  const hits = j?.results?.web ?? j?.hits ?? [];
+  if (!Array.isArray(hits)) return [];
+  return hits.flatMap((h) => {
+    if (typeof h?.url !== "string") return [];
+    const snippets = Array.isArray(h.snippets) ? h.snippets.filter((s): s is string => typeof s === "string") : [];
+    const snippet = typeof h.description === "string" && h.description ? h.description : (snippets[0] ?? "");
+    return [{ title: stripTags(typeof h.title === "string" ? h.title : h.url), url: h.url, snippet: stripTags(snippet) }];
+  });
 }
 
 async function braveSearch(query: string): Promise<SearchResult[]> {
