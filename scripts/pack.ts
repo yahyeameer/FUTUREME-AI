@@ -54,7 +54,7 @@ if (cmd === "push" && a && b) {
     if (!pulled) throw new Error("Docker Agent didn't save a YAML file.");
     fs.copyFileSync(path.join(tmp, pulled), path.join(tmp, `${id}.yaml`));
     const pack = listPacks(tmp).find((p) => p.id === id);
-    if (!pack) throw new Error("That agent isn't a FutureMe persona pack: its root agent has no instruction.");
+    if (!pack) throw new Error("That agent isn't a TOMORA persona pack: its root agent has no instruction.");
     fs.copyFileSync(path.join(tmp, `${id}.yaml`), dest);
     console.log(`Saved "${pack.name}" to agents/packs/${id}.yaml. Choose it on the Agent page.`);
   } catch (err) {

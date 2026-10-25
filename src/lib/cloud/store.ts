@@ -1,6 +1,6 @@
 import { supabaseStore } from "./supabase";
 
-// The cloud backend behind FutureMe's local SQLite database and files. Supabase today; the sync code only talks to
+// The cloud backend behind TOMORA's local SQLite database and files. Supabase today; the sync code only talks to
 // this interface, so moving to another host (for example Postgres on RDS plus S3) means writing one more CloudStore.
 
 export type Value = string | number | null;
@@ -18,7 +18,7 @@ export interface CloudStore {
   removeFiles(paths: string[]): Promise<void>;
 }
 
-/** The configured cloud backend, or null when FutureMe runs on local storage only. */
+/** The configured cloud backend, or null when TOMORA runs on local storage only. */
 export function getCloudStore(env: Record<string, string | undefined> = process.env): CloudStore | null {
   const provider = env.CLOUD_PROVIDER || (env.SUPABASE_URL ? "supabase" : "");
   if (!provider || provider === "off") return null;

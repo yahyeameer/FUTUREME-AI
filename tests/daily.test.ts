@@ -31,7 +31,7 @@ async function approvedPlan() {
   return goalsWithTasks(db)[0];
 }
 
-describe("FutureMe Daily", () => {
+describe("TOMORA Daily", () => {
   it("starts with an honest first issue when nothing is done", async () => {
     await approvedPlan();
     const issue = await generateDaily(db, mockProvider, today);

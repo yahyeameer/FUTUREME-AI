@@ -37,7 +37,7 @@ export function Twin() {
           if (!res.ok) throw new Error();
           return res.json() as Promise<TwinState>;
         })
-        .then(setState, () => setError("The FutureMe server didn't answer.")),
+        .then(setState, () => setError("The TOMORA server didn't answer.")),
     [],
   );
   const load = () => {
@@ -68,7 +68,7 @@ export function Twin() {
     return (
       <PageFrame>
         <Header />
-        <EmptyState icon={AudioLines} title="The twin runs on the FutureMe server" className="mt-8">
+        <EmptyState icon={AudioLines} title="The twin runs on the TOMORA server" className="mt-8">
           Your voice, contacts and approvals live on the server, never in demo data. Switch the data mode to Server in{" "}
           <Link href="/settings#data" className="text-accent-ink underline underline-offset-2">
             Settings
@@ -105,7 +105,7 @@ export function Twin() {
       />
       {state.guard.exposed && (
         <p role="alert" className="mt-6 rounded-lg border border-destructive/30 bg-destructive-wash px-4 py-3 text-[13px]">
-          Your twin has a public address (TWIN_PUBLIC_URL), but FutureMe has no access code, so anyone who finds it could open this page and approve calls. Set
+          Your twin has a public address (TWIN_PUBLIC_URL), but TOMORA has no access code, so anyone who finds it could open this page and approve calls. Set
           FUTUREME_ACCESS_CODE on the server.
         </p>
       )}

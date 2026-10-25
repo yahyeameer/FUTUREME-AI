@@ -7,7 +7,7 @@ import { dockerAgentBackend, inProcessBackend, lastToolEventId, runContext, tool
 import { getProvider, type ChatMessage, type JsonSchemaSpec, type LlmProvider, type ReasoningMode } from "./llm";
 import { AGENT_REASONING } from "./nemotron";
 
-// FutureMe's agent team. agents/futureme.yaml is the single source of truth: with DOCKER_AGENT_URL set, each agent runs in
+// TOMORA's agent team. agents/futureme.yaml is the single source of truth: with DOCKER_AGENT_URL set, each agent runs in
 // Docker Agent (`serve chat`), called by name. Without it, the app reads the same instructions and tool lists and runs the
 // agent loop in-process, so every feature works either way.
 

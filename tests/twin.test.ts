@@ -49,7 +49,7 @@ describe("voice twin guardrails", () => {
     const [a] = twinApprovals(db);
     const body = (a.payload as { body: string }).body;
     expect(body.startsWith("This email was written by Amina's AI twin")).toBe(true);
-    expect(body.endsWith("Amina's AI twin (FutureMe)")).toBe(true);
+    expect(body.endsWith("Amina's AI twin (TOMORA)")).toBe(true);
   });
 
   it("stops everything while paused", async () => {

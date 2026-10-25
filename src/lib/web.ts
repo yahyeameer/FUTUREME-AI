@@ -18,7 +18,7 @@ export function searchProvider(): SearchProvider {
   return process.env.BRAVE_SEARCH_API_KEY ? "brave" : "duckduckgo";
 }
 
-const UA = "Mozilla/5.0 (compatible; FutureMe-Research/1.0)";
+const UA = "Mozilla/5.0 (compatible; TOMORA-Research/1.0)";
 const TIMEOUT_MS = 10_000;
 
 export async function webSearch(query: string, limit = 5): Promise<SearchResult[]> {

@@ -47,6 +47,7 @@ import { FUNDING_LABEL, KIND_LABEL, PLACE_LABEL, SIMULATION_FRAMING, formatCost,
 import { cn, relativeDay } from "@/lib/utils";
 import { useWorkspace } from "@/lib/workspace-store";
 import { DecisionPanel } from "./decision-panel";
+import { RoadOutlook, SlipControl } from "./outlook";
 import type { SimulatedPath, Simulation, Situation } from "@/types";
 
 const EASE = [0.2, 0.7, 0.2, 1] as const;
@@ -120,7 +121,7 @@ export function Simulator() {
                   One goal. <span className="text-copper italic">Many</span> possible roads.
                 </h1>
                 <p className="mt-3 max-w-xl text-[14px] leading-relaxed text-muted-foreground">
-                  FutureMe looks wide, mixing how you could learn, how you could pay and where, then rates every road against where you really start from. The best fits are compared side by side, and the rest stay one tap away.
+                  TOMORA looks wide, mixing how you could learn, how you could pay and where, then rates every road against where you really start from. The best fits are compared side by side, and the rest stay one tap away.
                 </p>
                 <div className="mt-5 flex flex-col gap-2.5 sm:flex-row">
                   <label htmlFor="sim-goal" className="sr-only">
@@ -325,6 +326,8 @@ function Result({ simulation }: { simulation: Simulation }) {
   // Roads the person chose to compare; null compares the three best fits.
   const [pinned, setPinned] = React.useState<number[] | null>(null);
   const [focus, setFocus] = React.useState(0);
+  // "What if the first milestone slips?": months added to every road's timeline, recalculated locally.
+  const [slip, setSlip] = React.useState(0);
   const memoryIds = new Set(workspace.memories.map((m) => m.id));
   const paths = simulation.paths;
   const ranked = React.useMemo(() => rankPaths(paths, whatIf), [paths, whatIf]);
@@ -392,6 +395,7 @@ function Result({ simulation }: { simulation: Simulation }) {
               This run had no starting point, so roads are ordered by how realistic they look. Fill in your starting point above and explore again to rate them against your money and time.
             </p>
           )}
+          <SlipControl value={slip} onChange={setSlip} />
 
           {/* At a glance: one dial per compared road, filled by how well it fits the starting point. */}
           <div id="sim-compare" className="scroll-mt-20">
@@ -458,6 +462,8 @@ function Result({ simulation }: { simulation: Simulation }) {
             path={paths[index]}
             assessment={assessments.get(index)!}
             situation={whatIf}
+            paths={paths}
+            slipMonths={slip}
             letter={LETTERS[i]}
             order={i}
             goal={simulation.goal}
@@ -636,6 +642,8 @@ function PathCard({
   path: p,
   assessment,
   situation,
+  paths,
+  slipMonths,
   letter,
   order,
   goal,
@@ -647,6 +655,8 @@ function PathCard({
   path: SimulatedPath;
   assessment: Assessment;
   situation: Situation | null;
+  paths: SimulatedPath[];
+  slipMonths: number;
   letter: string;
   order: number;
   goal: string;
@@ -693,6 +703,7 @@ function PathCard({
       {p.cost.note && <p className="mt-1.5 t-meta">{p.cost.note}</p>}
 
       {situation && <Checks path={p} assessment={assessment} situation={situation} />}
+      <RoadOutlook path={p} paths={paths} situation={situation} slipMonths={slipMonths} />
 
       <div className="mt-4 rounded-xl border border-copper/30 bg-copper-wash px-3.5 py-3">
         <p className="t-label !text-copper">Holds only if</p>

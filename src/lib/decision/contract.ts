@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-// FutureMe's decision contract: what any decision component is asked, and what the app accepts back. It doesn't depend
+// TOMORA's decision contract: what any decision component is asked, and what the app accepts back. It doesn't depend
 // on Jev's wire format (that mapping lives in jev.ts), so the rest of the app never sees TypeSafe's types.
 // Shared by the server and the browser: no server imports here.
 //

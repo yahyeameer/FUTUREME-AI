@@ -27,6 +27,20 @@ export const checkCode = (attempt: string) => {
   return !!code && same(accessToken(attempt.trim()), accessToken(code));
 };
 
-/** Paths that answer without the cookie: the sign-in itself, and webhooks that check their own secret or signature. */
-export const OPEN_PATHS = ["/login", "/api/login", "/api/twin/llm", "/api/twin/inbound", "/api/twin/email"];
+/**
+ * Paths that answer without the cookie: the sign-in itself, webhooks that check their own secret or signature, and the
+ * public brand surface (the landing page, icons, manifest and share image), none of which carry workspace data.
+ */
+export const OPEN_PATHS = [
+  "/login",
+  "/api/login",
+  "/api/twin/llm",
+  "/api/twin/inbound",
+  "/api/twin/email",
+  "/welcome",
+  "/icon.svg",
+  "/apple-icon",
+  "/manifest.webmanifest",
+  "/opengraph-image",
+];
 export const isOpenPath = (pathname: string) => OPEN_PATHS.some((p) => pathname === p || pathname.startsWith(`${p}/`));

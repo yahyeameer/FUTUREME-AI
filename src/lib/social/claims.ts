@@ -5,8 +5,8 @@ import { FETCHERS, FetchRefused, parseTarget, type ApifyRunner } from "./apify";
 import { PLATFORM_NAMES, SocialImportSchema, type Platform, type SocialImport } from "./parse";
 import { importSocial } from "./store";
 
-// Proving an account is yours before FutureMe fetches it. Anyone can type someone else's username, so a fetch only
-// counts when a one-time code FutureMe made up is visible on the account itself (its bio, About, channel description or
+// Proving an account is yours before TOMORA fetches it. Anyone can type someone else's username, so a fetch only
+// counts when a one-time code TOMORA made up is visible on the account itself (its bio, About, channel description or
 // a new post), which only the account's owner can put there. Until the code is found nothing fetched is kept or shown:
 // the run's results are thrown away. Codes expire after a day and allow a few checks, so they can't be guessed.
 
@@ -88,7 +88,7 @@ const getRow = (db: Db, id: string) => db.prepare("SELECT * FROM social_claims W
 
 /** Step 1: the person names their account and agrees. Returns the code to put on it. */
 export function startClaim(db: Db, platform: Platform, input: string, consent: boolean): Claim {
-  if (!consent) throw new Error("Agree first, so FutureMe knows this is your own account.");
+  if (!consent) throw new Error("Agree first, so TOMORA knows this is your own account.");
   const target = parseTarget(platform, input);
   const recent = (db.prepare("SELECT COUNT(*) AS n FROM social_claim_log WHERE platform = ? AND created_at > ?").get(platform, iso(now() - 24 * 3600_000)) as { n: number }).n;
   if (recent >= MAX_CLAIMS_PER_DAY) throw new Error(`Too many ${PLATFORM_NAMES[platform]} accounts tried today. Try again tomorrow.`);

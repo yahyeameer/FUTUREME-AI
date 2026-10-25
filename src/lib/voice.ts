@@ -63,7 +63,7 @@ export class ElevenLabs {
     const form = new FormData();
     form.append("name", name);
     form.append("remove_background_noise", "true");
-    form.append("description", "The account holder's own voice, cloned with their recorded consent in FutureMe.");
+    form.append("description", "The account holder's own voice, cloned with their recorded consent in TOMORA.");
     for (const f of files) form.append("files", toBlob(f), f.filename);
     return ((await (await this.call("/v1/voices/add", { method: "POST", body: form })).json()) as { voice_id: string }).voice_id;
   }
@@ -278,7 +278,7 @@ export function startConsent(db: Db): { id: number; phrase: string } {
   const code = [...words];
   const owner = ownerName(db);
   const who = owner === "the user" ? "" : ` My name is ${owner}.`;
-  const phrase = `This is my own voice.${who} I agree to FutureMe making an AI twin of my voice, and I can delete it at any time. My code words are ${code.join(", ")}.`;
+  const phrase = `This is my own voice.${who} I agree to TOMORA making an AI twin of my voice, and I can delete it at any time. My code words are ${code.join(", ")}.`;
   db.prepare("UPDATE consents SET status = 'expired' WHERE status = 'pending'").run();
   const info = db.prepare("INSERT INTO consents (phrase, code) VALUES (?, ?)").run(phrase, code.join(" "));
   return { id: Number(info.lastInsertRowid), phrase };
@@ -362,7 +362,7 @@ export async function createInstantClone(db: Db, samples: AudioInput[], clients:
   // Only ElevenLabs learns from extra samples; the others clone from the consent recording alone.
   const extra = engine === "elevenlabs" ? samples : [];
   const files = [consent.recording_path, ...extra.map((s, i) => saveAudio(s, `sample-${i + 1}`))];
-  const name = `${ownerName(db)} (FutureMe twin)`;
+  const name = `${ownerName(db)} (TOMORA twin)`;
   let voiceId: string;
   let model: string | null = null;
   if (engine === "elevenlabs") voiceId = await el!.createInstantVoice(name, files.map(loadAudio));
@@ -386,7 +386,7 @@ export async function startProfessionalClone(db: Db, api: ElevenLabs, language =
   if (!instant) throw new Error("Create your instant voice first.");
   if (instant.provider !== "elevenlabs") throw new Error("Professional voices are made by ElevenLabs. Your voice is cloned with another engine.");
   if (voiceOf(db, "professional")) throw new Error("A professional voice is already in progress.");
-  const voiceId = await api.createProfessionalVoice(`${ownerName(db)} (FutureMe twin)`, language);
+  const voiceId = await api.createProfessionalVoice(`${ownerName(db)} (TOMORA twin)`, language);
   const files = JSON.parse(instant.samples) as string[];
   try {
     await api.addProfessionalSamples(voiceId, files.map(loadAudio));
@@ -480,7 +480,7 @@ export async function previewVoice(db: Db, text?: string): Promise<Speech> {
 export async function testEngine(db: Db, input: EngineInput & { text?: string }): Promise<Speech & { ownVoice: boolean }> {
   const c = mergedConfig(db, input);
   const info = ENGINES[input.engine];
-  const text = (input.text?.trim() || "Hi, this is a test of your FutureMe voice.").slice(0, 200);
+  const text = (input.text?.trim() || "Hi, this is a test of your TOMORA voice.").slice(0, 200);
   if (info.keyRequired && !c.key) throw new Error(`Paste a ${info.label} key to test.`);
   const mine = activeVoice(db);
   if (mine?.status === "ready" && mine.provider === input.engine && !c.voice) return { ...(await speakAs(db, mine, text, c)), ownVoice: true };

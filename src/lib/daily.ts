@@ -6,7 +6,7 @@ import { SCHEMAS } from "./nemotron";
 import { DAILY_MARKER } from "./mock-llm";
 import { writeNote } from "./vault";
 
-// FutureMe Daily: an editorial issue about the user's own journey.
+// TOMORA Daily: an editorial issue about the user's own journey.
 // Every item comes from a verified record (a completed task, a goal's progress, a saved reflection).
 // The model only writes the headline, lead and editor's note, from those facts.
 
@@ -93,7 +93,7 @@ export async function generateDaily(db: Db, provider: LlmProvider = getProvider(
     {
       role: "system",
       content:
-        "You are the editor of FutureMe Daily, a private newspaper about one person's journey toward their dream. " +
+        "You are the editor of TOMORA Daily, a private newspaper about one person's journey toward their dream. " +
         "Using ONLY the facts provided, write JSON with keys headline (max 10 words), lead (2-3 sentences, third person, " +
         "warm and specific) and editor_note (1-2 sentences from their future self about what to do next). " +
         "Never invent achievements, numbers, people or events. If there are no wins yet, say the story is just beginning. Output JSON only.",
@@ -105,7 +105,7 @@ export async function generateDaily(db: Db, provider: LlmProvider = getProvider(
   const issue: DailyIssue = { date, headline: editorial.headline, lead: editorial.lead, editorNote: editorial.editor_note, ...facts };
   const note = writeNote({
     folder: "Daily",
-    title: `FutureMe Daily ${date}`,
+    title: `TOMORA Daily ${date}`,
     tags: ["daily"],
     evidence: "verified",
     links: ["10-Year Dream"],

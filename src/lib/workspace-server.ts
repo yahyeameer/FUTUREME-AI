@@ -58,7 +58,7 @@ import type {
   Workspace,
 } from "@/types";
 
-// Maps FutureMe's backend (SQLite + Markdown vault) onto the frontend's typed Workspace.
+// Maps TOMORA's backend (SQLite + Markdown vault) onto the frontend's typed Workspace.
 // It only reads through the backend's own functions or plain SQL, and writes through them where they exist.
 
 // ---------- Coaching style ----------
@@ -109,7 +109,7 @@ function sourceOf(note: Note, provenance: Provenance): string {
     case "Tasks":
       return provenance === "verified" ? "Completed task" : "Task from an approved plan";
     case "Daily":
-      return "FutureMe Daily";
+      return "TOMORA Daily";
     case "Research":
       return "Web research summary";
     case "Social": {
@@ -207,15 +207,15 @@ function runtime(): Workspace["runtime"] {
   return {
     mode: "live",
     agent: process.env.DOCKER_AGENT_URL
-      ? `Docker Agent team (agents/futureme.yaml, ${agentTeam().length} agents) with FutureMe's MCP tools${dockerMcpState().status === "connected" ? " and the Docker MCP Gateway" : ""}`
-      : "FutureMe's agent team, running in the app server",
+      ? `Docker Agent team (agents/futureme.yaml, ${agentTeam().length} agents) with TOMORA's MCP tools${dockerMcpState().status === "connected" ? " and the Docker MCP Gateway" : ""}`
+      : "TOMORA's agent team, running in the app server",
     model: standIn
       ? "Built-in stand-in model (no Nebius key configured)"
       : local
         ? `${model.slice(6)} on Docker Model Runner, on this machine`
         : model.replace(/^nebius:/, "Nemotron on Nebius Token Factory: "),
     simulated: standIn,
-    storage: "SQLite and an Obsidian-compatible Markdown vault on the FutureMe server",
+    storage: "SQLite and an Obsidian-compatible Markdown vault on the TOMORA server",
     inference: standIn
       ? "None. The stand-in model runs inside the app server."
       : local
@@ -667,7 +667,7 @@ function activity(db: Db, goals: { id: number; title: string; created_at: string
     if (a.kind === "plan" && a.status === "rejected") items.push({ id: `ap-${a.id}`, kind: "plan_rejected", title: `Plan declined: ${payload.goal}`, at: sqlTime(a.decided_at)! });
   }
   const daily = db.prepare("SELECT date, created_at FROM daily_issues").all() as { date: string; created_at: string }[];
-  for (const d of daily) items.push({ id: `daily-${d.date}`, kind: "daily_published", title: `FutureMe Daily for ${d.date} went to press`, at: sqlTime(d.created_at)!, href: "/daily" });
+  for (const d of daily) items.push({ id: `daily-${d.date}`, kind: "daily_published", title: `TOMORA Daily for ${d.date} went to press`, at: sqlTime(d.created_at)!, href: "/daily" });
   return items.sort((a, b) => b.at.localeCompare(a.at)).slice(0, 40);
 }
 
@@ -746,7 +746,7 @@ export function createMemory(input: unknown) {
 export function updateMemory(id: string, input: unknown) {
   const full = existingNotePath(id);
   const note = readNote(id);
-  if (!VAULT_FOLDERS.includes(note.folder as VaultFolder)) throw new Error("This note is outside FutureMe's folders. Edit it in Obsidian.");
+  if (!VAULT_FOLDERS.includes(note.folder as VaultFolder)) throw new Error("This note is outside TOMORA's folders. Edit it in Obsidian.");
   const patch = MemoryInput.partial().parse(input);
   const current = splitBody(note.body);
   const title = patch.title ?? note.title;

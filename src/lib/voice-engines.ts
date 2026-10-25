@@ -249,7 +249,7 @@ export class OpenRouterVoice {
     private readonly base = process.env.OPENROUTER_BASE_URL ?? "https://openrouter.ai/api/v1",
   ) {}
 
-  private headers = () => ({ Authorization: `Bearer ${this.key}`, "Content-Type": "application/json", "X-Title": "FutureMe" });
+  private headers = () => ({ Authorization: `Bearer ${this.key}`, "Content-Type": "application/json", "X-Title": "TOMORA" });
 
   /** Speaks with a preset voice, or clones from reference clips (with their transcript) when given. */
   async speak(text: string, opts: { model: string; voice?: string; references?: { audio: AudioInput; transcript?: string }[] }): Promise<Speech> {

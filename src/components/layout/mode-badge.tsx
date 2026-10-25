@@ -15,7 +15,7 @@ export function ModeBadge({ className }: { className?: string }) {
     runtime.mode === "demo"
       ? "Sample data stored in this browser. Replies are scripted; no model is called."
       : runtime.simulated
-        ? "Your data is on the FutureMe server. Replies come from a built-in stand-in model until a Nebius key is configured."
+        ? "Your data is on the TOMORA server. Replies come from a built-in stand-in model until a Nebius key is configured."
         : `${runtime.agent}. ${runtime.model}.`;
   return (
     <Tooltip content={detail} side="right">

@@ -5,7 +5,7 @@ import type { Db } from "./db";
 import { readNote, resolveInVault, vaultRoot, writeNote, type Note, type SearchHit } from "./vault";
 
 // The agent's long-term memory: the Obsidian vault, indexed in the database.
-//   - Every Markdown note in the vault (FutureMe's own folders and anything the user adds in Obsidian) is copied into the
+//   - Every Markdown note in the vault (TOMORA's own folders and anything the user adds in Obsidian) is copied into the
 //     `notes` table with a full-text index, so search_memory reads from the database instead of re-reading every file.
 //     The index catches up with the vault before each search, so edits made in Obsidian are seen straight away.
 //   - Every conversation with the future self is appended to Conversations/, so nothing said is forgotten.

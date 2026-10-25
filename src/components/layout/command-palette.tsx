@@ -79,7 +79,7 @@ export function CommandPaletteProvider({ children }: { children: React.ReactNode
                     <FilePlus2 /> Add a memory
                   </CommandItem>
                   <CommandItem onSelect={() => go("/daily")}>
-                    <Newspaper /> Open FutureMe Daily
+                    <Newspaper /> Open TOMORA Daily
                   </CommandItem>
                   <CommandItem
                     onSelect={() => {

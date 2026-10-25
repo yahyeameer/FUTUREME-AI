@@ -1,4 +1,4 @@
-// MCP server giving FutureMe's Docker Agent team its tools: memory search, the user's imported accounts, memory and plan
+// MCP server giving TOMORA's Docker Agent team its tools: memory search, the user's imported accounts, memory and plan
 // proposals, and web research.
 // Proposals land in SQLite as pending approvals; nothing is written to the vault until the user approves in the app.
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";

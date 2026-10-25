@@ -151,7 +151,7 @@ export function Daily() {
             </Button>
           }
         >
-          FutureMe Daily is written only from your own records: completed tasks, open steps and the notes in your vault. Publish one whenever you want a look at the week.
+          TOMORA Daily is written only from your own records: completed tasks, open steps and the notes in your vault. Publish one whenever you want a look at the week.
         </EmptyState>
       ) : (
         <>
@@ -200,8 +200,8 @@ function Masthead({ edition }: { edition?: DailyEdition }) {
           <span className="font-display text-[22px] leading-none text-foreground italic">{edition ? `№${edition.issueNumber}` : "№—"}</span>
           <span className="mt-0.5 font-mono text-[8px] tracking-[0.18em]">ISSUE</span>
         </Seal>
-        <h1 aria-label="FutureMe Daily" className="group/title cursor-default font-display text-[clamp(2.9rem,1.8rem+5vw,6.25rem)] leading-[0.9] tracking-[-0.02em]">
-          {Array.from("FutureMe Daily").map((ch, i) => (
+        <h1 aria-label="TOMORA Daily" className="group/title cursor-default font-display text-[clamp(2.9rem,1.8rem+5vw,6.25rem)] leading-[0.9] tracking-[-0.02em]">
+          {Array.from("TOMORA Daily").map((ch, i) => (
             <span
               key={i}
               aria-hidden
@@ -413,16 +413,16 @@ function ArticleActions({ article, edition, useful }: { article: DailyArticle; e
   const [saving, setSaving] = React.useState(false);
   const saved = workspace.memories.some((m) => m.title === article.headline && m.tags.includes("daily"));
   const isUseful = useful.ids.has(article.id);
-  const prompt = `From FutureMe Daily (${formatDate(edition.date, { day: "numeric", month: "long" })}): “${article.headline}”. Help me turn this into one concrete next action.`;
+  const prompt = `From TOMORA Daily (${formatDate(edition.date, { day: "numeric", month: "long" })}): “${article.headline}”. Help me turn this into one concrete next action.`;
 
   const save = async () => {
     setSaving(true);
     const draft = {
       title: article.headline,
-      body: `${article.body.join("\n\n")}\n\nSaved from FutureMe Daily, issue ${edition.issueNumber} (${edition.date}).`,
+      body: `${article.body.join("\n\n")}\n\nSaved from TOMORA Daily, issue ${edition.issueNumber} (${edition.date}).`,
       kind: "note" as const,
       tags: ["daily"],
-      // The paper is FutureMe's summary of your records, so it's stored as an AI interpretation.
+      // The paper is TOMORA's summary of your records, so it's stored as an AI interpretation.
       imagined: true,
     };
     await run(async (s) => {
@@ -470,7 +470,7 @@ function ArticleReader({ article, edition, onBack, useful }: { article: DailyArt
   return (
     <article className="mx-auto max-w-[42rem]">
       <Button variant="ghost" size="sm" className="-ml-2" onClick={onBack}>
-        <ArrowLeft /> FutureMe Daily · No. {edition.issueNumber}
+        <ArrowLeft /> TOMORA Daily · No. {edition.issueNumber}
       </Button>
       <p className="mt-8 t-label !text-copper">{article.kicker}</p>
       <h1 className="mt-3 font-display text-[clamp(2.2rem,1.6rem+2.6vw,3.6rem)] leading-[1.02] text-balance">{article.headline}</h1>

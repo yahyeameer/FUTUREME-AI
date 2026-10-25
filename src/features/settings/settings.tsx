@@ -31,7 +31,7 @@ export function Settings() {
   const { workspace } = useWorkspaceContext();
   return (
     <PageFrame>
-      <PageHeader eyebrow="Settings" title="Your workspace" description="Preferences on this page change how FutureMe looks and behaves. Your profile and memories are stored wherever the data mode below says." />
+      <PageHeader eyebrow="Settings" title="Your workspace" description="Preferences on this page change how TOMORA looks and behaves. Your profile and memories are stored wherever the data mode below says." />
       <div className="mt-8 grid gap-10 lg:grid-cols-[10rem_minmax(0,1fr)]">
         <nav aria-label="Settings sections" className="hidden lg:block">
           <ul className="sticky top-20 space-y-0.5">
@@ -206,7 +206,7 @@ function MemorySection() {
   const hidden = ws.memories.filter((m) => !m.retrievable).length;
   const caps = ws.capabilities;
   return (
-    <Section id="memory" title="Memory" description="Everything FutureMe remembers is a note you can read, correct or delete.">
+    <Section id="memory" title="Memory" description="Everything TOMORA remembers is a note you can read, correct or delete.">
       <div className="card px-5">
         <Row label="Notes in your vault" hint={`${inferred} of them ${inferred === 1 ? "is an AI interpretation" : "are AI interpretations"}, labelled wherever they appear.`}>
           <span className="t-meta !text-[13px] !text-foreground">{live.length}</span>
@@ -258,7 +258,7 @@ function DecisionModelSection() {
       title="Decision model"
       description={
         <>
-          The Future Simulator&apos;s decision check rates roads that passed FutureMe&apos;s own rules with Jev, a decision model from TypeSafe (paid per input token, about $0.042 per million). Only the text its questions need is sent, never your money figures.{" "}
+          The Future Simulator&apos;s decision check rates roads that passed TOMORA&apos;s own rules with Jev, a decision model from TypeSafe (paid per input token, about $0.042 per million). Only the text its questions need is sent, never your money figures.{" "}
           <a href="https://docs.typesafe.ai" target="_blank" rel="noreferrer" className="text-accent-ink underline underline-offset-2">
             TypeSafe docs
           </a>
@@ -341,7 +341,7 @@ function DataSection() {
         )}
         <p className="flex gap-2 py-3.5 text-[12.5px] text-muted-foreground">
           <Database className="mt-0.5 size-3.5 shrink-0 text-subtle" aria-hidden />
-          API keys stay on the server. The browser only talks to FutureMe&apos;s own endpoints and never holds a model key.
+          API keys stay on the server. The browser only talks to TOMORA&apos;s own endpoints and never holds a model key.
         </p>
       </div>
 

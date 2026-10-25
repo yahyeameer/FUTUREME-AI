@@ -61,7 +61,7 @@ export function MemoryEditor({ memory, open, onOpenChange, onSaved }: { memory?:
             <DialogDescription>
               {memory?.provenance === "ai-inferred"
                 ? "This started as an AI interpretation. Once you edit it, it's recorded as your own statement."
-                : "Saved as a Markdown note FutureMe can recall in conversations. Wiki-links like [[Values]] connect notes."}
+                : "Saved as a Markdown note TOMORA can recall in conversations. Wiki-links like [[Values]] connect notes."}
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-1.5">
