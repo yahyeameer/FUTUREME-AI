@@ -49,13 +49,19 @@ export function TalkSection({ state, act, onState }: { state: TwinState; act: Ac
         </p>
       )}
       {state.voice.active && state.voice.active.provider !== "elevenlabs" && !state.voice.preset.chosen ? (
-        <EmptyState icon={PhoneCall} title="Calls run on ElevenLabs">
-          Your voice is cloned with another engine, which can play your voice but can&apos;t hold a live call. To call, delete your voice and clone it with ElevenLabs. You can still hear your voice under Your voice.
-        </EmptyState>
+        <div className="grid gap-4 lg:grid-cols-2">
+          <VoiceMessages act={act} paused={state.twin.paused} year={c.horizonYear} />
+          <EmptyState icon={PhoneCall} title="Live calls run on ElevenLabs">
+            Your voice is cloned with another engine, which can speak voice messages but can&apos;t hold a live call. To call, delete your voice and clone it with ElevenLabs.
+          </EmptyState>
+        </div>
       ) : !c.ready.publicUrl ? (
-        <EmptyState icon={PhoneCall} title="Calls need a public address">
-          ElevenLabs runs the voice and asks this server what your future self says next. Set TWIN_PUBLIC_URL to TOMORA&apos;s public https address and restart.
-        </EmptyState>
+        <div className="grid gap-4 lg:grid-cols-2">
+          <VoiceMessages act={act} paused={state.twin.paused} year={c.horizonYear} />
+          <EmptyState icon={PhoneCall} title="Live calls need a public address">
+            For a live call, ElevenLabs runs the voice and asks this server what your future self says next. Set TWIN_PUBLIC_URL to TOMORA&apos;s public https address and restart.
+          </EmptyState>
+        </div>
       ) : (
         <div className="grid gap-4 lg:grid-cols-2">
           <ConversationProvider>
@@ -180,6 +186,134 @@ function BrowserCall({ act, paused, year }: { act: Act; paused: boolean; year: n
         </div>
         <p className="mt-2 t-meta">Your browser asks for the microphone only when you start a call.</p>
         </>
+      )}
+    </article>
+  );
+}
+
+// ---------- Voice messages ----------
+
+interface Spoken {
+  audio: string;
+  type: string;
+}
+
+async function talk(form: FormData): Promise<Record<string, unknown>> {
+  const res = await fetch("/api/twin/talk", { method: "POST", body: form });
+  const json = await res.json();
+  if (!res.ok) throw new Error(json.error ?? "That didn't work.");
+  return json;
+}
+
+const audioUrl = (s: Spoken) => URL.createObjectURL(new Blob([Uint8Array.from(atob(s.audio), (ch) => ch.charCodeAt(0))], { type: s.type }));
+
+/** Talk to the future self by voice message: record, and the answer plays back in your twin's voice. No call needed. */
+function VoiceMessages({ act, paused, year }: { act: Act; paused: boolean; year: number }) {
+  const rec = useRecorder();
+  const [topic, setTopic] = React.useState("");
+  const [text, setText] = React.useState("");
+  const [busy, setBusy] = React.useState(false);
+  const [chatId, setChatId] = React.useState<number | null>(null);
+  const [lines, setLines] = React.useState<{ role: "user" | "agent"; text: string }[]>([]);
+  const [url, setUrl] = React.useState<string | null>(null);
+
+  const run = async (form: FormData) => {
+    setBusy(true);
+    try {
+      return await talk(form);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "That didn't work.");
+      return null;
+    } finally {
+      setBusy(false);
+    }
+  };
+  const play = (s: Spoken) => setUrl((old) => (old && URL.revokeObjectURL(old), audioUrl(s)));
+
+  const start = async () => {
+    const form = new FormData();
+    form.append("action", "start");
+    form.append("topic", topic);
+    const out = await run(form);
+    if (!out) return;
+    setChatId(out.callId as number);
+    setLines([{ role: "agent", text: out.reply as string }]);
+    play(out as unknown as Spoken);
+  };
+
+  const send = async (said: { recording?: Recording; text?: string }) => {
+    if (chatId === null) return;
+    const form = new FormData();
+    form.append("action", "turn");
+    form.append("callId", String(chatId));
+    if (said.recording) form.append("audio", recordingFile(said.recording, "message"));
+    if (said.text) form.append("text", said.text);
+    const out = await run(form);
+    if (!out) return;
+    setText("");
+    setLines((l) => [...l, { role: "user" as const, text: out.heard as string }, { role: "agent" as const, text: out.reply as string }].slice(-12));
+    play(out as unknown as Spoken);
+  };
+
+  const end = async () => {
+    if (chatId === null) return;
+    const form = new FormData();
+    form.append("action", "end");
+    form.append("callId", String(chatId));
+    setChatId(null);
+    await act(() => talk(form) as Promise<TwinState>, "Saved to your vault's Calls folder.");
+  };
+
+  return (
+    <article className="flex flex-col rounded-2xl border border-accent/35 bg-surface p-5 shadow-card">
+      <p className="t-label !text-accent-ink">Voice messages</p>
+      <h3 className="mt-1 font-display text-[1.35rem] leading-tight">Talk to yourself from {year}</h3>
+      <p className="mt-2 text-[13px] text-muted-foreground">Record what&apos;s on your mind and your future self answers out loud in your twin&apos;s voice. When you end, the conversation is saved to your vault&apos;s Calls folder.</p>
+      {chatId === null ? (
+        <div className="mt-4 flex flex-col gap-2 sm:flex-row">
+          <Input value={topic} onChange={(e) => setTopic(e.target.value)} maxLength={200} placeholder="What's on your mind? (optional)" aria-label="What to talk about" />
+          <Button variant="primary" onClick={start} disabled={busy || paused}>
+            {busy ? <Loader2 className="animate-spin" /> : <Mic />} Start talking
+          </Button>
+        </div>
+      ) : (
+        <div className="mt-4 space-y-3">
+          <ul className="max-h-56 space-y-1.5 overflow-auto rounded-lg border border-border bg-surface-2 px-3 py-2 text-[13px]" aria-live="polite">
+            {lines.map((l, i) => (
+              <li key={i}>
+                <span className="font-medium">{l.role === "user" ? "You" : "Future you"}:</span> {l.text}
+              </li>
+            ))}
+          </ul>
+          {url && <audio controls autoPlay src={url} className="h-9 w-full" aria-label="Your future self's answer" />}
+          <div className="flex flex-wrap items-center gap-2">
+            {rec.state === "recording" ? (
+              <Button variant="destructive" onClick={rec.stop}>
+                <Square /> Send · {rec.seconds}s
+              </Button>
+            ) : (
+              <Button variant="primary" disabled={busy || paused} onClick={() => rec.start().then((r) => send({ recording: r }), () => undefined)}>
+                {busy ? <Loader2 className="animate-spin" /> : <Mic />} {busy ? "Thinking…" : "Record"}
+              </Button>
+            )}
+            <Button variant="secondary" onClick={end} disabled={busy || rec.state === "recording"}>
+              <PhoneOff /> End and save
+            </Button>
+          </div>
+          {rec.error && <p className="text-[12.5px] text-destructive">{rec.error}</p>}
+          <form
+            className="flex gap-2"
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (text.trim()) void send({ text: text.trim() });
+            }}
+          >
+            <Input value={text} onChange={(e) => setText(e.target.value)} maxLength={2000} placeholder="Or type it" aria-label="Type a message" />
+            <Button type="submit" variant="secondary" disabled={busy || paused || !text.trim()}>
+              Send
+            </Button>
+          </form>
+        </div>
       )}
     </article>
   );

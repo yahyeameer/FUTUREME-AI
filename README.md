@@ -125,13 +125,13 @@ The public welcome page lives at **`/welcome`** (open even when the access lock 
 
 **Guardrails that are code, not prompts.** A fixed AI-disclosure opener on every call and email (added by the app, not the model) · contacts-only · daily limits (10 proposed calls, 50 emails, 6 calls to you) · a kill switch · a monthly cost cap · calling hours per country and no premium-rate numbers · a `stop_recording` tool if someone declines recording · retention of other people's data for 30 days · export or delete all twin data from Settings · an access code that locks the whole app before it goes public.
 
-> ⚠️ **Honest status.** The voice twin is built end to end, covered by 60+ unit tests and clicked through in a browser against **mock** ElevenLabs, OpenRouter, Qwen and AgentMail servers. It has **not yet been run against the live services**. Real calls need an ElevenLabs key (cloning your voice needs a paid ElevenLabs plan), and phone calls also need a Twilio number imported into ElevenLabs. Treat these paths as ready to try, not proven.
+> ⚠️ **Honest status.** Tested against live ElevenLabs on a free-plan key: the consent check (speech-to-text), the ready-made voice, voice messages with the future self (recorded in a browser, answered by Nemotron, spoken back), and creating the call agent and its WebRTC token all work. Not yet run live: cloning (ElevenLabs only clones on a paid plan, Starter or higher; the free plan gets a clear message and the ready-made voice), a full live call (needs `TWIN_PUBLIC_URL`), phone calls (also need a Twilio number imported into ElevenLabs), and OpenRouter, Qwen and AgentMail, which are tested against mock servers only.
 
 **Try it yourself.** Everything is set up from the **Voice Twin** page (`/twin`); nothing has to be changed on the server except `TWIN_PUBLIC_URL`.
 
 1. **Your key.** Create an ElevenLabs account and an API key (Settings → API keys). On `/twin`, under Voice engine → ElevenLabs, paste it, press **Test**, then **Save**.
 2. **Your voice.** Record the consent phrase (three code words and "I agree"), add a sample or two, and press **Hear yourself**. Or skip this and press **Use a ready-made voice**: your future self talks in a standard ElevenLabs voice and nothing is recorded or cloned.
-3. **In the browser.** Press **Call now**, allow the microphone, and talk to your future self in your own voice.
+3. **In the browser.** Under **Voice messages**, press **Start talking**, record what's on your mind, and your future self answers out loud. This works anywhere, even on your laptop with no public address. With `TWIN_PUBLIC_URL` set you also get a live call: press **Call now**, allow the microphone, and talk.
 4. **On your phone.** Get a number from Twilio (a trial account includes one and can call your own verified phone), import it in ElevenLabs under **Agents → Phone numbers → Import from Twilio**, and paste the phone number ID into the **On your phone** card. TOMORA calls you with a six-digit code to verify your number; after that you can ask for a call now or schedule one.
 
 <details>
@@ -149,7 +149,9 @@ Recordings are converted to WAV in the browser so every engine accepts them, kep
 
 **Guardrails.** A `twin` agent in `agents/futureme.yaml` gets `search_memory` plus three propose-only MCP tools: `propose_call`, `propose_email` and `propose_commitment`. Each creates a pending approval (`outbound_call`, `send_email`, `commitment`) shown on `/twin`. It never agrees for you: requests become `commitment` approvals, and an approved one is filed under `Plans/`.
 
-**Talk to your twin** needs `TWIN_PUBLIC_URL` (TOMORA's public https address) and an ElevenLabs key.
+**Voice messages** need only a voice (cloned with any engine, or the ready-made one) and a key that hears speech (ElevenLabs or OpenRouter). The page records you, `/api/twin/talk` transcribes it, the same `twin_voice` agent as on calls answers, and the answer is spoken in your twin's voice. Ending the conversation files it under `Calls/` like a call.
+
+**Live calls** need `TWIN_PUBLIC_URL` (TOMORA's public https address) and an ElevenLabs key.
 
 - **Sounding human and quick:** the voice is Eleven v4 Turbo (expressive, about 100 ms; `TWIN_VOICE_MODEL=eleven_flash_v2_5` is a little faster), with slightly lower stability so the tone varies, and ElevenLabs reads numbers and times the way people say them. If Nemotron hasn't started answering after 1.2 seconds (usually while it searches your notes), the twin says a short filler such as "Hmm, let me think", at most once per reply.
 - **In the browser:** "Call now" on `/twin` (or "Call your future self" on Home) starts a WebRTC call with a short-lived token.

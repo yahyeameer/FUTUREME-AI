@@ -10,7 +10,7 @@ import { chargeVoiceCall } from "./budget";
 import { checkBudget, checkCallTime, maxCallSeconds, raiseFlag, retentionDays, usage } from "./twin-guard";
 import { currentHandle } from "./tenant";
 import { writeNote } from "./vault";
-import { activeVoice, checkAudio, ElevenLabsError, presetVoiceId, usesPresetVoice, type AudioInput, type Conversation, type ElevenLabs } from "./voice";
+import { activeVoice, checkAudio, ElevenLabsError, presetVoiceId, speakAsTwin, usesPresetVoice, type AudioInput, type Conversation, type ElevenLabs, type Transcriber } from "./voice";
 
 // Talking to your twin (Phase 2). ElevenLabs runs the voice (speech-to-text, the cloned voice, turn-taking, the phone
 // line) and calls back into this app for every reply, as a custom LLM. The reply comes from the twin_voice agent in
@@ -275,7 +275,7 @@ export function openingLine(db: Db, call: CallRow): string {
       return `Hi${contact ? ` ${contact.name}` : ""}, you've reached ${owner}'s AI twin, an AI assistant that answers ${owner}'s calls. This call is recorded and transcribed. ${contact ? "What can I pass on" : "Who's calling, and what's it about"}?`;
     }
     default:
-      return `Hey${name ? ` ${name}` : ""}. It's you, from ${year}. Not a recording: an AI version of your future self, in your own voice. What's on your mind?`;
+      return `Hey${name ? ` ${name}` : ""}. It's you, from ${year}. Not a recording: an AI version of your future self${activeVoice(db)?.status === "ready" ? ", in your own voice" : ""}. What's on your mind?`;
   }
 }
 
@@ -429,6 +429,84 @@ export function webCallEnded(db: Db, callId: number) {
   if (call?.direction !== "web" || !LIVE.includes(call.status as CallStatus)) return;
   if (!call.conversation_id) setCall(db, callId, { status: "missed", ended_at: sqlTime(new Date()) });
   else setCall(db, callId, { ended_at: sqlTime(new Date()) });
+}
+
+// ---------- Voice messages in the browser ----------
+// Talking to the future self without a live call: the page records what you say, this app transcribes it, the future
+// self (the same twin_voice agent as on calls) answers, and the answer is spoken in your twin's voice. It needs no
+// public address, works with every engine that holds a voice (and with the ready-made voice), and is filed in the
+// vault's Calls folder like a call when you end it.
+
+const MAX_CHAT_TURNS = 40;
+
+interface ChatTurn {
+  role: "user" | "agent";
+  message: string;
+  at: number;
+}
+
+const chatTurns = (call: CallRow): ChatTurn[] => (call.transcript ? (JSON.parse(call.transcript) as ChatTurn[]) : []);
+const encodeSpeech = (s: { audio: ArrayBuffer; type: string }) => ({ audio: Buffer.from(s.audio).toString("base64"), type: s.type });
+
+function liveChat(db: Db, callId: number): CallRow {
+  const call = getCall(db, callId);
+  if (call?.direction !== "web" || call.mode !== "web" || call.conversation_id || !LIVE.includes(call.status as CallStatus)) throw new Error("That conversation has ended. Start a new one.");
+  return call;
+}
+
+/** Starts a voice-message conversation: returns the future self's opening line, spoken. */
+export async function startVoiceChat(db: Db, topic?: string) {
+  if (isTwinPaused(db)) throw new Error("The twin is paused. Resume it to talk.");
+  checkBudget(db);
+  chargeVoiceCall();
+  const call = insertCall(db, { direction: "web", mode: "web", status: "in_progress", topic: topic?.trim().slice(0, 200) || null });
+  const reply = openingLine(db, call);
+  setCall(db, call.id, { started_at: sqlTime(new Date()), transcript: JSON.stringify([{ role: "agent", message: reply, at: 0 }]) });
+  try {
+    return { callId: call.id, reply, ...encodeSpeech(await speakAsTwin(db, reply)) };
+  } catch (err) {
+    setCall(db, call.id, { status: "failed", error: err instanceof Error ? err.message : "Couldn't speak." });
+    throw err;
+  }
+}
+
+/** One turn: what the user said (a recording, or typed text) in, the future self's spoken answer out. */
+export async function voiceChatTurn(db: Db, stt: Transcriber | null, callId: number, said: { audio?: AudioInput; text?: string }) {
+  const call = liveChat(db, callId);
+  if (isTwinPaused(db)) throw new Error("The twin is paused. Resume it to talk.");
+  let heard = said.text?.trim().slice(0, 2000) ?? "";
+  if (said.audio) {
+    checkAudio(said.audio);
+    if (!stt) throw new Error("Hearing what you say needs an ElevenLabs or OpenRouter key. Add one under Voice engine.");
+    heard = (await stt.transcribe(said.audio)).trim();
+  }
+  if (!heard) throw new Error("I didn't catch that. Try again, a little closer to the microphone.");
+  const turns = chatTurns(call);
+  if (turns.length >= MAX_CHAT_TURNS) throw new Error("This conversation is long enough. End it to save it, then start a new one.");
+  const at = Math.round((Date.now() - new Date(`${call.started_at ?? call.created_at}Z`).getTime()) / 1000);
+  const history: ChatMessage[] = turns.map((t) => ({ role: t.role === "agent" ? "assistant" : "user", content: t.message }));
+  const reply =
+    (
+      await replyOnCall(db, [{ role: "system", content: `futureme-call:${callRef(call)}` }, ...history, { role: "user", content: heard }]).catch((err) => {
+        console.error("Voice message reply failed:", err);
+        return "";
+      })
+    ).trim() || "Sorry, I lost my train of thought. Could you say that again?";
+  setCall(db, call.id, { transcript: JSON.stringify([...turns, { role: "user", message: heard, at }, { role: "agent", message: reply, at }]) });
+  return { heard, reply, ...encodeSpeech(await speakAsTwin(db, reply)) };
+}
+
+/** Ends a voice-message conversation and files it in the vault, like a finished call. */
+export function endVoiceChat(db: Db, callId: number) {
+  const call = liveChat(db, callId);
+  const turns = chatTurns(call);
+  const duration = Math.round((Date.now() - new Date(`${call.started_at ?? call.created_at}Z`).getTime()) / 1000);
+  setCall(db, call.id, { ended_at: sqlTime(new Date()) });
+  finishCall(db, getCall(db, call.id)!, {
+    status: "done",
+    transcript: turns.map((t) => ({ role: t.role, message: t.message, time_in_call_secs: t.at })),
+    metadata: { call_duration_secs: duration },
+  });
 }
 
 // ---------- The user's own phone ----------
@@ -728,8 +806,10 @@ export async function syncCalls(db: Db, api: ElevenLabs) {
   for (const call of rows) {
     const ageMinutes = (Date.now() - new Date(`${call.started_at ?? call.created_at}Z`).getTime()) / 60_000;
     if (!call.conversation_id) {
-      // A browser call that never connected, or a dial that never got an id back.
-      if (ageMinutes > 30) setCall(db, call.id, { status: "missed" });
+      // Voice messages left open are filed as they are. Otherwise a browser call that never connected, or a dial that
+      // never got an id back.
+      if (ageMinutes > 30 && call.mode === "web" && call.transcript) endVoiceChat(db, call.id);
+      else if (ageMinutes > 30) setCall(db, call.id, { status: "missed" });
       continue;
     }
     let conv: Conversation;
