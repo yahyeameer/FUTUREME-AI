@@ -280,13 +280,13 @@ function StatMilestone() {
   const ratio = p.total ? p.done / p.total : 0;
   return (
     <Stat icon={Flag} label="Current milestone" href={active ? `/roadmap?milestone=${encodeURIComponent(active.id)}` : "/roadmap"}>
-      <div className="flex items-center gap-3">
+      <div className="flex flex-col items-start gap-2.5 sm:flex-row sm:items-center sm:gap-3">
         <ProgressRing value={ratio} size={58} label={`${Math.round(ratio * 100)}% of the current milestone done`}>
           <span className="font-mono text-[12px] font-medium">
             <CountUp value={Math.round(ratio * 100)} />%
           </span>
         </ProgressRing>
-        <p className="line-clamp-3 min-w-0 text-[13px] leading-snug font-medium">{active?.title ?? "No active milestone"}</p>
+        <p className="line-clamp-3 min-w-0 text-[13.5px] leading-snug font-medium">{active?.title ?? "No active milestone"}</p>
       </div>
     </Stat>
   );

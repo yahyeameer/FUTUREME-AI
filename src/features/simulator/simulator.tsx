@@ -134,7 +134,7 @@ export function Simulator() {
                     maxLength={300}
                     placeholder="What do you want to become?"
                     disabled={!!busy}
-                    className="h-11 min-w-0 flex-1 rounded-xl border border-border bg-surface px-4 text-[14px] shadow-card outline-none placeholder:text-subtle focus:border-border-strong focus:shadow-[var(--shadow-lift)]"
+                    className="h-11 min-w-0 shrink-0 rounded-xl border border-border bg-surface px-4 text-[14px] shadow-card outline-none placeholder:text-subtle transition-[border-color,box-shadow] hover:border-border-strong focus:border-accent/70 focus:shadow-[var(--shadow-lift),0_0_0_3px_var(--accent-wash)] sm:flex-1"
                   />
                   <Button type="submit" variant="primary" size="lg" disabled={!!busy || goal.trim().length < 5}>
                     {busy ? <Loader2 className="animate-spin" /> : <Split />} {busy ? "Exploring roads…" : "Explore the roads"}

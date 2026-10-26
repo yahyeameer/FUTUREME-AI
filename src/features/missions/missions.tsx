@@ -90,7 +90,7 @@ export function Missions() {
                   maxLength={400}
                   placeholder="What should the team work on?"
                   disabled={busy}
-                  className="h-11 min-w-0 flex-1 rounded-xl border border-border bg-surface px-4 text-[14px] shadow-card outline-none placeholder:text-subtle focus:border-border-strong focus:shadow-[var(--shadow-lift)]"
+                  className="h-11 min-w-0 shrink-0 rounded-xl border border-border bg-surface px-4 text-[14px] shadow-card outline-none placeholder:text-subtle transition-[border-color,box-shadow] hover:border-border-strong focus:border-accent/70 focus:shadow-[var(--shadow-lift),0_0_0_3px_var(--accent-wash)] sm:flex-1"
                 />
                 <Button type="submit" variant="primary" size="lg" disabled={busy || goal.trim().length < 5}>
                   {busy ? <Loader2 className="animate-spin" /> : <Rocket />} {busy ? "Team at work…" : "Start the mission"}
@@ -370,9 +370,9 @@ function Rail({ missions, current, onPick }: { missions: Mission[]; current?: st
       <RailSection title="How it runs">
         <p className="text-[12px] text-subtle">
           {workspace.platform.backend === "docker-agent"
-            ? "Every agent is defined in agents/futureme.yaml and served by Docker Agent. Helper tasks run at the same time."
+            ? "Every agent on the team is served by Docker Agent, and helper tasks run at the same time."
             : workspace.platform.backend === "in-process"
-              ? "Every agent is defined in agents/futureme.yaml and runs in the app server. Helper tasks run at the same time."
+              ? "Every agent on the team runs on this server, and helper tasks run at the same time."
               : "The demo team is scripted in your browser from your demo notes. No model is called; the supervisor's rule checks are real."}
         </p>
       </RailSection>

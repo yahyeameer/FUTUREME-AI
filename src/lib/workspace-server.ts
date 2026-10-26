@@ -212,14 +212,14 @@ function runtime(): Workspace["runtime"] {
       ? `Docker Agent team (agents/futureme.yaml, ${agentTeam().length} agents) with TOMORA's MCP tools${dockerMcpState().status === "connected" ? " and the Docker MCP Gateway" : ""}`
       : "TOMORA's agent team, running in the app server",
     model: standIn
-      ? "Built-in stand-in model (no Nebius key configured)"
+      ? "Built-in practice model (add a Nebius key for Nemotron)"
       : local
         ? `${model.slice(6)} on Docker Model Runner, on this machine`
         : model.replace(/^nebius:/, "Nemotron on Nebius Token Factory: "),
     simulated: standIn,
-    storage: "SQLite and an Obsidian-compatible Markdown vault on the TOMORA server",
+    storage: "Your private vault of Markdown notes on the TOMORA server",
     inference: standIn
-      ? "None. The stand-in model runs inside the app server."
+      ? "Nothing leaves this server: the built-in practice model runs right here."
       : local
         ? `Local. Every agent runs on Docker Model Runner at ${LOCAL_LLM_URL()}; nothing is sent to a cloud model.`
         : "Remote. Each conversation turn, with relevant memories, is sent to Nebius Token Factory for inference.",
