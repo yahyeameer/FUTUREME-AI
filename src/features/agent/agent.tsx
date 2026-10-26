@@ -61,7 +61,7 @@ export function Agent() {
                 </div>
                 <div className="min-w-0">
                   <dt className="t-meta">Model</dt>
-                  <dd className="mt-0.5 truncate font-mono text-[12px]">{rt.model}</dd>
+                  <dd className="mt-0.5 text-pretty">{rt.model}</dd>
                 </div>
                 <div className="min-w-0">
                   <dt className="t-meta">Files live in</dt>

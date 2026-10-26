@@ -19,11 +19,12 @@
   --surface-3: #ebe7dd;
   --sunken: #e9e5da;
   --foreground: #101113;
-  --muted-foreground: #565b63;
-  --subtle-foreground: #6a6f77;
-  --border: #e2ddd1;
-  --border-strong: #cec7b8;
-  --input: #d8d2c5;
+  /* Muted and subtle text both clear WCAG AA (4.5:1) on every paper surface. */
+  --muted-foreground: #474c54;
+  --subtle-foreground: #5b6068;
+  --border: #ddd7ca;
+  --border-strong: #c7bfae;
+  --input: #cdc6b6;
   --ring: #8a7445;
 
   /* The one strong action on a surface: ink with an ivory label. */
@@ -33,7 +34,7 @@
 
   --accent: #c8b78f;
   --accent-foreground: #101113;
-  --accent-ink: #77653a;
+  --accent-ink: #6b5a2f;
   --accent-wash: rgb(200 183 143 / 0.2);
   --copper: #4f5a6b;
   --copper-wash: rgb(79 90 107 / 0.1);
@@ -59,8 +60,8 @@
   --ambient-c: rgb(235 231 222 / 0.9);
   --paper-grain: 0.03;
   /* The faint light a card catches under the pointer. */
-  --spot: rgb(200 183 143 / 0.08);
-  --spot-edge: rgb(138 116 69 / 0.22);
+  --spot: rgb(200 183 143 / 0.14);
+  --spot-edge: rgb(138 116 69 / 0.45);
   --dots: rgb(16 17 19 / 0.05);
   --glow-accent: 0 0 0 1px rgb(138 116 69 / 0.22);
 }
@@ -73,11 +74,12 @@
   --surface-3: #242a33;
   --sunken: #0b0c0e;
   --foreground: #f3f0e8;
-  --muted-foreground: #aeb2ba;
-  --subtle-foreground: #8d929b;
-  --border: #252a32;
-  --border-strong: #353c47;
-  --input: #2d333d;
+  /* Muted and subtle text both clear WCAG AA (4.5:1) on every obsidian surface. */
+  --muted-foreground: #c0c4cb;
+  --subtle-foreground: #a2a7b0;
+  --border: #2a3039;
+  --border-strong: #3d4551;
+  --input: #39404b;
   --ring: #c8b78f;
 
   --primary: #c8b78f;
@@ -110,8 +112,8 @@
   --ambient-b: rgb(155 165 180 / 0.05);
   --ambient-c: rgb(16 17 19 / 0);
   --paper-grain: 0.025;
-  --spot: rgb(200 183 143 / 0.05);
-  --spot-edge: rgb(200 183 143 / 0.2);
+  --spot: rgb(200 183 143 / 0.09);
+  --spot-edge: rgb(200 183 143 / 0.42);
   --dots: rgb(255 255 255 / 0.035);
   --glow-accent: 0 0 0 1px rgb(200 183 143 / 0.2);
 }
@@ -386,7 +388,7 @@
 
 /* Small section labels in sentence case: hierarchy from size and colour, not shouting capitals. */
 @utility t-label {
-  font-size: 0.75rem;
+  font-size: 0.78125rem;
   font-weight: 500;
   letter-spacing: 0.005em;
   color: var(--subtle-foreground);
@@ -403,7 +405,7 @@
 
 @utility t-meta {
   font-family: var(--font-mono);
-  font-size: 0.6875rem;
+  font-size: 0.71875rem;
   letter-spacing: 0.01em;
   color: var(--subtle-foreground);
   font-variant-numeric: tabular-nums;
@@ -495,14 +497,16 @@
     border-radius: calc(var(--radius) + 8px);
     box-shadow: var(--shadow-card);
   }
-  /* Cards you can act on lift and lean toward the pointer (--px/--py, -0.5 to 0.5, from SpotlightTracker). */
-  /* Cards you can act on rise slightly; no tilt, no glow. */
+  /* Cards you can act on rise toward the pointer, catch a champagne edge, and sink a little when pressed. */
   .card-hover {
-    transition: transform var(--dur-base) var(--ease-out), box-shadow var(--dur-base), border-color var(--dur-base);
+    transition: transform var(--dur-base) var(--ease-out), box-shadow var(--dur-base), border-color var(--dur-base), scale var(--dur-fast) var(--ease-out);
   }
   .card-hover:hover {
-    transform: translateY(-2px);
-    box-shadow: var(--shadow-lift);
+    transform: translateY(-3px);
+    box-shadow: var(--shadow-lift), var(--glow-accent);
+  }
+  .card-hover:active {
+    scale: 0.99;
   }
   .card-hover:not(.card):hover {
     border-color: var(--border-strong);
@@ -524,9 +528,9 @@
     transform: translateX(-120%) skewX(-18deg);
     pointer-events: none;
   }
-  /* Kept as a hook for the primary button; TOMORA doesn't sweep light across it. */
+  /* One band of light crosses the strong action when the pointer arrives. */
   .sheen:hover::after {
-    animation: none;
+    animation: sheen 0.9s var(--ease-out);
   }
 
   /* Champagne ink for names and the words that matter. Static: emphasis, not decoration. */
@@ -780,6 +784,123 @@
   .scrollbar-thin {
     scrollbar-width: thin;
     scrollbar-color: var(--border-strong) transparent;
+  }
+}
+
+/* ---------- Interaction layer ----------
+   Small, consistent feedback for everything you can touch: buttons sink when pressed, trailing arrows lean
+   forward, chips light up, and content rises into place as it scrolls into view. Off under reduced motion.
+   Unlayered on purpose, so these states win over the per-component Tailwind utilities they refine. */
+:root {
+  /* Every button gives a little under the finger. `scale` is its own property, so it composes with hover lifts. */
+  [data-slot="button"] {
+    transition-property: color, background-color, border-color, box-shadow, transform, scale;
+  }
+  [data-slot="button"]:active:not(:disabled) {
+    scale: 0.97;
+  }
+
+  /* A disabled primary action reads as "not yet", not as a broken, muddy button. A busy one (with a spinner) keeps its colour. */
+  [data-slot="button"][data-variant="primary"]:disabled:not(:has(.animate-spin)) {
+    opacity: 1;
+    background: var(--surface-3);
+    color: var(--muted-foreground);
+    box-shadow: inset 0 0 0 1px var(--border-strong);
+  }
+
+  /* Trailing icons (arrows, chevrons) lean forward when their link or button is hovered. */
+  :is(a, button):hover > svg:last-child:not(:first-child) {
+    translate: 2px 0;
+  }
+  :is(a, button) > svg:last-child:not(:first-child) {
+    transition: translate var(--dur-base) var(--ease-out);
+  }
+
+  /* Leading icons in buttons give a small nod. */
+  [data-slot="button"]:hover:not(:disabled) > svg:first-child:not(:last-child):not(.animate-spin) {
+    scale: 1.12;
+    rotate: -6deg;
+  }
+  [data-slot="button"] > svg:first-child {
+    transition: scale var(--dur-base) var(--ease-out), rotate var(--dur-base) var(--ease-out);
+  }
+
+  /* Text fields: a warmer focus with a soft champagne halo. */
+  :is([data-slot="input"], [data-slot="textarea"]):hover:not(:disabled):not(:focus-visible) {
+    border-color: var(--border-strong);
+  }
+  :is([data-slot="input"], [data-slot="textarea"]):focus-visible {
+    border-color: color-mix(in oklab, var(--accent) 75%, var(--ring));
+    box-shadow: 0 0 0 3px var(--accent-wash), 0 6px 20px -12px var(--accent);
+  }
+
+  /* Checkboxes pop when ticked. */
+  button[role="checkbox"][data-state="checked"] {
+    animation: check-pop 0.32s var(--ease-out);
+  }
+  button[role="checkbox"]:hover:not(:disabled) {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-wash);
+  }
+
+  /* Scrolling lists (the sidebar nav) fade at the edge instead of cutting words in half. */
+  .scroll-fade {
+    -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 2.5rem), transparent);
+    mask-image: linear-gradient(to bottom, #000 calc(100% - 2.5rem), transparent);
+  }
+
+  /* A champagne thread across the top of the window that fills as you scroll the page. */
+  .scroll-progress {
+    position: fixed;
+    inset: 0 0 auto 0;
+    z-index: 70;
+    height: 2px;
+    pointer-events: none;
+    transform-origin: left;
+    transform: scaleX(0);
+    background: linear-gradient(90deg, var(--bronze), var(--accent) 60%, color-mix(in oklab, var(--accent), white 35%));
+    box-shadow: 0 0 10px var(--accent);
+    opacity: 0;
+  }
+}
+
+@keyframes check-pop {
+  0% { scale: 0.7; }
+  60% { scale: 1.15; }
+  100% { scale: 1; }
+}
+
+@keyframes reveal-up {
+  from { opacity: 0; translate: 0 22px; }
+  to { opacity: 1; translate: 0 0; }
+}
+
+@keyframes progress-fill {
+  from { transform: scaleX(0); opacity: 1; }
+  to { transform: scaleX(1); opacity: 1; }
+}
+
+/* Scroll-driven motion, only where the browser supports it and motion is welcome; elsewhere everything is simply shown. */
+@supports (animation-timeline: view()) {
+  @media (prefers-reduced-motion: no-preference) {
+    :root:not([data-motion="reduced"]) main .card {
+      animation: reveal-up linear both;
+      animation-timeline: view();
+      animation-range: entry 0% entry 40%;
+    }
+    :root:not([data-motion="reduced"]) .scroll-progress {
+      animation: progress-fill linear both;
+      animation-timeline: scroll(root block);
+    }
+  }
+  :root[data-motion="full"] main .card {
+    animation: reveal-up linear both;
+    animation-timeline: view();
+    animation-range: entry 0% entry 40%;
+  }
+  :root[data-motion="full"] .scroll-progress {
+    animation: progress-fill linear both;
+    animation-timeline: scroll(root block);
   }
 }
 

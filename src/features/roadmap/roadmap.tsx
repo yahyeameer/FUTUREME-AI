@@ -231,7 +231,7 @@ function RoadmapRail() {
             ))}
           </ul>
         ) : (
-          <p className="text-[12.5px] text-muted-foreground">{workspace.capabilities.taskStatuses.includes("blocked") ? "Nothing is blocked." : "Mark tasks as blocked in demo mode; the live backend tracks to-do and done."}</p>
+          <p className="text-[12.5px] text-muted-foreground">{workspace.capabilities.taskStatuses.includes("blocked") ? "Nothing is blocked." : "Nothing is blocked. Tasks here are tracked as to do or done."}</p>
         )}
       </RailSection>
       <RailSection title="Upcoming deadlines">

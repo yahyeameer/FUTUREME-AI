@@ -11,11 +11,11 @@ export const buttonVariants = cva(
         // Citron is reserved for the one meaningful action on a surface.
         primary: "sheen bg-primary text-primary-foreground shadow-[inset_0_1px_0_rgb(255_255_255/0.18),0_1px_2px_rgb(0_0_0/0.12)] hover:-translate-y-px hover:shadow-[inset_0_1px_0_rgb(255_255_255/0.18),0_10px_24px_-8px_var(--primary-glow)]",
         default: "bg-foreground text-background hover:bg-foreground/90",
-        secondary: "border border-border bg-surface text-foreground shadow-[0_1px_2px_rgb(40_30_10/0.06)] hover:border-border-strong hover:bg-surface-2",
+        secondary: "border border-border-strong/80 bg-surface text-foreground shadow-[0_1px_2px_rgb(40_30_10/0.06)] hover:-translate-y-px hover:border-accent/60 hover:bg-surface-2 hover:shadow-[0_8px_20px_-12px_rgb(40_30_10/0.35)]",
         outline: "border border-border-strong bg-transparent text-foreground hover:bg-surface-2",
-        ghost: "text-muted-foreground hover:bg-surface-3/70 hover:text-foreground",
+        ghost: "text-muted-foreground hover:bg-surface-3/80 hover:text-foreground",
         destructive: "bg-destructive-wash text-destructive hover:bg-destructive/20 border border-destructive/25",
-        link: "h-auto px-0 text-accent-ink underline-offset-4 hover:underline",
+        link: "h-auto px-0 text-accent-ink underline decoration-accent/40 underline-offset-4 hover:decoration-accent",
       },
       size: {
         sm: "h-8 px-3 text-xs [&_svg]:size-3.5",
@@ -35,5 +35,5 @@ export interface ButtonProps extends React.ComponentProps<"button">, VariantProp
 
 export function Button({ className, variant, size, asChild = false, type, ...props }: ButtonProps) {
   const Comp = asChild ? Slot.Root : "button";
-  return <Comp data-slot="button" type={asChild ? undefined : (type ?? "button")} className={cn(buttonVariants({ variant, size }), className)} {...props} />;
+  return <Comp data-slot="button" data-variant={variant ?? "secondary"} type={asChild ? undefined : (type ?? "button")} className={cn(buttonVariants({ variant, size }), className)} {...props} />;
 }

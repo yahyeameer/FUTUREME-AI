@@ -89,7 +89,7 @@ export function Council() {
                   maxLength={600}
                   placeholder="What decision are you weighing?"
                   disabled={!!asking}
-                  className="h-11 min-w-0 flex-1 rounded-xl border border-border bg-surface px-4 text-[14px] shadow-card outline-none placeholder:text-subtle focus:border-border-strong focus:shadow-[var(--shadow-lift)]"
+                  className="h-11 min-w-0 shrink-0 rounded-xl border border-border bg-surface px-4 text-[14px] shadow-card outline-none placeholder:text-subtle transition-[border-color,box-shadow] hover:border-border-strong focus:border-accent/70 focus:shadow-[var(--shadow-lift),0_0_0_3px_var(--accent-wash)] sm:flex-1"
                 />
                 <Button type="submit" variant="primary" size="lg" disabled={!!asking || question.trim().length < 3}>
                   {asking ? <Loader2 className="animate-spin" /> : <Users />} {asking ? "Council is meeting…" : "Convene the council"}
@@ -403,9 +403,9 @@ function History({ sessions, current, onPick }: { sessions: CouncilSession[]; cu
       <RailSection title="How it runs">
         <p className="text-[12px] text-subtle">
           {workspace.platform.backend === "docker-agent"
-            ? "Each voice is a separate agent in agents/futureme.yaml, served by Docker Agent. They run in parallel with read-only memory search."
+            ? "Each voice is its own agent, served by Docker Agent. They answer at the same time and can search your notes but never change them."
             : workspace.platform.backend === "in-process"
-              ? "Each voice is defined in agents/futureme.yaml and runs in the app server, with read-only memory search."
+              ? "Each voice is its own agent running on this server. They can search your notes but never change them."
               : "Demo voices are scripted in your browser from your demo notes. No model is called."}
         </p>
       </RailSection>

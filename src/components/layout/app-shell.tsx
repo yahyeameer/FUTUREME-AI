@@ -32,6 +32,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const { sidebarCollapsed } = usePreferences();
   return (
     <div className="flex min-h-dvh">
+      <div aria-hidden className="scroll-progress" />
       <a href="#main" className="sr-only z-[60] rounded-md bg-accent px-3 py-2 text-accent-foreground focus:not-sr-only focus:fixed focus:top-3 focus:left-3">
         Skip to content
       </a>
@@ -77,7 +78,7 @@ function SidebarContents({ collapsed, onNavigate }: { collapsed: boolean; onNavi
         onClick={onNavigate}
         aria-current={active ? "page" : undefined}
         className={cn(
-          "group relative flex items-center gap-2.5 rounded-lg px-2.5 py-[calc(var(--row-y)-0.05rem)] text-[13px] font-medium text-muted-foreground transition-colors hover:bg-surface-3/70 hover:text-foreground",
+          "group relative flex items-center gap-2.5 rounded-lg px-2.5 py-[calc(var(--row-y)-0.05rem)] text-[13px] font-medium text-muted-foreground transition-[color,background-color] duration-200 hover:bg-surface-3/80 hover:text-foreground active:scale-[0.98]",
           active && "text-primary-foreground hover:bg-transparent hover:text-primary-foreground",
           collapsed && "justify-center px-0",
         )}
@@ -90,8 +91,8 @@ function SidebarContents({ collapsed, onNavigate }: { collapsed: boolean; onNavi
             transition={{ type: "spring", stiffness: 420, damping: 36 }}
           />
         )}
-        <n.icon className={cn("relative size-4 shrink-0 transition-[color,transform] duration-200", active ? "text-accent dark:text-primary-foreground" : "text-subtle group-hover:text-foreground")} aria-hidden />
-        {!collapsed && <span className="relative truncate">{n.label}</span>}
+        <n.icon className={cn("relative size-4 shrink-0 transition-[color,transform] duration-200", active ? "text-accent dark:text-primary-foreground" : "text-subtle group-hover:scale-110 group-hover:-rotate-6 group-hover:text-accent-ink")} aria-hidden />
+        {!collapsed && <span className={cn("relative truncate transition-transform duration-200", !active && "group-hover:translate-x-0.5")}>{n.label}</span>}
         {!!badge && (
           <span
             className={cn("pulse-ring relative ml-auto rounded-full bg-accent px-1.5 font-mono text-[10px] leading-4 font-semibold text-accent-foreground", collapsed && "absolute top-0.5 right-1 ml-0 px-1")}
@@ -143,7 +144,7 @@ function SidebarContents({ collapsed, onNavigate }: { collapsed: boolean; onNavi
         </button>
       </div>
 
-      <nav className={cn("flex flex-1 flex-col gap-0.5 overflow-y-auto px-3 py-2 scrollbar-none", collapsed && "px-2")}>
+      <nav className={cn("scroll-fade flex flex-1 flex-col gap-0.5 overflow-y-auto px-3 pt-2 pb-6 scrollbar-none", collapsed && "px-2")}>
         {NAV.filter((n) => !n.group).map((n) => item(n))}
         {NAV_GROUPS.map((g) => (
           <React.Fragment key={g}>
@@ -259,10 +260,11 @@ function MobileBar() {
               const badge = t.href === "/future-self" ? waiting : 0;
               return (
                 <li key={t.href}>
-                  <Link href={t.href} aria-current={active ? "page" : undefined} className="relative flex h-full flex-col items-center justify-center gap-1 text-[10.5px] font-medium text-muted-foreground transition-colors active:scale-95">
+                  <Link href={t.href} aria-current={active ? "page" : undefined} className="relative flex h-full flex-col items-center justify-center gap-1 text-[11px] font-medium text-muted-foreground transition-[color,scale] active:scale-95">
                     {active && <motion.span layoutId="tab-dot" aria-hidden className="absolute top-0 h-[2px] w-8 rounded-b-full bg-accent" transition={{ type: "spring", stiffness: 420, damping: 36 }} />}
-                    <span className={cn("relative flex h-7 w-11 items-center justify-center rounded-full transition-colors", active && "bg-accent-wash text-accent-ink")}>
-                      <t.icon className="size-[18px]" aria-hidden />
+                    <span className={cn("relative flex h-7 w-11 items-center justify-center rounded-full transition-colors", active && "text-accent-ink")}>
+                      {active && <motion.span layoutId="tab-pill" aria-hidden className="absolute inset-0 rounded-full bg-accent-wash" transition={{ type: "spring", stiffness: 420, damping: 32 }} />}
+                      <t.icon className={cn("relative size-[18px] transition-transform duration-300", active && "-translate-y-px scale-110")} aria-hidden />
                       {!!badge && <span className="absolute -top-0.5 right-1 size-2 rounded-full bg-accent ring-2 ring-surface" aria-label={`${badge} waiting for approval`} />}
                     </span>
                     <span className={cn(active && "text-foreground")}>{t.label.replace("Future Simulator", "Futures").replace("Life ", "")}</span>
@@ -271,7 +273,7 @@ function MobileBar() {
               );
             })}
             <li>
-              <button type="button" onClick={() => setOpen(true)} className="flex h-full w-full flex-col items-center justify-center gap-1 text-[10.5px] font-medium text-muted-foreground transition-colors active:scale-95">
+              <button type="button" onClick={() => setOpen(true)} className="flex h-full w-full flex-col items-center justify-center gap-1 text-[11px] font-medium text-muted-foreground transition-[color,scale] active:scale-95">
                 <span className={cn("flex h-7 w-11 items-center justify-center rounded-full", inMore && "bg-accent-wash text-accent-ink")}>
                   <MoreHorizontal className="size-[18px]" aria-hidden />
                 </span>
