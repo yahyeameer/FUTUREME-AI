@@ -1,25 +1,28 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { openDb, type Db } from "../src/lib/db";
 import { runTool, saveProfile } from "../src/lib/futureme";
 import { getTwinSetting, setTwinPaused } from "../src/lib/twin";
 import {
   confirmOwnerPhone,
   dialDueCalls,
+  endVoiceChat,
   ensureTwinAgent,
   replyOnCall,
   scheduleSelfCall,
   SECRET_HEADER,
   SELF_CALLS_PER_DAY,
   setOwnerPhone,
+  startVoiceChat,
   startWebCall,
   syncCalls,
+  voiceChatTurn,
   webCallConnected,
 } from "../src/lib/twin-calls";
 import { readNote } from "../src/lib/vault";
-import { ElevenLabs, revokeVoice } from "../src/lib/voice";
+import { ElevenLabs, revokeVoice, setPresetVoice } from "../src/lib/voice";
 
 let dir: string;
 let db: Db;
@@ -37,6 +40,8 @@ const fakeFetch: typeof fetch = async (input, init) => {
   if (url.endsWith("/v1/convai/agents/create")) return json({ agent_id: "agent-1" });
   if (url.endsWith("/v1/convai/agents/agent-1")) return json({ agent_id: "agent-1" });
   if (url.includes("/v1/convai/conversation/token")) return json({ token: "webrtc-token" });
+  if (url.endsWith("/v1/speech-to-text")) return json({ text: "Should I apply for the grant?" });
+  if (url.includes("/v1/text-to-speech/")) return new Response(new Uint8Array([73, 68, 51]), { headers: { "content-type": "audio/mpeg" } });
   if (url.endsWith("/v1/convai/twilio/outbound-call")) return json({ success: true, message: "ok", conversation_id: `conv-${++outboundCount}`, callSid: "CA1" });
   const conv = url.match(/\/v1\/convai\/conversations\/(.+)$/);
   if (conv) return conversations[conv[1]] ? json(conversations[conv[1]]) : json({ detail: "not found" }, 404);
@@ -237,5 +242,63 @@ describe("Promise Keeper", () => {
     const web = await startWebCall(db, api);
     const out = await runTool(db, "confirm_task_done", JSON.stringify({ call_ref: web.dynamicVariables.call_ref }));
     expect(out.output).toMatch(/only works during a Promise Keeper call/);
+  });
+});
+
+describe("voice messages", () => {
+  beforeEach(() => {
+    // The twin speaks through the ElevenLabs key on the server, here the stand-in above.
+    process.env.ELEVENLABS_API_KEY = "test-key";
+    process.env.ELEVENLABS_BASE_URL = "https://el.test";
+    delete process.env.TWIN_PUBLIC_URL;
+    vi.stubGlobal("fetch", fakeFetch);
+  });
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    delete process.env.ELEVENLABS_API_KEY;
+    delete process.env.ELEVENLABS_BASE_URL;
+  });
+  const speech = (url: string) => requests.filter((r) => r.url.includes("/v1/text-to-speech/") && r.url.includes(url));
+
+  it("hears a recording, answers as the future self in the cloned voice, and needs no public address", async () => {
+    const chat = await startVoiceChat(db, "the grant");
+    expect(chat.reply).toMatch(/^Hey Amina\. It's you, from \d{4}\. Not a recording: an AI version of your future self, in your own voice/);
+    expect(chat).toMatchObject({ type: "audio/mpeg", audio: Buffer.from([73, 68, 51]).toString("base64") });
+    expect(speech("/ivc-1")).toHaveLength(1);
+
+    const turn = await voiceChatTurn(db, api, chat.callId, { audio: { data: new Uint8Array([1, 2, 3]), filename: "m.webm", type: "audio/webm" } });
+    expect(turn.heard).toBe("Should I apply for the grant?");
+    expect(turn.reply.length).toBeGreaterThan(5);
+    expect(turn.reply).not.toMatch(/can't continue|lost my train/);
+    expect(speech("/ivc-1")).toHaveLength(2);
+
+    await expect(voiceChatTurn(db, api, chat.callId, { text: "  " })).rejects.toThrow(/didn't catch/);
+    endVoiceChat(db, chat.callId);
+    const row = db.prepare("SELECT status, note_path FROM calls WHERE id = ?").get(chat.callId) as { status: string; note_path: string };
+    expect(row.status).toBe("done");
+    const note = readNote(row.note_path);
+    expect(note.body).toContain("**You:** Should I apply for the grant?");
+    expect(note.body).toContain(`**Future you (AI):** ${turn.reply}`);
+    await expect(voiceChatTurn(db, api, chat.callId, { text: "hello?" })).rejects.toThrow(/ended/);
+  });
+
+  it("speaks in the ready-made voice when no voice was cloned, and stops when the twin is paused", async () => {
+    db.prepare("DELETE FROM voice_profiles").run();
+    await expect(startVoiceChat(db)).rejects.toThrow(/don't have a voice/);
+    setPresetVoice(db, true);
+    const chat = await startVoiceChat(db);
+    expect(chat.reply).not.toMatch(/in your own voice/);
+    expect(speech("/21m00Tcm4TlvDq8ikWAM")).toHaveLength(1);
+    const turn = await voiceChatTurn(db, null, chat.callId, { text: "Typed instead" });
+    expect(turn.heard).toBe("Typed instead");
+    setTwinPaused(db, true);
+    await expect(voiceChatTurn(db, null, chat.callId, { text: "hi" })).rejects.toThrow(/paused/);
+  });
+
+  it("can't continue a browser call or another kind of call", async () => {
+    process.env.TWIN_PUBLIC_URL = "https://futureme.example.com/";
+    const web = await startWebCall(db, api);
+    webCallConnected(db, web.callId, "conv-web");
+    await expect(voiceChatTurn(db, api, web.callId, { text: "hi" })).rejects.toThrow(/ended/);
   });
 });

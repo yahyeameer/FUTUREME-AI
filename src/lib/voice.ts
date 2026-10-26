@@ -28,13 +28,41 @@ const CONSENT_TTL_MINUTES = 10;
 const TTS_MODEL = "eleven_multilingual_v2";
 
 export class ElevenLabsError extends Error {
+  /** ElevenLabs' own error code, such as "paid_plan_required", when the answer had one. */
+  readonly code: string | null;
+
   constructor(
     readonly status: number,
     detail: string,
   ) {
-    super(`ElevenLabs answered ${status}: ${detail}`);
+    const parsed = parseDetail(detail);
+    super(`ElevenLabs answered ${status}: ${parsed.message ?? detail}`);
+    this.code = parsed.code;
   }
 }
+
+/** ElevenLabs errors come as {"detail": {"code", "status", "message"}}; older ones as {"detail": "text"}. */
+function parseDetail(body: string): { code: string | null; message: string | null } {
+  try {
+    const detail = (JSON.parse(body) as { detail?: unknown }).detail;
+    if (typeof detail === "string") return { code: null, message: detail };
+    if (detail && typeof detail === "object") {
+      const d = detail as { code?: unknown; status?: unknown; message?: unknown };
+      const code = typeof d.code === "string" ? d.code : typeof d.status === "string" ? d.status : null;
+      return { code, message: typeof d.message === "string" ? d.message : null };
+    }
+  } catch {
+    // Not JSON: keep the text as it came.
+  }
+  return { code: null, message: null };
+}
+
+/** The plan behind the key can't clone voices (the free plan can't). */
+export const NO_CLONING_PLAN =
+  "Your ElevenLabs plan doesn't include voice cloning. Upgrade to Starter or higher at elevenlabs.io/pricing, or use a ready-made voice for now.";
+
+const planCantClone = (err: unknown) =>
+  err instanceof ElevenLabsError && (err.code === "paid_plan_required" || /voice_cloning|can_not_use_instant_voice_cloning/.test(err.message));
 
 /** A thin ElevenLabs REST client. `fetchImpl` is swapped out in tests. */
 export class ElevenLabs {
@@ -365,11 +393,17 @@ export async function createInstantClone(db: Db, samples: AudioInput[], clients:
   const name = `${ownerName(db)} (TOMORA twin)`;
   let voiceId: string;
   let model: string | null = null;
-  if (engine === "elevenlabs") voiceId = await el!.createInstantVoice(name, files.map(loadAudio));
-  else if (engine === "qwen") {
-    voiceId = await qw!.enroll(loadAudio(consent.recording_path), "futureme");
-    model = QWEN_CLONE_MODEL;
-  } else voiceId = "references";
+  try {
+    if (engine === "elevenlabs") voiceId = await el!.createInstantVoice(name, files.map(loadAudio));
+    else if (engine === "qwen") {
+      voiceId = await qw!.enroll(loadAudio(consent.recording_path), "futureme");
+      model = QWEN_CLONE_MODEL;
+    } else voiceId = "references";
+  } catch (err) {
+    // Nothing was cloned, so the extra samples aren't kept. The consent recording stays for the next try.
+    for (const f of files.slice(1)) fs.rmSync(f, { force: true });
+    throw planCantClone(err) ? new Error(NO_CLONING_PLAN) : err;
+  }
   db.prepare("INSERT INTO voice_profiles (provider, voice_id, model, kind, status, consent_id, samples) VALUES (?, ?, ?, 'instant', 'ready', ?, ?)").run(
     engine,
     voiceId,
@@ -467,10 +501,20 @@ async function speakAs(db: Db, voice: VoiceRow, text: string, config = engineCon
   return new OpenRouterVoice(config.key).speak(text, { model: config.model, references: [{ audio: loadAudio(consent.recording_path), transcript: consent.transcript ?? undefined }] });
 }
 
-export async function previewVoice(db: Db, text?: string): Promise<Speech> {
+/** Speaks as the future self: in the user's cloned voice, or in the ready-made voice if they chose that instead. */
+export async function speakAsTwin(db: Db, text: string): Promise<Speech> {
   const voice = activeVoice(db);
-  if (!voice || voice.status !== "ready") throw new Error("You don't have a voice yet.");
-  return speakAs(db, voice, (text?.trim() || PREVIEW_LINE).slice(0, 300));
+  if (voice?.status === "ready") return speakAs(db, voice, text);
+  if (usesPresetVoice(db)) {
+    const api = getVoiceApi(db);
+    if (!api) throw new Error("The ready-made voice needs an ElevenLabs key. Add one under Voice engine.");
+    return { audio: await api.speak(presetVoiceId(), text), type: "audio/mpeg" };
+  }
+  throw new Error("You don't have a voice yet.");
+}
+
+export async function previewVoice(db: Db, text?: string): Promise<Speech> {
+  return speakAsTwin(db, (text?.trim() || PREVIEW_LINE).slice(0, 300));
 }
 
 /**
