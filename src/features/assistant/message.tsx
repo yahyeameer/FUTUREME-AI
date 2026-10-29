@@ -17,7 +17,14 @@ import { ProgressBlock } from "./progress-block";
 import { Reasoning } from "./reasoning";
 import { ToolStatus } from "./tool-status";
 
+/** A message that carries a file ends with ⟦file:NAME⟧ … ⟦/file⟧ (see the composer); the bubble shows it as a collapsed attachment. */
+function splitFile(content: string): { text: string; file?: { name: string; body: string } } {
+  const m = content.match(/^([\s\S]*?)\n*⟦file:([^⟧\n]+)⟧\n([\s\S]*?)\n⟦\/file⟧\s*$/);
+  return m ? { text: m[1], file: { name: m[2], body: m[3] } } : { text: content };
+}
+
 export function UserMessage({ message }: { message: Message }) {
+  const { text, file } = splitFile(message.content);
   return (
     <div className="flex justify-end">
       <div className="max-w-[85%] sm:max-w-[75%]">
@@ -25,7 +32,15 @@ export function UserMessage({ message }: { message: Message }) {
           // eslint-disable-next-line @next/next/no-img-element -- a user photo from the vault, not a static asset
           <img src={message.image} alt="Photo you sent" className="mb-1.5 ml-auto max-h-64 rounded-2xl border border-border object-cover" />
         )}
-        <div className="sheen rounded-2xl rounded-br-md bg-primary px-4 py-3 text-[14px] leading-relaxed whitespace-pre-wrap text-primary-foreground shadow-[0_10px_24px_-14px_rgb(0_0_0/0.5)] transition-[transform,box-shadow] duration-300 hover:-translate-y-0.5 hover:shadow-[0_14px_30px_-14px_rgb(0_0_0/0.55),0_0_0_1px_rgb(196_214_106/0.35),0_0_28px_-10px_var(--accent)]">{message.content}</div>
+        <div className="sheen rounded-2xl rounded-br-md bg-primary px-4 py-3 text-[14px] leading-relaxed whitespace-pre-wrap text-primary-foreground shadow-[0_10px_24px_-14px_rgb(0_0_0/0.5)] transition-[transform,box-shadow] duration-300 hover:-translate-y-0.5 hover:shadow-[0_14px_30px_-14px_rgb(0_0_0/0.55),0_0_0_1px_rgb(196_214_106/0.35),0_0_28px_-10px_var(--accent)]">
+          {text}
+          {file && (
+            <details className="mt-2 rounded-lg bg-black/15 px-2.5 py-1.5 text-[12.5px]">
+              <summary className="cursor-pointer truncate">📎 {file.name}</summary>
+              <pre className="mt-1.5 max-h-48 overflow-auto whitespace-pre-wrap">{file.body}</pre>
+            </details>
+          )}
+        </div>
         <p className="mt-1 text-right t-meta">{formatTime(message.createdAt)}</p>
       </div>
     </div>

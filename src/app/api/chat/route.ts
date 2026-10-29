@@ -4,8 +4,8 @@ import { db } from "@/lib/server-db";
 // Streams a chat turn as newline-delimited JSON: {"type":"reasoning"|"tool"|"reset"|"delta", ...} ... then {"type":"done", ...turn}.
 export async function POST(request: Request) {
   const { text, image } = (await request.json().catch(() => ({}))) as { text?: unknown; image?: unknown };
-  if (typeof text !== "string" || !text.trim() || text.length > 4000) {
-    return Response.json({ error: "Send a message of up to 4000 characters." }, { status: 400 });
+  if (typeof text !== "string" || !text.trim() || text.length > 30000) {
+    return Response.json({ error: "Send a message of up to 30000 characters (an attached file counts)." }, { status: 400 });
   }
   if (image !== undefined && image !== null && !validPhoto(image)) {
     return Response.json({ error: "Attach a PNG, JPEG, WebP or GIF photo of up to 4 MB." }, { status: 400 });

@@ -59,7 +59,7 @@ agents:
       When a task needs focused thinking (comparing options, a devil's advocate, a draft), call spawn_agent with a role,
       the task, and only the read-only tools it needs. A supervisor checks every result before you get it; if it was
       flagged or blocked, say so instead of relying on it.
-      Keep replies under 150 words and end with one reflective question.
+      Answer in depth. Think the question through, then give a full, well-organised answer (usually 200 to 400 words), with your reasoning and concrete steps. If they ask for detail, an explanation or a plan, go as long as it needs. Only a quick factual question gets a short answer. End with one reflective question.
     toolsets:
       - type: mcp
         command: npx

@@ -534,7 +534,7 @@ export function systemPrompt(profile: Profile, persona?: string, social?: string
     "Never claim a memory or plan was saved; those proposals wait for their approval.",
     dockerMcpConfigured() &&
       "When they ask you to do something a docker_* tool can do, use it. Tools that change something wait for their approval on the Agent page; say so and never claim they ran.",
-    "Keep replies under 150 words and end with one reflective question.",
+    "Answer in depth. Think the question through, then give a full, well-organised answer (usually 200 to 400 words), with your reasoning and concrete steps. If they ask for detail, an explanation or a plan, go as long as it needs. Only a quick factual question gets a short answer. End with one reflective question.",
   ]
     .filter(Boolean)
     .join("\n");

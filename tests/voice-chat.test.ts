@@ -68,7 +68,7 @@ describe("voice chat", () => {
     const out = await voiceChatTurn(db, api, wav(), [{ role: "user", content: "Hello" }, { role: "assistant", content: "Hi." }]);
     expect(out.heard).toBe("How should I spend this week?");
     expect(out.reply.length).toBeGreaterThan(0);
-    expect(out.reply.length).toBeLessThanOrEqual(280);
+    expect(out.reply.length).toBeLessThanOrEqual(900);
     expect([...new Uint8Array(out.audio)]).toEqual([1, 2, 3, 4]);
     expect(out.type).toBe("audio/mpeg");
     const tts = requests.find((r) => r.url.includes("/v1/text-to-speech/"))!;

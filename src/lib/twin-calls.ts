@@ -860,7 +860,22 @@ export interface ChatTurn {
   content: string;
 }
 
-const VOICE_CHAT_REPLY_CHARS = 280;
+/** How much of a reply is spoken (TWIN_VOICE_REPLY_CHARS). Each character spends ElevenLabs credits, so it is capped. */
+const voiceReplyChars = () => Math.min(1500, Math.max(200, Math.round(Number(process.env.TWIN_VOICE_REPLY_CHARS) || 900)));
+
+const VOICE_CHAT_INSTRUCTION = `You are the user's future self, in a spoken conversation. Everything you write is read aloud in their own cloned voice.
+Think the question through, then answer it properly: the real substance, your reasoning, and concrete steps, in plain spoken sentences. Aim for about 120 to 180 words, never more than 220.
+No lists, headings, markdown, emoji or links: talk the way a thoughtful person talks, with natural flow. Start with the answer, not a preamble.
+Call search_memory when their notes would help, and use what you find without reading it out. You are an AI version of their future self; if they ask, say so.
+Only a quick factual question gets a short answer.`;
+
+/** Cuts a reply at the last full sentence before the limit, so the spoken version never stops mid-thought. */
+function atSentence(text: string, limit: number): string {
+  if (text.length <= limit) return text;
+  const cut = text.slice(0, limit);
+  const end = Math.max(cut.lastIndexOf(". "), cut.lastIndexOf("? "), cut.lastIndexOf("! "), cut.lastIndexOf("."), cut.lastIndexOf("?"), cut.lastIndexOf("!"));
+  return end > limit * 0.5 ? cut.slice(0, end + 1) : cut;
+}
 
 /**
  * One turn of talking with your future self in your own cloned voice, without ElevenLabs' call agents (which won't pair
@@ -876,16 +891,18 @@ export async function voiceChatTurn(db: Db, api: ElevenLabs, audio: AudioInput, 
   chargeVoiceTurn();
   const heard = (await api.transcribe(audio)).trim();
   if (!heard) throw new Error("I didn't catch that. Try again a little closer to the microphone.");
-  const prompt = [
-    callPrompt(db, { mode: "web", topic: null } as CallRow),
-    "This is a spoken chat in the user's own cloned voice. Keep every reply to one to three short sentences, plain speech, nothing written (no lists, markdown or links).",
-  ].join("\n");
+  const prompt = callPrompt(db, { mode: "web", topic: null } as CallRow);
   const turns = history
     .filter((t) => (t.role === "user" || t.role === "assistant") && t.content.trim())
     .slice(-10)
     .map((t): ChatMessage => ({ role: t.role, content: t.content.slice(0, 600) }));
-  const { reply } = await runAgent(db, "twin_voice", [{ role: "system", content: prompt }, ...turns, { role: "user", content: heard }], { tools: ["search_memory"] });
-  const spoken = reply.trim().slice(0, VOICE_CHAT_REPLY_CHARS);
+  // Not a live call, so there is time to think: reasoning on, and room for a real answer.
+  const { reply } = await runAgent(db, "twin_voice", [{ role: "system", content: prompt }, ...turns, { role: "user", content: heard }], {
+    tools: ["search_memory"],
+    reasoning: "on",
+    instruction: VOICE_CHAT_INSTRUCTION,
+  });
+  const spoken = atSentence(reply.trim(), voiceReplyChars());
   const speech = await api.speak(voice.voice_id, spoken || "Sorry, I lost my train of thought. Could you say that again?");
   return { heard, reply: spoken, audio: speech, type: "audio/mpeg" as const };
 }

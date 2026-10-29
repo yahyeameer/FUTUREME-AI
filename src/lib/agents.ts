@@ -96,6 +96,8 @@ export async function runAgent(
     schema?: JsonSchemaSpec;
     /** In-process only: overrides the agent's reasoning mode from nemotron.ts. */
     reasoning?: ReasoningMode;
+    /** In-process only: replaces the agent's instruction for this run (a spoken chat wants different pacing than a call). */
+    instruction?: string;
   } = {},
 ): Promise<AgentRun> {
   const spec = agentSpec(name);
@@ -105,7 +107,7 @@ export async function runAgent(
     ? dockerAgentBackend(url, name)
     : inProcessBackend(opts.provider ?? getProvider(), {
         tools: toolDefs(tools),
-        instruction: spec.instruction,
+        instruction: opts.instruction ?? spec.instruction,
         extraTools: tools.includes(DOCKER_TOOLSET) ? dockerToolDefs : undefined,
         reasoning: opts.reasoning ?? AGENT_REASONING[name],
         schema: opts.schema,

@@ -12,6 +12,7 @@ import { activeMilestone, blockedTasks, convergence, nextStep } from "@/lib/deri
 import { cn } from "@/lib/utils";
 import { useWorkspace } from "@/lib/workspace-store";
 import type { CoachingStyle } from "@/types";
+import { VoiceMode } from "@/features/twin/voice-mode";
 import { Composer } from "./composer";
 import { FutureSelfContext } from "./context-rail";
 import { AssistantMessage, PendingReply, UserMessage } from "./message";
@@ -52,6 +53,8 @@ export function Conversation() {
   React.useEffect(() => {
     if (pinned) window.scrollTo({ top: document.documentElement.scrollHeight });
   }, [messages.length, pending?.draft, pending?.tools.length, pending?.reasoning, pinned]);
+
+  const [voiceOpen, setVoiceOpen] = React.useState(false);
 
   const submit = (t: string, image?: string) => {
     setText("");
@@ -121,10 +124,11 @@ export function Conversation() {
                 ))}
               </div>
             )}
-            <Composer value={text} onChange={setText} onSend={submit} allowPhotos={!!workspace.capabilities.vision} onStop={stop} busy={!!pending && !pending.error} autoFocus />
+            <Composer value={text} onChange={setText} onSend={submit} allowPhotos={!!workspace.capabilities.vision} onStop={stop} onVoice={() => setVoiceOpen(true)} busy={!!pending && !pending.error} autoFocus />
           </div>
         </div>
       </div>
+      <VoiceMode open={voiceOpen} onClose={() => setVoiceOpen(false)} />
     </PageFrame>
   );
 }
