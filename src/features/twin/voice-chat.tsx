@@ -6,20 +6,19 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import type { TwinState } from "@/app/api/twin/state";
-import { recordingFile, useRecorder } from "./use-recorder";
-import { VoiceMode } from "./voice-mode";
+import { useRecorder } from "./use-recorder";
+import { sendVoiceTurn, VoiceMode } from "./voice-mode";
 
 type Turn = { role: "user" | "assistant"; content: string; audio?: string };
 
 const play = (url: string) => {
   const audio = new Audio(url);
-  void audio
-    .play()
-    .catch(() =>
-      toast.error(
-        "Your browser blocked the sound. Press the play button on the reply.",
-      ),
+  void audio.play().catch((err: unknown) => {
+    if (err instanceof DOMException && err.name === "AbortError") return;
+    toast.error(
+      "Your browser blocked the sound. Press the play button on the reply.",
     );
+  });
   return audio;
 };
 
@@ -28,6 +27,49 @@ const play = (url: string) => {
  * Nemotron, so this does it turn by turn: you speak, Nemotron writes the reply from your notes, and your clone says it.
  */
 export function VoiceChat({ state }: { state: TwinState }) {
+  return (
+    <CardBoundary>
+      <VoiceChatCard state={state} />
+    </CardBoundary>
+  );
+}
+
+/** If this card fails, it says so in place, and the rest of the Voice Twin page keeps working. */
+class CardBoundary extends React.Component<
+  { children: React.ReactNode },
+  { error: Error | null }
+> {
+  state = { error: null as Error | null };
+
+  static getDerivedStateFromError(error: Error) {
+    return { error };
+  }
+
+  componentDidCatch(error: Error) {
+    console.error("Voice chat failed:", error);
+  }
+
+  render() {
+    if (!this.state.error) return this.props.children;
+    return (
+      <article className="rounded-2xl border border-border bg-surface p-5 shadow-card lg:col-span-2">
+        <p className="t-label">Talk in your own voice</p>
+        <p className="mt-1 text-[13px] text-muted-foreground">
+          Something went wrong here ({this.state.error.message}).
+        </p>
+        <Button
+          variant="secondary"
+          className="mt-3"
+          onClick={() => this.setState({ error: null })}
+        >
+          Try again
+        </Button>
+      </article>
+    );
+  }
+}
+
+function VoiceChatCard({ state }: { state: TwinState }) {
   const rec = useRecorder();
   const [turns, setTurns] = React.useState<Turn[]>([]);
   const [busy, setBusy] = React.useState(false);
@@ -63,34 +105,11 @@ export function VoiceChat({ state }: { state: TwinState }) {
     }
     setBusy(true);
     try {
-      const form = new FormData();
-      form.append("audio", recordingFile(recording, "speech"));
-      form.append(
-        "history",
-        JSON.stringify(turns.map(({ role, content }) => ({ role, content }))),
-      );
-      const res = await fetch("/api/twin/voice-chat", {
-        method: "POST",
-        body: form,
-      });
-      const out = (await res.json().catch(() => ({}))) as {
-        error?: string;
-        heard?: string;
-        reply?: string;
-        audio?: string;
-        type?: string;
-      };
-      if (!res.ok || !out.reply || !out.audio)
-        throw new Error(out.error ?? "That didn't work. Try again.");
-      const url = URL.createObjectURL(
-        new Blob([Uint8Array.from(atob(out.audio), (c) => c.charCodeAt(0))], {
-          type: out.type ?? "audio/mpeg",
-        }),
-      );
+      const { heard, reply, url } = await sendVoiceTurn(recording, turns);
       setTurns((t) => [
         ...t,
-        { role: "user", content: out.heard ?? "" },
-        { role: "assistant", content: out.reply!, audio: url },
+        { role: "user", content: String(heard) },
+        { role: "assistant", content: String(reply), audio: url },
       ]);
       setSpeaking(true);
       play(url).addEventListener("ended", () => setSpeaking(false));

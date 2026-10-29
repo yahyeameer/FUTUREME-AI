@@ -11,10 +11,64 @@ import { Wordmark } from "@/components/brand/mark";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import type { TwinState } from "@/app/api/twin/state";
-import { recordingFile, useRecorder } from "./use-recorder";
+import { type Recording, recordingFile, useRecorder } from "./use-recorder";
 
 type Phase = "idle" | "listening" | "thinking" | "speaking";
 type Turn = { role: "user" | "assistant"; content: string };
+
+/** How long to wait for a spoken reply before giving up: Nemotron thinks first, then ElevenLabs speaks. */
+const REPLY_TIMEOUT_MS = 150_000;
+
+/**
+ * Sends one recording and returns the reply with a playable URL. Every failure, including a timeout, a server that is
+ * restarting, or a garbled response, comes back as a readable error rather than breaking the page.
+ */
+export async function sendVoiceTurn(recording: Recording, history: Turn[]) {
+  const form = new FormData();
+  form.append("audio", recordingFile(recording, "speech"));
+  form.append(
+    "history",
+    JSON.stringify(history.map(({ role, content }) => ({ role, content }))),
+  );
+  let res: Response;
+  try {
+    res = await fetch("/api/twin/voice-chat", {
+      method: "POST",
+      body: form,
+      signal: AbortSignal.timeout(REPLY_TIMEOUT_MS),
+    });
+  } catch (err) {
+    throw new Error(
+      err instanceof DOMException && err.name === "TimeoutError"
+        ? "Your future self took too long to answer. Try a shorter question."
+        : "Couldn't reach TOMORA. Check your connection and try again.",
+    );
+  }
+  const out = (await res.json().catch(() => ({}))) as {
+    error?: string;
+    heard?: string;
+    reply?: string;
+    audio?: string;
+    type?: string;
+  };
+  if (!res.ok || !out.reply || !out.audio)
+    throw new Error(
+      out.error ??
+        (res.status >= 500
+          ? "TOMORA had a problem answering. Try again in a moment."
+          : "That didn't work. Try again."),
+    );
+  let bytes: Uint8Array<ArrayBuffer>;
+  try {
+    bytes = Uint8Array.from(atob(out.audio), (c) => c.charCodeAt(0));
+  } catch {
+    throw new Error("The spoken reply arrived damaged. Try again.");
+  }
+  const url = URL.createObjectURL(
+    new Blob([bytes], { type: out.type ?? "audio/mpeg" }),
+  );
+  return { heard: out.heard ?? "", reply: out.reply, url };
+}
 
 const STATUS: Record<Phase, string> = {
   idle: "Tap to talk",
@@ -51,23 +105,28 @@ function VoiceScreen({ onClose }: { onClose: () => void }) {
     player.current = null;
   }, []);
 
-  const close = React.useCallback(() => {
+  const { stop: stopRecording } = rec;
+  const close = () => {
     stopSound();
-    rec.stop();
+    stopRecording();
     setPhase("idle");
     onClose();
-  }, [onClose, rec, stopSound]);
+  };
+  // The effect below must run only when voice mode opens and closes: re-running it (it used to, on every render) paused
+  // the reply while it was being spoken. An effect event always sees the latest `close` without re-running it.
+  const onEscape = React.useEffectEvent((e: KeyboardEvent) => {
+    if (e.key === "Escape") close();
+  });
 
   React.useEffect(() => {
-    const key = (e: KeyboardEvent) => e.key === "Escape" && close();
-    window.addEventListener("keydown", key);
+    window.addEventListener("keydown", onEscape);
     document.body.style.overflow = "hidden";
     return () => {
-      window.removeEventListener("keydown", key);
+      window.removeEventListener("keydown", onEscape);
       document.body.style.overflow = "";
-      player.current?.pause();
+      stopSound();
     };
-  }, [close]);
+  }, [stopSound]);
 
   React.useEffect(
     () =>
@@ -87,8 +146,14 @@ function VoiceScreen({ onClose }: { onClose: () => void }) {
     const audio = new Audio(url);
     player.current = audio;
     audio.onended = () => setPhase("idle");
+    audio.onerror = () => {
+      setPhase("idle");
+      toast.error("This reply couldn't be played. Try again.");
+    };
     setPhase("speaking");
-    void audio.play().catch(() => {
+    void audio.play().catch((err: unknown) => {
+      // Pausing (to interrupt, or to close) also rejects play(); only a real refusal needs a message.
+      if (err instanceof DOMException && err.name === "AbortError") return;
       setPhase("idle");
       toast.error(
         "Your browser blocked the sound. Tap the speaker to hear it.",
@@ -116,34 +181,17 @@ function VoiceScreen({ onClose }: { onClose: () => void }) {
     }
     setPhase("thinking");
     try {
-      const form = new FormData();
-      form.append("audio", recordingFile(recording, "speech"));
-      form.append("history", JSON.stringify(turns));
-      const res = await fetch("/api/twin/voice-chat", {
-        method: "POST",
-        body: form,
-      });
-      const out = (await res.json().catch(() => ({}))) as {
-        error?: string;
-        heard?: string;
-        reply?: string;
-        audio?: string;
-        type?: string;
-      };
-      if (!res.ok || !out.reply || !out.audio)
-        throw new Error(out.error ?? "That didn't work. Try again.");
-      const url = URL.createObjectURL(
-        new Blob([Uint8Array.from(atob(out.audio), (c) => c.charCodeAt(0))], {
-          type: out.type ?? "audio/mpeg",
-        }),
-      );
+      const out = await sendVoiceTurn(recording, turns);
       setTurns((t) => [
         ...t,
-        { role: "user", content: out.heard ?? "" },
-        { role: "assistant", content: out.reply! },
+        { role: "user", content: String(out.heard ?? "") },
+        { role: "assistant", content: String(out.reply) },
       ]);
-      setLastAudio(url);
-      speak(url);
+      setLastAudio((old) => {
+        if (old) URL.revokeObjectURL(old);
+        return out.url;
+      });
+      speak(out.url);
     } catch (err) {
       setPhase("idle");
       toast.error(
@@ -324,6 +372,71 @@ function VoiceScreen({ onClose }: { onClose: () => void }) {
   );
 }
 
+/**
+ * Keeps a failure inside voice mode from replacing the whole page with Next's "This page couldn't load" screen: voice
+ * mode shows what went wrong and lets you start it again or close it, and the page underneath keeps working.
+ */
+export class VoiceBoundary extends React.Component<
+  { onClose: () => void; children: React.ReactNode },
+  { error: Error | null; attempt: number }
+> {
+  state = { error: null as Error | null, attempt: 0 };
+
+  static getDerivedStateFromError(error: Error) {
+    return { error };
+  }
+
+  componentDidCatch(error: Error) {
+    console.error("Voice mode failed:", error);
+  }
+
+  render() {
+    const { error, attempt } = this.state;
+    if (!error)
+      return (
+        <React.Fragment key={attempt}>{this.props.children}</React.Fragment>
+      );
+    return (
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label="Voice mode"
+        className="fixed inset-0 z-[120] flex flex-col items-center justify-center gap-4 bg-[#07080B] px-6 text-center text-[#F3F0E8]"
+      >
+        <h2 className="font-display text-3xl">Voice mode hit a snag</h2>
+        <p className="max-w-md text-[14px] text-[#F3F0E8]/65">
+          Your chat is safe. Start voice mode again, or close it and carry on
+          typing.
+        </p>
+        <p className="max-w-md font-mono text-[11px] break-words text-[#F3F0E8]/35">
+          {error.message}
+        </p>
+        <div className="mt-2 flex gap-3">
+          <Button
+            size="lg"
+            className="border-0 bg-[#C8B78F] text-[#14120D] hover:bg-[#D6C79F]"
+            onClick={() => this.setState({ error: null, attempt: attempt + 1 })}
+          >
+            Start again
+          </Button>
+          <Button
+            size="lg"
+            variant="ghost"
+            className="text-[#F3F0E8] hover:bg-white/10"
+            onClick={() => {
+              document.body.style.overflow = "";
+              this.setState({ error: null, attempt: attempt + 1 });
+              this.props.onClose();
+            }}
+          >
+            Close
+          </Button>
+        </div>
+      </div>
+    );
+  }
+}
+
 const subscribe = () => () => undefined;
 
 /** Opens voice mode over the whole page. Rendered in a portal, and only on the client. */
@@ -341,9 +454,11 @@ export function VoiceMode({
   );
   if (!client) return null;
   return createPortal(
-    <AnimatePresence>
-      {open && <VoiceScreen key="screen" onClose={onClose} />}
-    </AnimatePresence>,
+    <VoiceBoundary onClose={onClose}>
+      <AnimatePresence>
+        {open && <VoiceScreen key="screen" onClose={onClose} />}
+      </AnimatePresence>
+    </VoiceBoundary>,
     document.body,
   );
 }
