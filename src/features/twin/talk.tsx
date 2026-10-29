@@ -124,13 +124,22 @@ function BrowserCall({ act, paused, year }: { act: Act; paused: boolean; year: n
       setStarting(false);
       return;
     }
-    const next = await act(() => post({ action: "startWebCall", topic }));
+    // Keep the server's reason, so the card says what went wrong instead of a vague message.
+    const failure: { message?: string } = {};
+    const next = await act(async () => {
+      try {
+        return await post({ action: "startWebCall", topic });
+      } catch (err) {
+        failure.message = err instanceof Error ? err.message : undefined;
+        throw err;
+      }
+    });
     const call = next?.webCall as { callId: number; conversationToken: string; dynamicVariables: Record<string, string> } | undefined;
     if (call) {
       callId.current = call.callId;
       conversation.startSession({ conversationToken: call.conversationToken, connectionType: "webrtc", dynamicVariables: call.dynamicVariables });
     } else {
-      setProblem("The call couldn't start. Check the voice engine on this page, or keep talking by text.");
+      setProblem(failure.message ? `The call couldn't start. ${failure.message}` : "The call couldn't start. Check the voice engine on this page, or keep talking by text.");
     }
     setStarting(false);
   };
