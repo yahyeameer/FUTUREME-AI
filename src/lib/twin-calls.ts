@@ -6,7 +6,7 @@ import { completeTask, getProfile, type OnDelta, type ToolResult } from "./futur
 import { socialPromptBlock } from "./social/store";
 import type { ChatMessage } from "./llm";
 import { DAILY_LIMITS, getTwinSetting, isTwinPaused, ownerName, setTwinSetting, type CallProposal } from "./twin";
-import { chargeVoiceCall } from "./budget";
+import { chargeVoiceCall, chargeVoiceTurn } from "./budget";
 import { checkBudget, checkCallTime, maxCallSeconds, raiseFlag, retentionDays, usage } from "./twin-guard";
 import { currentHandle } from "./tenant";
 import { writeNote } from "./vault";
@@ -197,6 +197,9 @@ function agentConfig(db: Db, voiceId: string, publicUrl: string) {
 /** The voice a call speaks with: your cloned ElevenLabs voice, or the ready-made one if you chose it instead. */
 function callVoiceId(db: Db): string {
   const voice = activeVoice(db);
+  // ElevenLabs refuses live agents that pair an instant voice clone with a custom LLM (Nemotron). Once it has said so for
+  // this voice, calls use the ready-made voice, and the clone speaks in Voice chat instead (see voiceChatTurn).
+  if (voice?.status === "ready" && voice.provider === "elevenlabs" && getTwinSetting(db, "instant_clone_blocked") === voice.voice_id) return presetVoiceId();
   if (voice?.status === "ready" && voice.provider === "elevenlabs") return voice.voice_id;
   if (usesPresetVoice(db)) return presetVoiceId();
   if (!voice || voice.status !== "ready") throw new Error("Clone your voice first, or choose a ready-made voice.");
@@ -209,22 +212,35 @@ export async function ensureTwinAgent(db: Db, api: ElevenLabs): Promise<string> 
   const voiceId = callVoiceId(db);
   const { publicUrl } = callsConfig();
   if (!publicUrl) throw new Error("Set TWIN_PUBLIC_URL to this app's public https address so ElevenLabs can reach your future self.");
-  const config = agentConfig(db, voiceId, publicUrl);
-  const hash = crypto.createHash("sha256").update(JSON.stringify(config)).digest("hex");
-  let agentId = getTwinSetting(db, "agent_id");
-  if (agentId && getTwinSetting(db, "agent_hash") === hash) return agentId;
-  if (agentId) {
-    try {
-      await api.updateAgent(agentId, config);
-    } catch (err) {
-      if (!(err instanceof ElevenLabsError && err.status === 404)) throw err;
-      agentId = null;
+  const push = async (voice: string) => {
+    const config = agentConfig(db, voice, publicUrl);
+    const hash = crypto.createHash("sha256").update(JSON.stringify(config)).digest("hex");
+    let agentId = getTwinSetting(db, "agent_id");
+    if (agentId && getTwinSetting(db, "agent_hash") === hash) return agentId;
+    if (agentId) {
+      try {
+        await api.updateAgent(agentId, config);
+      } catch (err) {
+        if (!(err instanceof ElevenLabsError && err.status === 404)) throw err;
+        agentId = null;
+      }
     }
+    agentId ??= await api.createAgent(config);
+    setTwinSetting(db, "agent_id", agentId);
+    setTwinSetting(db, "agent_hash", hash);
+    return agentId;
+  };
+  try {
+    return await push(voiceId);
+  } catch (err) {
+    // The clone can't be used on live agents with a custom LLM: remember that, and call with the ready-made voice.
+    const clone = activeVoice(db);
+    if (err instanceof ElevenLabsError && /instant voice clone/i.test(err.message) && clone?.voice_id === voiceId) {
+      setTwinSetting(db, "instant_clone_blocked", voiceId);
+      return push(presetVoiceId());
+    }
+    throw err;
   }
-  agentId ??= await api.createAgent(config);
-  setTwinSetting(db, "agent_id", agentId);
-  setTwinSetting(db, "agent_hash", hash);
-  return agentId;
 }
 
 // ---------- What the future self says ----------
@@ -837,6 +853,43 @@ function contentText(content: ChatMessage["content"]): string {
   return content.map((p) => ("text" in p && typeof p.text === "string" ? p.text : "")).join("");
 }
 
+// ---------- Voice chat: Nemotron's words, in your own cloned voice ----------
+
+export interface ChatTurn {
+  role: "user" | "assistant";
+  content: string;
+}
+
+const VOICE_CHAT_REPLY_CHARS = 280;
+
+/**
+ * One turn of talking with your future self in your own cloned voice, without ElevenLabs' call agents (which won't pair
+ * an instant clone with Nemotron): your speech is transcribed, Nemotron writes the reply from your notes, and the clone
+ * reads it aloud. Turn by turn rather than a live call.
+ */
+export async function voiceChatTurn(db: Db, api: ElevenLabs, audio: AudioInput, history: ChatTurn[] = []) {
+  if (isTwinPaused(db)) throw new Error("The twin is paused. Resume it to talk.");
+  const voice = activeVoice(db);
+  if (!voice || voice.status !== "ready" || voice.provider !== "elevenlabs") throw new Error("Clone your voice with ElevenLabs first, then you can talk to your future self in it.");
+  checkAudio(audio);
+  checkBudget(db);
+  chargeVoiceTurn();
+  const heard = (await api.transcribe(audio)).trim();
+  if (!heard) throw new Error("I didn't catch that. Try again a little closer to the microphone.");
+  const prompt = [
+    callPrompt(db, { mode: "web", topic: null } as CallRow),
+    "This is a spoken chat in the user's own cloned voice. Keep every reply to one to three short sentences, plain speech, nothing written (no lists, markdown or links).",
+  ].join("\n");
+  const turns = history
+    .filter((t) => (t.role === "user" || t.role === "assistant") && t.content.trim())
+    .slice(-10)
+    .map((t): ChatMessage => ({ role: t.role, content: t.content.slice(0, 600) }));
+  const { reply } = await runAgent(db, "twin_voice", [{ role: "system", content: prompt }, ...turns, { role: "user", content: heard }], { tools: ["search_memory"] });
+  const spoken = reply.trim().slice(0, VOICE_CHAT_REPLY_CHARS);
+  const speech = await api.speak(voice.voice_id, spoken || "Sorry, I lost my train of thought. Could you say that again?");
+  return { heard, reply: spoken, audio: speech, type: "audio/mpeg" as const };
+}
+
 /** Writes the future self's next spoken reply for a live call. */
 export async function replyOnCall(db: Db, messages: ChatMessage[], onDelta?: OnDelta): Promise<string> {
   const call = callFromPrompt(db, messages);
@@ -892,6 +945,8 @@ export function callsSnapshot(db: Db) {
   }[];
   return {
     ready: { publicUrl: !!publicUrl, phone: !!phoneNumberId, phoneSource },
+    /** Live calls speak in a ready-made voice because ElevenLabs won't run your instant clone with Nemotron; Voice chat uses the clone. */
+    callsUseReadyVoice: !!getTwinSetting(db, "instant_clone_blocked"),
     phone: ownerPhone(db),
     selfCallsToday: callsToday(db),
     selfCallLimit: SELF_CALLS_PER_DAY,

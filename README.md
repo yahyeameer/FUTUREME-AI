@@ -125,13 +125,15 @@ The public welcome page lives at **`/welcome`** (open even when the access lock 
 
 **Guardrails that are code, not prompts.** A fixed AI-disclosure opener on every call and email (added by the app, not the model) · contacts-only · daily limits (10 proposed calls, 50 emails, 6 calls to you) · a kill switch · a monthly cost cap · calling hours per country and no premium-rate numbers · a `stop_recording` tool if someone declines recording · retention of other people's data for 30 days · export or delete all twin data from Settings · an access code that locks the whole app before it goes public.
 
-> ⚠️ **Honest status.** The voice twin is built end to end, covered by 60+ unit tests and clicked through in a browser against **mock** ElevenLabs, OpenRouter, Qwen and AgentMail servers. It has **not yet been run against the live services**. Real calls need an ElevenLabs key (cloning your voice needs a paid ElevenLabs plan), and phone calls also need a Twilio number imported into ElevenLabs. Treat these paths as ready to try, not proven.
+> ⚠️ **Honest status.** Tested live with a real ElevenLabs account (Starter plan): the consent recording, instant voice cloning and **browser calls with Nemotron writing every reply**. Live testing also found a limit on ElevenLabs' side: **its call agents refuse an instant voice clone together with a custom LLM like Nemotron**, so live calls speak in a ready-made voice, and your own clone speaks in **Voice chat** instead (below). Voice chat, phone calls through Twilio, the OpenRouter and Qwen engines and AgentMail email are covered by unit tests against mock servers but have not been run against the live services.
+
+**Your own voice, with Nemotron.** *Voice chat* on `/twin` is turn by turn rather than a live call: you press the microphone and speak, ElevenLabs transcribes it, **Nemotron writes the reply from your notes**, and **your cloned voice** says it. Each reply spends ElevenLabs credits, so it is capped per person and per server each day (`TWIN_DAILY_VOICE_TURNS`, `TWIN_SERVER_DAILY_VOICE_TURNS`).
 
 **Try it yourself.** Everything is set up from the **Voice Twin** page (`/twin`); nothing has to be changed on the server except `TWIN_PUBLIC_URL`.
 
 1. **Your key.** Create an ElevenLabs account and an API key (Settings → API keys). On `/twin`, under Voice engine → ElevenLabs, paste it, press **Test**, then **Save**.
 2. **Your voice.** Record the consent phrase (three code words and "I agree"), add a sample or two, and press **Hear yourself**. Or skip this and press **Use a ready-made voice**: your future self talks in a standard ElevenLabs voice and nothing is recorded or cloned.
-3. **In the browser.** Press **Call now**, allow the microphone, and talk to your future self in your own voice.
+3. **Talk.** For your own cloned voice, press the microphone in **Voice chat**, speak, and press it again: Nemotron answers in your voice. For a live call, press **Call now**, allow the microphone, and talk (a live call speaks in a ready-made voice; see the note above).
 4. **On your phone.** Get a number from Twilio (a trial account includes one and can call your own verified phone), import it in ElevenLabs under **Agents → Phone numbers → Import from Twilio**, and paste the phone number ID into the **On your phone** card. TOMORA calls you with a six-digit code to verify your number; after that you can ask for a call now or schedule one.
 
 <details>
@@ -467,7 +469,7 @@ npm run test:e2e                            # browser test of the whole loop
 
 ## 🧭 Honest limitations
 
-- **Not yet run against live services:** the voice twin (ElevenLabs cloning and calls, the OpenRouter and Qwen engines, AgentMail email) was tested against mock servers only. The Apify public-profile fetch was checked against Apify's real endpoints only up to authentication; actor output mapping is tested against each actor's documented output.
+- **Not yet run against live services:** Voice chat, phone calls, the OpenRouter and Qwen voice engines and AgentMail email were tested against mock servers only. ElevenLabs cloning and browser calls were run live. The Apify public-profile fetch was checked against Apify's real endpoints only up to authentication; actor output mapping is tested against each actor's documented output.
 - **Integrations** were tested against stand-ins: Gmail, Google Calendar, Slack and the ICS feed with recorded API shapes, and IMAP/SMTP against local mail servers (a real reply went out over SMTP after approval in the app). They haven't been run against a real Google account or mailbox yet.
 - On the server, tasks can only be marked done (no in-progress or blocked status), and memories can't be archived. Demo mode has those controls.
 - Web research needs outbound internet. DuckDuckGo refuses most cloud servers, so a hosted deployment should set `YDC_API_KEY` (You.com) or `BRAVE_SEARCH_API_KEY`. The You.com parser was checked against a live API response; its unit tests use a recorded sample.

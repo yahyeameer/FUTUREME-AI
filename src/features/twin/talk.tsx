@@ -15,6 +15,7 @@ import { Select } from "@/components/ui/select";
 import { cn, formatDate, formatTime, relativeDay } from "@/lib/utils";
 import type { TwinState } from "@/app/api/twin/state";
 import { post, upload, type Act } from "./api";
+import { VoiceChat } from "./voice-chat";
 import { recordingFile, useRecorder, type Recording } from "./use-recorder";
 
 // Phase 2: talk to your future self in your own cloned voice, in the browser or on your phone.
@@ -58,6 +59,7 @@ export function TalkSection({ state, act, onState }: { state: TwinState; act: Ac
         </EmptyState>
       ) : (
         <div className="grid gap-4 lg:grid-cols-2">
+          <VoiceChat state={state} />
           <ConversationProvider>
             <BrowserCall act={act} paused={state.twin.paused} year={c.horizonYear} />
           </ConversationProvider>
