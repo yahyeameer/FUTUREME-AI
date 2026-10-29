@@ -129,3 +129,33 @@ describe("cloned voices on a demo server", () => {
     expect(voiceSnapshot(db).voices).toEqual([]);
   });
 });
+
+describe("explaining ElevenLabs errors", () => {
+  it("says which permission a key is missing, and how to fix it", async () => {
+    const { explainElevenLabs } = await import("../src/lib/voice");
+    const body = JSON.stringify({ detail: { type: "authentication_error", code: "unauthorized", message: "The API key you used is missing the permission convai_write to execute this operation.", status: "missing_permissions" } });
+    const text = explainElevenLabs(401, body);
+    expect(text).toContain("(convai_write)");
+    expect(text).toMatch(/Developers → API Keys/);
+    expect(explainElevenLabs(401, JSON.stringify({ detail: { code: "invalid_api_key", message: "Invalid API key" } }))).toMatch(/didn't accept that API key/);
+    expect(explainElevenLabs(402, JSON.stringify({ detail: { message: "quota exceeded" } }))).toMatch(/quota is used up/);
+    expect(explainElevenLabs(400, JSON.stringify({ detail: { status: "can_not_use_instant_voice_cloning", message: "Your plan can not use instant voice cloning" } }))).toMatch(/doesn't include voice cloning/);
+    expect(explainElevenLabs(500, "boom")).toBe("ElevenLabs answered 500: boom");
+  });
+
+  it("checks that a key can manage agents, using a throwaway agent it deletes again", async () => {
+    const calls: string[] = [];
+    const ok: typeof fetch = async (input, init) => {
+      calls.push(`${init?.method ?? "GET"} ${String(input).replace("https://el.test", "")}`);
+      return new Response(JSON.stringify({ agent_id: "tmp-1" }), { status: 200, headers: { "content-type": "application/json" } });
+    };
+    expect(await new ElevenLabs("k", ok, "https://el.test").agentAccessProblem()).toBeNull();
+    expect(calls).toEqual(["POST /v1/convai/agents/create", "DELETE /v1/convai/agents/tmp-1"]);
+
+    const denied: typeof fetch = async () => new Response(JSON.stringify({ detail: { status: "missing_permissions", message: "The API key you used is missing the permission convai_write to execute this operation." } }), { status: 401 });
+    expect(await new ElevenLabs("k", denied, "https://el.test").agentAccessProblem()).toMatch(/convai_write/);
+
+    const down: typeof fetch = async () => new Response("overloaded", { status: 503 });
+    expect(await new ElevenLabs("k", down, "https://el.test").agentAccessProblem()).toBeNull();
+  });
+});

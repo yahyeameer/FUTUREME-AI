@@ -89,7 +89,9 @@ function EngineForm({ engine: e, chosen, holder, act }: { engine: Engine; chosen
       if (!res.ok) throw new Error(((await res.json().catch(() => ({}))) as { error?: string }).error ?? "The test didn't work.");
       if (sample) URL.revokeObjectURL(sample.url);
       setSample({ url: URL.createObjectURL(await res.blob()), own: res.headers.get("X-Own-Voice") === "1" });
-      toast.success(`${e.label} works.`);
+      const warning = res.headers.get("X-Warning");
+      if (warning) toast.warning(decodeURIComponent(warning), { duration: 15000 });
+      else toast.success(`${e.label} works.`);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "The test didn't work.");
     } finally {
@@ -129,6 +131,11 @@ function EngineForm({ engine: e, chosen, holder, act }: { engine: Engine; chosen
             disabled={e.keySource === "env"}
             placeholder={e.keySource === "env" ? `Set on the server (${e.env})` : e.keyHint ? `Saved, ends in ${e.keyHint}. Paste to replace.` : "Paste your key"}
           />
+          {e.id === "elevenlabs" && e.keySource !== "env" && (
+            <p className="text-[12px] text-subtle">
+              When you create the key, turn <b>every permission on</b> (or at least Text to speech, Speech to text, Voices and Agents). A key without Agents can speak but can&apos;t start a call. Cloning your own voice needs an ElevenLabs plan that includes it (Starter or higher).
+            </p>
+          )}
         </div>
         {e.fields.map((f) => (
           <div key={f} className={cn("space-y-1.5", f === "baseUrl" && "sm:col-span-2")}>

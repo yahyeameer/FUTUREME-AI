@@ -61,14 +61,47 @@ async function consent() {
 }
 
 describe("voice cloning with consent", () => {
-  it("passes only when every code word and 'agree' are heard", async () => {
+  const codeOf = (phrase: string) => [...phrase.matchAll(/code word is (\w+)\./g)].map((m) => m[1]);
+
+  it("needs 'agree' and at least two of the three code words", async () => {
     const { id, phrase } = startConsent(db);
-    const code = phrase.match(/code words are (.+)\.$/)![1].split(", ");
-    transcript = `This is my own voice. My code words are ${code[0]}, ${code[1]}.`;
+    const code = codeOf(phrase);
+    expect(code).toHaveLength(3);
+    // Only one code word and no "agree": rejected, and it says what was missing.
+    transcript = `This is my own voice. My first code word is ${code[0]}.`;
     const result = await verifyConsent(db, api, id, audio());
     expect(result.verified).toBe(false);
-    expect(result.missing).toEqual(expect.arrayContaining([code[2], "agree"]));
+    expect(result.missing).toEqual(expect.arrayContaining([code[1], code[2], "agree"]));
     await expect(createInstantClone(db, [], { elevenlabs: api })).rejects.toThrow(/consent/);
+  });
+
+  it("rejects a recording with every code word but no agreement", async () => {
+    const { id, phrase } = startConsent(db);
+    transcript = `This is my own voice. ${codeOf(phrase).join(", ")}.`;
+    expect((await verifyConsent(db, api, id, audio())).verified).toBe(false);
+  });
+
+  it("forgives the transcription slips seen in real recordings", async () => {
+    // Real transcripts from the first live tests: "agreed", "maple" heard as "marble", "desert island" heard as "Sun Iceland".
+    const run = async (codeWords: string[], said: string) => {
+      db.prepare("UPDATE consents SET status = 'expired' WHERE status = 'pending'").run();
+      const id = Number(db.prepare("INSERT INTO consents (phrase, code) VALUES (?, ?)").run("p", codeWords.join(" ")).lastInsertRowid);
+      transcript = said;
+      return verifyConsent(db, api, id, audio());
+    };
+    const first = await run(["desert", "maple", "amber"], "It's my own voice. My name is Yaya. I agreed to tomorrow making an AI twin of my voice. Uh, I can delete it anytime. My code words are desert, marble, and amber.");
+    expect(first.verified).toBe(true);
+    const second = await run(["valley", "desert", "island"], "This is my own voice. I agree to tomorrow making an AI tune of my voice. My code word is Valley of the Sun Iceland.");
+    expect(second.verified).toBe(true);
+  });
+
+  it("still rejects someone else's old recording: unrelated words are not close enough", async () => {
+    const id = Number(db.prepare("INSERT INTO consents (phrase, code) VALUES (?, ?)").run("p", "mountain desert quartz").lastInsertRowid);
+    // A recording made for a different phrase: it says it agrees, but the code words don't match.
+    transcript = "This is my own voice. I agree to TOMORA making an AI twin of my voice. My first code word is garden. My second code word is orchid. My third code word is thunder.";
+    const result = await verifyConsent(db, api, id, audio());
+    expect(result.verified).toBe(false);
+    expect(result.missing).toEqual(["mountain", "desert", "quartz"]);
   });
 
   it("clones from the consent recording itself, then upgrades to a professional voice", async () => {

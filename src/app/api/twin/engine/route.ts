@@ -21,7 +21,9 @@ export async function POST(request: Request) {
   if (!parsed.success) return Response.json({ error: "Invalid request." }, { status: 400 });
   try {
     const speech = await testEngine(db(), parsed.data);
-    return new Response(speech.audio, { headers: { "Content-Type": speech.type, "Cache-Control": "no-store", "X-Own-Voice": speech.ownVoice ? "1" : "0" } });
+    const headers: Record<string, string> = { "Content-Type": speech.type, "Cache-Control": "no-store", "X-Own-Voice": speech.ownVoice ? "1" : "0" };
+    if (speech.warning) headers["X-Warning"] = encodeURIComponent(speech.warning);
+    return new Response(speech.audio, { headers });
   } catch (err) {
     return errorResponse(err);
   }

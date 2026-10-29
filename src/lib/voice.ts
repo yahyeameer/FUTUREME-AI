@@ -27,12 +27,39 @@ export const MAX_SAMPLES = 5;
 const CONSENT_TTL_MINUTES = 10;
 const TTS_MODEL = "eleven_multilingual_v2";
 
+/**
+ * Turns ElevenLabs' error body into something a person can act on. The common ones: a key made without the permissions
+ * TOMORA needs, a plan that can't clone voices, and a used-up quota. Anything else keeps its raw detail.
+ */
+export function explainElevenLabs(status: number, body: string): string {
+  let d: { type?: string; code?: string; message?: string; status?: string } = {};
+  try {
+    const parsed = JSON.parse(body) as { detail?: unknown };
+    if (parsed.detail && typeof parsed.detail === "object") d = parsed.detail as typeof d;
+    else if (typeof parsed.detail === "string") d = { message: parsed.detail };
+  } catch {
+    // Not JSON: fall through to the raw text.
+  }
+  const text = `${d.status ?? ""} ${d.code ?? ""} ${d.message ?? ""}`.toLowerCase();
+  const permission = d.message?.match(/missing the permission ([a-z_]+)/i)?.[1];
+  if (d.status === "missing_permissions" || permission) {
+    return `Your ElevenLabs API key is missing a permission${permission ? ` (${permission})` : ""}. In ElevenLabs, open Developers → API Keys, create a new key with every permission turned on (or at least Text to speech, Speech to text, Voices and Agents set to Access), then paste it here and save.`;
+  }
+  if (d.code === "invalid_api_key" || (status === 401 && /invalid.*api.?key|api key.*invalid/.test(text))) return "ElevenLabs didn't accept that API key. Copy it again from Developers → API Keys.";
+  if (/can_not_use_instant_voice_cloning|instant voice cloning|voice cloning.*(plan|subscription)|subscription.*cloning/.test(text)) {
+    return "Your ElevenLabs plan doesn't include voice cloning. Choose the Starter plan or higher, or use a ready-made voice instead.";
+  }
+  if (/voice_limit|voice limit|maximum.*voices/.test(text)) return "Your ElevenLabs account has reached its limit of custom voices. Delete one in ElevenLabs, or upgrade.";
+  if (status === 402 || /quota|insufficient|credits/.test(text)) return "Your ElevenLabs quota is used up for this period. Add credits or upgrade your plan.";
+  return `ElevenLabs answered ${status}: ${d.message ?? (body.slice(0, 300) || "no details")}`;
+}
+
 export class ElevenLabsError extends Error {
   constructor(
     readonly status: number,
     detail: string,
   ) {
-    super(`ElevenLabs answered ${status}: ${detail}`);
+    super(explainElevenLabs(status, detail));
   }
 }
 
@@ -142,6 +169,21 @@ export class ElevenLabs {
 
   async updateAgent(agentId: string, config: unknown): Promise<void> {
     await this.call(`/v1/convai/agents/${encodeURIComponent(agentId)}`, { ...this.json(config), method: "PATCH" });
+  }
+
+  /**
+   * Whether this key may create agents (what "Call now" does first): makes a throwaway agent and deletes it. Returns the
+   * explanation when it may not, null when it may, and null on any other failure (a check must never block saving a key).
+   */
+  async agentAccessProblem(): Promise<string | null> {
+    let id: string;
+    try {
+      id = await this.createAgent({ name: "TOMORA key check (safe to delete)", conversation_config: { agent: { first_message: "Hi.", language: "en", prompt: { prompt: "Key check." } } } });
+    } catch (err) {
+      return err instanceof ElevenLabsError && /permission/i.test(err.message) ? err.message : null;
+    }
+    await this.deleteAgent(id).catch(() => undefined);
+    return null;
   }
 
   async deleteAgent(agentId: string): Promise<void> {
@@ -278,13 +320,54 @@ export function startConsent(db: Db): { id: number; phrase: string } {
   const code = [...words];
   const owner = ownerName(db);
   const who = owner === "the user" ? "" : ` My name is ${owner}.`;
-  const phrase = `This is my own voice.${who} I agree to TOMORA making an AI twin of my voice, and I can delete it at any time. My code words are ${code.join(", ")}.`;
+  // Each code word gets its own short sentence, so there is a natural pause before it and the transcription stays clean.
+  const phrase = `This is my own voice.${who} I agree to TOMORA making an AI twin of my voice, and I can delete it at any time. My first code word is ${code[0]}. My second code word is ${code[1]}. My third code word is ${code[2]}.`;
   db.prepare("UPDATE consents SET status = 'expired' WHERE status = 'pending'").run();
   const info = db.prepare("INSERT INTO consents (phrase, code) VALUES (?, ?)").run(phrase, code.join(" "));
   return { id: Number(info.lastInsertRowid), phrase };
 }
 
 const words = (s: string) => s.toLowerCase().replace(/[^\p{L}\p{N}\s]/gu, " ").split(/\s+/).filter(Boolean);
+
+function editDistance(a: string, b: string): number {
+  const row = Array.from({ length: b.length + 1 }, (_, j) => j);
+  for (let i = 1; i <= a.length; i++) {
+    let diag = row[0];
+    row[0] = i;
+    for (let j = 1; j <= b.length; j++) {
+      const up = row[j];
+      row[j] = Math.min(row[j] + 1, row[j - 1] + 1, diag + (a[i - 1] === b[j - 1] ? 0 : 1));
+      diag = up;
+    }
+  }
+  return row[b.length];
+}
+
+/**
+ * Speech-to-text rarely gets random words perfectly ("maple" comes back as "marble", "agree" as "agreed"). A code word
+ * counts as heard when a word in the transcript is the same or close to it (one letter off for short words, two for
+ * longer ones), or when it appears run together with its neighbours.
+ */
+function heardWord(word: string, spoken: string[], joined: string): boolean {
+  if (joined.includes(word)) return true;
+  const slack = word.length >= 6 ? 2 : 1;
+  return spoken.some((w) => Math.abs(w.length - word.length) <= slack && editDistance(w, word) <= slack);
+}
+
+/**
+ * The consent passes when the person said they agree and at least two of the three random code words were heard. The
+ * words are random each time, so an old recording (or someone else's) can't pass; asking for all three would reject
+ * honest speakers whenever the transcription slips on one.
+ */
+export function judgeConsent(codeWords: string[], transcript: string): { verified: boolean; missing: string[] } {
+  const spoken = words(transcript);
+  const joined = spoken.join("");
+  const agrees = spoken.some((w) => w.startsWith("agree"));
+  const missing = codeWords.filter((w) => !heardWord(w, spoken, joined));
+  const heard = codeWords.length - missing.length;
+  const verified = agrees && heard >= Math.min(2, codeWords.length);
+  return { verified, missing: agrees ? missing : [...missing, "agree"] };
+}
 
 /** Transcribes the recording and checks the code words and "agree" were spoken. */
 export async function verifyConsent(db: Db, api: Transcriber, consentId: number, audio: AudioInput) {
@@ -297,9 +380,7 @@ export async function verifyConsent(db: Db, api: Transcriber, consentId: number,
   }
   checkAudio(audio);
   const transcript = await api.transcribe(audio);
-  const heard = new Set(words(transcript));
-  const missing = [...row.code.split(" "), "agree"].filter((w) => !heard.has(w));
-  const verified = missing.length === 0;
+  const { verified, missing } = judgeConsent(row.code.split(" "), transcript);
   const file = saveAudio(audio, `consent-${consentId}`);
   db.prepare("UPDATE consents SET recording_path = ?, transcript = ?, status = ?, verified_at = CASE WHEN ? THEN datetime('now') END WHERE id = ?").run(
     file,
@@ -477,7 +558,7 @@ export async function previewVoice(db: Db, text?: string): Promise<Speech> {
  * Checks an engine's key and settings (typed in the form, or saved) by speaking a line. If this engine holds the
  * user's cloned voice and no preset voice is named, it speaks in their voice; otherwise in a preset voice.
  */
-export async function testEngine(db: Db, input: EngineInput & { text?: string }): Promise<Speech & { ownVoice: boolean }> {
+export async function testEngine(db: Db, input: EngineInput & { text?: string }): Promise<Speech & { ownVoice: boolean; warning?: string }> {
   const c = mergedConfig(db, input);
   const info = ENGINES[input.engine];
   const text = (input.text?.trim() || "Hi, this is a test of your TOMORA voice.").slice(0, 200);
@@ -490,7 +571,10 @@ export async function testEngine(db: Db, input: EngineInput & { text?: string })
       const all = await api.listVoices();
       const preset = all.find((v) => v.category === "premade") ?? all[0];
       if (!preset) throw new Error("ElevenLabs accepted the key but has no voice to test with.");
-      return { audio: await api.speak(preset.voice_id, text), type: "audio/mpeg", ownVoice: false };
+      const audio = await api.speak(preset.voice_id, text);
+      // Speaking works with a narrow key; calls need more. Say so now rather than when someone presses "Call now".
+      const warning = (await api.agentAccessProblem()) ?? undefined;
+      return { audio, type: "audio/mpeg", ownVoice: false, warning };
     }
     case "openrouter":
       return { ...(await new OpenRouterVoice(c.key!).speak(text, { model: c.model, voice: c.voice || undefined })), ownVoice: false };

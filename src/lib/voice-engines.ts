@@ -44,7 +44,7 @@ export const ENGINES: Record<EngineId, EngineInfo> = {
     calls: true,
     transcribes: true,
     keyRequired: true,
-    keyUrl: "https://elevenlabs.io/app/settings/api-keys",
+    keyUrl: "https://elevenlabs.io/app/developers/api-keys",
     env: "ELEVENLABS_API_KEY",
     fields: [],
     defaults: { model: "", voice: "", baseUrl: "" },
