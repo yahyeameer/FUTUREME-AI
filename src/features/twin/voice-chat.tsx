@@ -80,10 +80,10 @@ function VoiceChatCard({ state }: { state: TwinState }) {
   const ready = clone?.status === "ready" && clone.provider === "elevenlabs";
   const paused = state.twin.paused;
 
-  React.useEffect(
-    () => end.current?.scrollIntoView({ block: "nearest", behavior: "smooth" }),
-    [turns, busy],
-  );
+  // Braces matter: newer Chrome returns a Promise from scrollIntoView, which React would otherwise call as the cleanup.
+  React.useEffect(() => {
+    end.current?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+  }, [turns, busy]);
 
   if (!ready) return null;
 

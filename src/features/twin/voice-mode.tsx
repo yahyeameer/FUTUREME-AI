@@ -128,14 +128,11 @@ function VoiceScreen({ onClose }: { onClose: () => void }) {
     };
   }, [stopSound]);
 
-  React.useEffect(
-    () =>
-      log.current?.scrollTo({
-        top: log.current.scrollHeight,
-        behavior: "smooth",
-      }),
-    [turns, phase],
-  );
+  // Braces matter: newer Chrome returns a Promise from scrollTo, and an effect that returned it would have React call
+  // that Promise as its cleanup ("is not a function"), crashing voice mode right after a reply.
+  React.useEffect(() => {
+    log.current?.scrollTo({ top: log.current.scrollHeight, behavior: "smooth" });
+  }, [turns, phase]);
 
   const clone = twin?.voice.active;
   const ready = clone?.status === "ready" && clone.provider === "elevenlabs";
