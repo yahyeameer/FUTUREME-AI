@@ -1,6 +1,6 @@
 "use client";
 
-import { AnimatePresence, motion } from "motion/react";
+import { AnimatePresence, motion, useReducedMotionConfig } from "motion/react";
 import { Loader2, Mic, Square, Volume2, X } from "lucide-react";
 import Link from "next/link";
 import * as React from "react";
@@ -76,6 +76,85 @@ const STATUS: Record<Phase, string> = {
   thinking: "Thinking it through…",
   speaking: "Speaking in your voice · tap to interrupt",
 };
+
+/** How fast the halo and rings turn, in seconds per turn: slow at rest, racing while Nemotron thinks. */
+const SPIN: Record<Phase, number> = {
+  idle: 26,
+  listening: 12,
+  thinking: 2.6,
+  speaking: 8,
+};
+const GLOW: Record<Phase, { scale: number[]; opacity: number[]; duration: number }> = {
+  idle: { scale: [1, 1.06, 1], opacity: [0.4, 0.55, 0.4], duration: 5 },
+  listening: { scale: [1, 1.14, 1], opacity: [0.55, 0.85, 0.55], duration: 1.6 },
+  thinking: { scale: [0.96, 1.05, 0.96], opacity: [0.5, 0.75, 0.5], duration: 1.2 },
+  // Uneven beats, so the glow swells like speech while your voice answers.
+  speaking: { scale: [1, 1.22, 1.04, 1.3, 1.1, 1.24, 1], opacity: [0.7, 1, 0.78, 1, 0.82, 0.96, 0.7], duration: 1.5 },
+};
+const RINGS = [
+  { tilt: 72, yaw: 18, inset: "4%", turn: 1, bead: "#F7F1E1" },
+  { tilt: 66, yaw: -52, inset: "10%", turn: -1.5, bead: "#C8925F" },
+];
+
+/**
+ * The face of voice mode: the living mark floating in 3D, inside two gyroscope rings with a light on each, a halo of
+ * light turning around it, and a glow that breathes at rest, pulses while you speak, races while Nemotron thinks and
+ * swells like speech while your voice answers.
+ */
+function VoiceOrb({ phase }: { phase: Phase }) {
+  const reduce = useReducedMotionConfig();
+  const spin = SPIN[phase];
+  const glow = GLOW[phase];
+  const loop = (duration: number, ease: "linear" | "easeInOut" = "linear") => ({ duration, repeat: Infinity, ease });
+  return (
+    <div className="relative aspect-square w-full [perspective:1100px]">
+      <motion.div
+        aria-hidden
+        className="absolute -inset-[20%] rounded-full bg-[radial-gradient(closest-side,rgb(236_204_150/0.55),rgb(200_146_95/0.2)_48%,transparent_72%)] blur-2xl"
+        animate={reduce ? undefined : { scale: glow.scale, opacity: glow.opacity }}
+        transition={loop(glow.duration, "easeInOut")}
+      />
+      <motion.div
+        aria-hidden
+        className="absolute inset-[1%] rounded-full bg-[conic-gradient(from_0deg,transparent,#C8B78F_12%,transparent_28%,#C8925F_46%,transparent_62%,#F3F0E8_80%,transparent)] opacity-60 [mask-image:radial-gradient(closest-side,transparent_88%,#000_90%,#000_94%,transparent_97%)]"
+        animate={reduce ? undefined : { rotate: 360 }}
+        transition={loop(spin)}
+      />
+      <motion.div
+        className="absolute inset-0 [transform-style:preserve-3d]"
+        animate={reduce ? undefined : { rotateY: [-14, 14, -14], rotateX: [9, -7, 9], y: ["-2%", "2%", "-2%"] }}
+        transition={loop(phase === "thinking" ? 3.2 : 9, "easeInOut")}
+      >
+        {RINGS.map((r) => (
+          <div
+            key={r.tilt}
+            aria-hidden
+            className="absolute [transform-style:preserve-3d]"
+            style={{ inset: r.inset, transform: `rotateY(${r.yaw}deg) rotateX(${r.tilt}deg)` }}
+          >
+            <motion.div
+              className="size-full rounded-full border border-[#C8B78F]/40 shadow-[0_0_22px_rgb(200_183_143/0.22),inset_0_0_22px_rgb(200_183_143/0.12)]"
+              animate={reduce ? undefined : { rotate: r.turn > 0 ? 360 : -360 }}
+              transition={loop(spin * Math.abs(r.turn))}
+            >
+              <span
+                className="absolute -top-1.5 left-1/2 size-3 -translate-x-1/2 rounded-full"
+                style={{ background: r.bead, boxShadow: `0 0 16px 3px ${r.bead}` }}
+              />
+            </motion.div>
+          </div>
+        ))}
+        <div className="absolute inset-[14%]">
+          <LivingMark
+            progress={phase === "idle" ? 0.35 : 0.6}
+            busy={phase !== "idle"}
+            label={STATUS[phase]}
+          />
+        </div>
+      </motion.div>
+    </div>
+  );
+}
 
 /**
  * Voice mode: a full-screen conversation with your future self, in your own cloned voice. The living mark is the face of
@@ -274,8 +353,10 @@ function VoiceScreen({ onClose }: { onClose: () => void }) {
 
       {twin && ready && (
         <>
-          <div className="relative flex min-h-0 flex-1 flex-col items-center justify-center px-4">
-            <div className="relative grid w-[min(30rem,70vw,50vh)] place-items-center">
+          {/* The orb and the status line share the space that's left; the orb shrinks with the window, so it never
+              runs into the captions below it. */}
+          <div className="relative flex min-h-0 flex-1 flex-col items-center justify-center gap-5 px-4 py-2">
+            <div className="relative w-[min(24rem,64vw,32vh)] shrink-0">
               {phase === "listening" &&
                 [0, 1, 2].map((i) => (
                   <span
@@ -285,22 +366,12 @@ function VoiceScreen({ onClose }: { onClose: () => void }) {
                     style={{ animationDelay: `${i * 0.8}s` }}
                   />
                 ))}
-              {phase === "speaking" && (
-                <span
-                  aria-hidden
-                  className="absolute inset-[8%] animate-[breathe_1.6s_ease-in-out_infinite] rounded-full bg-[radial-gradient(closest-side,rgb(200_183_143/0.35),transparent)]"
-                />
-              )}
-              <LivingMark
-                progress={phase === "idle" ? 0.35 : 0.6}
-                busy={phase === "thinking" || phase === "listening"}
-                label={STATUS[phase]}
-              />
+              <VoiceOrb phase={phase} />
             </div>
             <p
               role="status"
               aria-live="polite"
-              className="mt-4 text-center font-display text-[1.35rem] text-[#E9DFC6]"
+              className="shrink-0 text-center font-display text-[1.35rem] text-[#E9DFC6]"
             >
               {STATUS[phase]}
             </p>
@@ -308,7 +379,7 @@ function VoiceScreen({ onClose }: { onClose: () => void }) {
 
           <div
             ref={log}
-            className="relative mx-auto max-h-[26vh] w-full max-w-2xl space-y-3 overflow-y-auto px-6 pb-2 text-center"
+            className="relative mx-auto max-h-[24vh] w-full max-w-2xl shrink-0 space-y-3 overflow-y-auto px-6 pt-3 pb-2 text-center [mask-image:linear-gradient(to_bottom,transparent,#000_14px,#000_calc(100%-14px),transparent)] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
           >
             {turns.slice(-2).map((t, i) => (
               <p
@@ -325,7 +396,7 @@ function VoiceScreen({ onClose }: { onClose: () => void }) {
             ))}
           </div>
 
-          <footer className="relative flex flex-col items-center gap-3 px-6 pt-3 pb-8">
+          <footer className="relative flex shrink-0 flex-col items-center gap-3 px-6 pt-3 pb-8">
             <button
               type="button"
               onClick={onMic}

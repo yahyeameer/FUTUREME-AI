@@ -8,6 +8,8 @@
 
 [![NVIDIA Nemotron](https://img.shields.io/badge/NVIDIA-Nemotron--3.5--Super--VL-76B900?logo=nvidia&logoColor=white)](#-nemotron-native-not-just-a-chat-endpoint)
 [![Nebius Token Factory](https://img.shields.io/badge/Nebius-Token%20Factory%20us--north1-0B1F3A)](#-deploy-it)
+[![Jev by TypeSafe AI](https://img.shields.io/badge/Decisions-Jev%20by%20TypeSafe%20AI-C8925F)](#jev)
+[![ElevenLabs](https://img.shields.io/badge/Voice-ElevenLabs%20clone-111111)](#-the-standout-your-voice-twin)
 [![Docker Agent](https://img.shields.io/badge/Docker-Agent%20%2B%20MCP-2496ED?logo=docker&logoColor=white)](#-the-agent-works-on-its-own)
 [![Next.js](https://img.shields.io/badge/Next.js-App%20Router-000000?logo=nextdotjs&logoColor=white)](#-under-the-hood)
 [![Obsidian vault](https://img.shields.io/badge/Memory-Obsidian%20vault-7C3AED?logo=obsidian&logoColor=white)](#memory-vault)
@@ -19,7 +21,7 @@ Open the link, press **Use it** on the sign-in page, and you get a private works
 
 **Nebius × NVIDIA Global AI Hackathon 2026 · Personal AI track**
 
-[What it is](#-what-it-is) · [How it works](#-how-it-works) · [Brand](#-the-tomora-brand) · [Voice twin](#-the-standout-your-voice-twin) · [Share it](#-share-it-a-private-future-self-for-everyone) · [Agents](#-the-agent-works-on-its-own) · [Nemotron](#-nemotron-native-not-just-a-chat-endpoint) · [Features](#-every-feature) · [Deploy](#-deploy-it) · [What's next](#-whats-next)
+[What it is](#-what-it-is) · [Tested live](#-tested-live) · [How it works](#-how-it-works) · [Brand](#-the-tomora-brand) · [Voice twin](#-the-standout-your-voice-twin) · [Share it](#-share-it-a-private-future-self-for-everyone) · [Agents](#-the-agent-works-on-its-own) · [Nemotron](#-nemotron-native-not-just-a-chat-endpoint) · [Jev decisions](#jev) · [Features](#-every-feature) · [Deploy](#-deploy-it) · [What's next](#-whats-next)
 
 <br/>
 
@@ -40,7 +42,9 @@ TOMORA follows one journey: **understand me → explore futures → compare path
 - 💬 **Talk with your future self**, an AI persona that cites the notes it used, keeps what you told it apart from what it assumes, names trade-offs, and never claims to know your future.
 - 🗺️ **Turn it into action**: plans, milestones and tasks, only after you approve them, with checkpoints and warning signs on the road you chose.
 - 🌙 **Keep going when you don't**: a night shift writes your morning brief, a council of future selves debates hard decisions, missions split a big goal across helper agents.
-- 📞 **Hear it in your own voice** (where a voice engine is configured), with recorded consent.
+- 🎙️ **Talk to it in your own voice.** Voice mode is a full-screen conversation: you speak, Nemotron thinks the answer through, and **your cloned voice** says it, with recorded consent before anything is cloned.
+- 📎 **Show it things.** Attach a photo (Nemotron reads it) or a text file (notes, a CSV, code) to any message in the chat.
+- ⚖️ **Decide with a second model.** When you choose between roads, Nemotron proposes them, plain-code rules check your money, hours and risk, and **Jev by TypeSafe AI** makes narrow, typed judgments with confidences, fast and for a fraction of a cent.
 - 🔐 **Stay in control**: memory is a Markdown vault you can read, edit and delete; keys stay on the server; every change waits on an approval card.
 
 > **Possibility over prediction.** TOMORA explores possibilities. It can't know your future, and nothing it shows is a prediction. Every scenario is conditional ("if you take this road and these assumptions hold"), every number is a range, and the arithmetic is deterministic and tested.
@@ -49,6 +53,26 @@ TOMORA follows one journey: **understand me → explore futures → compare path
 <img src="docs/screenshots/future-self-chat.png" alt="Chat with your future self" width="900" />
 <br/><sub><b>Future Self.</b> Replies stream, tool calls show as they run, recalled notes are cited, and the plan waits as an approval card.</sub>
 </div>
+
+---
+
+## ✅ Tested live
+
+Everything below was run on the live deployment ([tomora-ai.duckdns.org](https://tomora-ai.duckdns.org), AWS EC2, Oct 2026) with real keys, not mocks.
+
+| Feature | Live result |
+| --- | --- |
+| **Private workspace per visitor** | Sign-in with the shown access code; every visitor gets their own onboarding, future self, vault and keys. |
+| **Future Self chat on Nemotron** | Nemotron-3.5-Super-VL on Nebius Token Factory, with reasoning streamed live, memory search, cited notes and approval cards. Answers go in depth (usually 200 to 400 words). |
+| **Photos in the chat** | A photo (a whiteboard plan) read live by Nemotron's vision, with its reasoning streaming. Text files (txt, md, csv, json, code) are attached the same way and show as a 📎 attachment; that part is covered by the browser test. |
+| **Voice cloning with consent** | ElevenLabs instant clone from the consent recording, with the three code words checked by speech-to-text. |
+| **Voice mode in your own voice** | Speak, Nemotron answers from your notes, your cloned voice replies; opened from the chat or `/twin`. |
+| **Browser calls** | A live call where Nemotron writes every reply (in a ready-made voice; see the note in the voice twin section). |
+| **Jev decisions** | "Check these routes" in the Future Simulator, with a TypeSafe key saved in Settings > Decision model. |
+| **Web research** | The researcher searches with You.com from the cloud server and cites only links it actually read. |
+| **Council, missions, spending limits** | Four future selves in parallel, a mission split across helper agents, and daily limits per workspace and per server. |
+
+Plus about 300 unit and workflow tests (Vitest), browser tests (Playwright) for sign-in, the core loop, two judges kept apart, and voice mode with a fake microphone (including the failure cases: a server error, a dropped connection and a damaged reply each show a message, never a broken page).
 
 ---
 
@@ -125,9 +149,9 @@ The public welcome page lives at **`/welcome`** (open even when the access lock 
 
 **Guardrails that are code, not prompts.** A fixed AI-disclosure opener on every call and email (added by the app, not the model) · contacts-only · daily limits (10 proposed calls, 50 emails, 6 calls to you) · a kill switch · a monthly cost cap · calling hours per country and no premium-rate numbers · a `stop_recording` tool if someone declines recording · retention of other people's data for 30 days · export or delete all twin data from Settings · an access code that locks the whole app before it goes public.
 
-> ⚠️ **Honest status.** Tested live with a real ElevenLabs account (Starter plan): the consent recording, instant voice cloning and **browser calls with Nemotron writing every reply**. Live testing also found a limit on ElevenLabs' side: **its call agents refuse an instant voice clone together with a custom LLM like Nemotron**, so live calls speak in a ready-made voice, and your own clone speaks in **Voice chat** instead (below). Voice chat, phone calls through Twilio, the OpenRouter and Qwen engines and AgentMail email are covered by unit tests against mock servers but have not been run against the live services.
+> ⚠️ **Honest status.** Tested live with a real ElevenLabs account (Starter plan): the consent recording, instant voice cloning, **voice mode in your own cloned voice**, and **browser calls with Nemotron writing every reply**. Live testing also found a limit on ElevenLabs' side: **its call agents refuse an instant voice clone together with a custom LLM like Nemotron**, so live calls speak in a ready-made voice, and your own clone speaks in **voice mode** instead (below). Phone calls through Twilio, the OpenRouter and Qwen engines and AgentMail email are covered by unit tests against mock servers but have not been run against the live services.
 
-**Your own voice, with Nemotron.** *Voice mode* is a full-screen conversation, opened from the voice button in the chat window or from `/twin`. It is turn by turn rather than a live call: you tap and speak, ElevenLabs transcribes it, **Nemotron thinks the answer through with reasoning on, using your notes**, and **your cloned voice** says it, while the living logo listens, spins as it thinks, and glows as it speaks. Without a cloned voice it sends you to `/twin` to make one. Each spoken reply spends ElevenLabs credits, so it is capped per person and per server each day (`TWIN_DAILY_VOICE_TURNS`, `TWIN_SERVER_DAILY_VOICE_TURNS`) and at `TWIN_VOICE_REPLY_CHARS` characters (900 by default).
+**Your own voice, with Nemotron.** *Voice mode* is a full-screen conversation, like ChatGPT's voice mode, opened from the voice button in the chat window or from `/twin`. It is turn by turn rather than a live call: you tap and speak, ElevenLabs transcribes it, **Nemotron thinks the answer through with reasoning on, using your notes**, and **your cloned voice** says it, with the words shown as captions. Its face is the living mark in 3D, floating inside two gyroscope rings under a turning halo of light: it breathes at rest, pulses while you speak, races while Nemotron thinks, and its glow swells like speech while your voice answers (`src/features/twin/voice-mode.tsx`). If anything fails (a slow answer, a server error, a dropped connection), it says so and goes back to "Tap to talk"; it never breaks the page. Without a cloned voice it sends you to `/twin` to make one. Each spoken reply spends ElevenLabs credits, so it is capped per person and per server each day (`TWIN_DAILY_VOICE_TURNS`, `TWIN_SERVER_DAILY_VOICE_TURNS`) and at `TWIN_VOICE_REPLY_CHARS` characters (900 by default).
 
 **Try it yourself.** Everything is set up from the **Voice Twin** page (`/twin`); nothing has to be changed on the server except `TWIN_PUBLIC_URL`.
 
@@ -228,7 +252,7 @@ Every agent runs on **`nvidia/Nemotron-3.5-Super-VL`** on **Nebius Token Factory
 | **Live reasoning trace** (`reasoning_content`, streamed) | The chat shows "Nemotron is reasoning…" live, and every reply keeps a folded "How I reasoned" section. |
 | **Structured outputs** (`response_format: json_schema`) | Council brief, fact check, supervisor verdict, mission plan and report, morning brief, research summary and TOMORA Daily are constrained to a schema. Tool-using agents answer freely, then get one formatting pass. |
 | **Parallel tool calling** | When Nemotron asks for several tools in one step, they run in parallel. Up to 10 tool steps per turn. |
-| **Vision** (photo input) | Attach a photo in the chat (a whiteboard plan, a workout log). Nemotron reads it, and the photo is kept in the vault's `Photos/` folder. |
+| **Vision** (photo input) | Attach a photo in the chat (a whiteboard plan, a workout log). Nemotron reads it, and the photo is kept in the vault's `Photos/` folder. Text files (notes, CSV, JSON, code, up to 400 KB) can be attached too. |
 | **Long context** | The future self keeps the last 40 messages in view. |
 | **Writes every word the voice twin says** | ElevenLabs only speaks; each reply on a call comes from the `twin_voice` agent on Nemotron. |
 
@@ -238,6 +262,33 @@ Every agent runs on **`nvidia/Nemotron-3.5-Super-VL`** on **Nebius Token Factory
 <td width="50%"><img src="docs/screenshots/nemotron-reply-reasoning.png" alt="How I reasoned" /><br/><sub>Every reply keeps its reasoning, folded away.</sub></td>
 </tr>
 </table>
+
+---
+
+<a id="jev"></a>
+
+## ⚖️ Jev by TypeSafe AI: the decision layer under Nemotron
+
+A language model is good at proposing options and bad at being the judge of its own proposals. So TOMORA never lets Nemotron decide. When you press **Check these routes** in the Future Simulator, three layers each do only what they're good at:
+
+| Layer | Does | Never does |
+| --- | --- | --- |
+| **Nemotron** (Nebius) | Proposes 6 to 12 roads, explains them, estimates time and cost. | Pick the recommended road. |
+| **Rules** (plain code) | Every calculation and hard constraint: your budget, hours, risk, debt consent, living-cost runway. A road that breaks one is ruled out and never reaches Jev. | Judge fit with your values. |
+| **[Jev](https://docs.typesafe.ai) by TypeSafe AI** | Narrow, **typed** judgments about the roads that passed: values fit, challenge fit, risk handling, and a pick asked **in both orders**. Each answer comes back with a confidence and probabilities, validated against a schema. | Arithmetic or dates: it never sees money. |
+
+The result is **decided**, **needs your review** (low confidence, a near tie, a pick that flips when the options are reversed, or a high-stakes road such as debt or moving countries), **abstained** (no road fits), or **pending** (no Jev). Every decision is kept as an auditable history with each fact's provenance, Jev's confidences, its cost and latency, what you chose and how it went.
+
+Measured on a 19-scenario set (3 runs each, `eval/results/latest.json`):
+
+| | Ranking alone | Nemotron + rules | Nemotron + rules + **Jev** |
+| --- | --- | --- | --- |
+| Correct | 32% | 100% | 100% |
+| Picks that break your constraints | 5 | 0 | 0 |
+| Time per decision (median) | <1 ms | 5.8 s | **0.37 s** |
+| Cost per decision | 0 | Nebius tokens | **USD 0.00008** |
+
+The rules are what make decisions safe; Jev makes the judgment step **about 16× faster** than reasoning Nemotron, nearly free, and adds typed confidences and an order-consistency check that drive "needs your review". Turn it on with `TYPESAFE_API_KEY` on the server, or by saving a key in **Settings > Decision model** (each workspace can bring its own). Code: `src/lib/decision/`. Full design, the evaluation and its limits: [docs/decision-layer.md](docs/decision-layer.md).
 
 ---
 
@@ -262,7 +313,7 @@ Every agent runs on **`nvidia/Nemotron-3.5-Super-VL`** on **Nebius Token Factory
 | --- | --- |
 | **Onboarding** `/onboarding` | Three short steps: ambition and horizon year, where you are now, values and coaching style. Written to the vault as `Profile`, `10-Year Dream` and `Values`. Or "Explore with demo data". |
 | **Home** `/` | Today's next step, an opening line from your future self, the night shift's morning brief, an agent panel, trajectory per milestone, recent memories. Every number is counted from your tasks. |
-| **Future Self** `/future-self` | Streaming chat with live tool calls, cited notes, inline approval cards (review, edit, approve, reject), tone per conversation, retry, photo input, fact check and handoffs. |
+| **Future Self** `/future-self` | Streaming chat with live tool calls, cited notes, inline approval cards (review, edit, approve, reject), tone per conversation, retry, photo and file attachments, voice mode, fact check and handoffs. |
 | **Future Reflection** `/reflection` | An imagined letter as a five-chapter magazine issue with keyboard and swipe navigation; insights become goals or memories (labelled as AI interpretation). |
 | **Memory Vault** `/memory` | Search, filter by type, provenance and tag, a graph of wiki-links, create, edit and delete. Each note shows why it exists. |
 | **Life Roadmap** `/roadmap` | Long-term goal, milestones as a timeline, tasks with status, due dates and dependencies, blockers, and plans awaiting approval. |
@@ -469,7 +520,8 @@ npm run test:e2e                            # browser test of the whole loop
 
 ## 🧭 Honest limitations
 
-- **Not yet run against live services:** Voice chat, phone calls, the OpenRouter and Qwen voice engines and AgentMail email were tested against mock servers only. ElevenLabs cloning and browser calls were run live. The Apify public-profile fetch was checked against Apify's real endpoints only up to authentication; actor output mapping is tested against each actor's documented output.
+- **Not yet run against live services:** phone calls through Twilio, the OpenRouter and Qwen voice engines and AgentMail email were tested against mock servers only. ElevenLabs cloning, voice mode and browser calls were run live.
+- **Files in the chat** are read as text: PDF and Word files aren't supported yet (the app says so), and photos need the vision model. The Apify public-profile fetch was checked against Apify's real endpoints only up to authentication; actor output mapping is tested against each actor's documented output.
 - **Integrations** were tested against stand-ins: Gmail, Google Calendar, Slack and the ICS feed with recorded API shapes, and IMAP/SMTP against local mail servers (a real reply went out over SMTP after approval in the app). They haven't been run against a real Google account or mailbox yet.
 - On the server, tasks can only be marked done (no in-progress or blocked status), and memories can't be archived. Demo mode has those controls.
 - Web research needs outbound internet. DuckDuckGo refuses most cloud servers, so a hosted deployment should set `YDC_API_KEY` (You.com) or `BRAVE_SEARCH_API_KEY`. The You.com parser was checked against a live API response; its unit tests use a recorded sample.
